@@ -6,6 +6,7 @@ use App\Models\Draw;
 use App\Models\DrawCredit;
 use App\Models\GiftCardStock;
 use App\Models\Prize;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -85,7 +86,7 @@ class DrawMachine
                 $stock->increment('quantity');
                 $this->inventory->log($draw->user, "{$draw->prize_name} {$stock->brand}", 1, $stock->quantity, $reason);
             } elseif (! $draw->prize->isGiftCard() && $draw->prize->diminishing) {
-                $prize = Prize::lockForUpdate()->findOrFail($draw->prize_id);
+                $prize = Prize::withTrashed()->lockForUpdate()->findOrFail($draw->prize_id);
                 $prize->increment('quantity');
                 $this->inventory->log($draw->user, $prize->name, 1, $prize->quantity, $reason);
             }
@@ -103,10 +104,38 @@ class DrawMachine
         });
     }
 
+    /**
+     * Take a prize back from an employee (an admin correcting a mistake).
+     * The draw is deleted, the credit is voided rather than reopened, and
+     * whatever the prize took out of the box goes back in.
+     */
+    public function removeDraw(Draw $draw, User $by): void
+    {
+        DB::transaction(function () use ($draw, $by) {
+            $draw = Draw::with('prize', 'user', 'credit')->lockForUpdate()->findOrFail($draw->id);
+            $reason = "Returned: {$by->name} removed {$draw->user->name}'s prize";
+
+            if ($draw->gift_card_stock_id) {
+                $stock = GiftCardStock::lockForUpdate()->find($draw->gift_card_stock_id);
+                if ($stock) {
+                    $stock->increment('quantity');
+                    $this->inventory->log($by, "{$draw->prize_name} {$stock->brand}", 1, $stock->quantity, $reason);
+                }
+            } elseif (! $draw->cash_bonus && ! $draw->prize->isGiftCard() && $draw->prize->diminishing) {
+                $prize = Prize::withTrashed()->lockForUpdate()->findOrFail($draw->prize_id);
+                $prize->increment('quantity');
+                $this->inventory->log($by, $prize->name, 1, $prize->quantity, $reason);
+            }
+
+            $draw->credit->update(['status' => 'void']);
+            $draw->delete();
+        });
+    }
+
     /** Brands the winner can still pick for a gift card they drew. */
     public function brandsFor(Draw $draw)
     {
-        return GiftCardStock::where('prize_id', $draw->prize_id)->where('quantity', '>', 0)->orderBy('brand')->get();
+        return GiftCardStock::where('prize_id', $draw->prize_id)->where('active', true)->where('quantity', '>', 0)->orderBy('brand')->get();
     }
 
     public function chooseBrand(Draw $draw, int $stockId): Draw
@@ -117,7 +146,7 @@ class DrawMachine
                 throw new RuntimeException('A brand was already chosen for this prize.');
             }
 
-            $stock = GiftCardStock::lockForUpdate()->where('prize_id', $draw->prize_id)->findOrFail($stockId);
+            $stock = GiftCardStock::lockForUpdate()->where('prize_id', $draw->prize_id)->where('active', true)->findOrFail($stockId);
             if ($stock->quantity < 1) {
                 throw new RuntimeException('That brand just ran out. Please pick another.');
             }

@@ -7,8 +7,9 @@
 @endsection
 
 @section('content')
-@php($nonCards = $prizes->reject->isGiftCard())
-@php($cards = $prizes->filter->isGiftCard())
+@php($nonCards = $prizes->where('active', true)->reject->isGiftCard())
+@php($cards = $prizes->where('active', true)->filter->isGiftCard())
+@php($hiddenPrizes = $prizes->where('active', false))
 <div class="stack">
     <div class="card card-navy row-actions" style="justify-content:space-between">
         <div>
@@ -26,7 +27,7 @@
     <div class="card">
         <h2>Prizes</h2>
         <div class="table-wrap"><table>
-            <tr><th>Prize</th><th>Type</th><th class="num">Value $</th><th class="num">In box</th><th class="num">Monthly</th><th>Diminishing</th><th>Cash bonus OK</th><th>Taxable</th><th>Active</th><th class="num">Odds</th><th></th></tr>
+            <tr><th>Prize</th><th>Type</th><th class="num">Value $</th><th class="num">In box</th><th class="num">Monthly</th><th>Diminishing</th><th>Cash bonus OK</th><th>Taxable</th><th class="num">Odds</th><th></th></tr>
             @foreach ($nonCards as $prize)
                 <tr>
                     <td>
@@ -45,9 +46,11 @@
                     <td><input form="p{{ $prize->id }}" type="hidden" name="diminishing" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="diminishing" value="1" @checked($prize->diminishing)></td>
                     <td><input form="p{{ $prize->id }}" type="hidden" name="cash_bonus_allowed" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="cash_bonus_allowed" value="1" @checked($prize->cash_bonus_allowed)></td>
                     <td><input form="p{{ $prize->id }}" type="hidden" name="taxable" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="taxable" value="1" @checked($prize->taxable)></td>
-                    <td><input form="p{{ $prize->id }}" type="hidden" name="active" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="active" value="1" @checked($prize->active)></td>
                     <td class="num">{{ isset($odds[$prize->id]) ? number_format($odds[$prize->id]['odds'] * 100, 1).'%' : '—' }}</td>
-                    <td><button form="p{{ $prize->id }}" class="btn btn-small btn-teal" type="submit">Save</button></td>
+                    <td><div class="row-actions" style="flex-wrap:nowrap">
+                        <button form="p{{ $prize->id }}" class="btn btn-small btn-teal" type="submit">Save</button>
+                        @include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.prizes.toggle', $prize), 'destroy' => route('supervisor.inventory.prizes.destroy', $prize), 'name' => $prize->name, 'hidden' => false])
+                    </div></td>
                 </tr>
             @endforeach
         </table></div>
@@ -63,14 +66,17 @@
                 </div>
                 <div class="table-wrap mt"><table>
                     <tr><th>Brand</th><th class="num">In box</th><th class="num">Monthly</th><th></th></tr>
-                    @forelse ($prize->stocks as $stock)
+                    @forelse ($prize->stocks->where('active', true) as $stock)
                         <tr>
                             <td>{{ $stock->brand }}
                                 <form id="s{{ $stock->id }}" method="post" action="{{ route('supervisor.inventory.stocks.update', $stock) }}">@csrf @method('put')</form>
                             </td>
                             <td class="num"><input form="s{{ $stock->id }}" type="number" min="0" name="quantity" value="{{ $stock->quantity }}" style="width:70px"></td>
                             <td class="num"><input form="s{{ $stock->id }}" type="number" min="0" name="monthly_quantity" value="{{ $stock->monthly_quantity }}" style="width:70px"></td>
-                            <td><button form="s{{ $stock->id }}" class="btn btn-small btn-teal" type="submit">Save</button></td>
+                            <td><div class="row-actions" style="flex-wrap:nowrap">
+                                <button form="s{{ $stock->id }}" class="btn btn-small btn-teal" type="submit">Save</button>
+                                @include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.stocks.toggle', $stock), 'destroy' => route('supervisor.inventory.stocks.destroy', $stock), 'name' => $prize->name.' '.$stock->brand, 'hidden' => false])
+                            </div></td>
                         </tr>
                     @empty
                         <tr><td colspan="4" class="empty">No brands yet.</td></tr>
@@ -99,13 +105,43 @@
                         <label class="check"><input type="checkbox" name="cash_bonus_allowed" value="1" @checked($prize->cash_bonus_allowed)> Allow taxable cash bonus instead</label>
                         <input type="hidden" name="taxable" value="0">
                         <label class="check"><input type="checkbox" name="taxable" value="1" @checked($prize->taxable)> Taxable</label>
-                        <input type="hidden" name="active" value="0">
-                        <label class="check"><input type="checkbox" name="active" value="1" @checked($prize->active)> Active</label>
                         <button class="btn btn-small btn-teal mt" type="submit">Save</button>
                     </form>
+                    <div class="row-actions mt">
+                        <span class="hint">Remove this whole value:</span>
+                        @include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.prizes.toggle', $prize), 'destroy' => route('supervisor.inventory.prizes.destroy', $prize), 'name' => $prize->name, 'hidden' => false])
+                    </div>
                 </details>
             </div>
         @endforeach
+    </div>
+
+    <div class="card">
+        <details @if ($hiddenPrizes->isNotEmpty() || $hiddenStocks->isNotEmpty()) open @endif>
+            <summary>Hidden prizes and gift cards ({{ $hiddenPrizes->count() + $hiddenStocks->count() }})</summary>
+            <p class="hint mt">Hidden items can't be drawn or picked, and restock skips them. Unhide one to put it back in the box with its count unchanged.</p>
+            @if ($hiddenPrizes->isEmpty() && $hiddenStocks->isEmpty())
+                <p class="empty">Nothing is hidden.</p>
+            @else
+                <div class="table-wrap"><table>
+                    <tr><th>Item</th><th class="num">In box</th><th></th></tr>
+                    @foreach ($hiddenPrizes as $prize)
+                        <tr>
+                            <td>{{ $prize->name }} <span class="pill">{{ $types[$prize->type] }}</span></td>
+                            <td class="num">{{ $prize->isGiftCard() ? $prize->stocks->sum('quantity') : $prize->quantity }}</td>
+                            <td><div class="row-actions" style="justify-content:flex-end">@include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.prizes.toggle', $prize), 'destroy' => route('supervisor.inventory.prizes.destroy', $prize), 'name' => $prize->name, 'hidden' => true])</div></td>
+                        </tr>
+                    @endforeach
+                    @foreach ($hiddenStocks as $stock)
+                        <tr>
+                            <td>{{ $stock->prize->name }} · {{ $stock->brand }} <span class="pill">Gift card brand</span></td>
+                            <td class="num">{{ $stock->quantity }}</td>
+                            <td><div class="row-actions" style="justify-content:flex-end">@include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.stocks.toggle', $stock), 'destroy' => route('supervisor.inventory.stocks.destroy', $stock), 'name' => $stock->prize->name.' '.$stock->brand, 'hidden' => true])</div></td>
+                        </tr>
+                    @endforeach
+                </table></div>
+            @endif
+        </details>
     </div>
 
     <div class="card">

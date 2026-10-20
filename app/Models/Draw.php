@@ -50,7 +50,7 @@ class Draw extends Model
 
     public function prize(): BelongsTo
     {
-        return $this->belongsTo(Prize::class);
+        return $this->belongsTo(Prize::class)->withTrashed();
     }
 
     public function awarder(): BelongsTo

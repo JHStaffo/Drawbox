@@ -14,7 +14,10 @@ class DashboardController extends Controller
     {
         return view('supervisor.dashboard', [
             'undrawn' => DrawCredit::available()->with('user', 'call')->orderBy('expires_at')->get(),
-            'unawarded' => Draw::whereIn('status', ['won', 'pending_brand'])->with('user')->orderBy('drawn_at')->get(),
+            'unawarded' => Draw::whereIn('draws.status', ['won', 'pending_brand'])
+                ->join('users', 'users.id', '=', 'draws.user_id')
+                ->orderBy('users.name')->orderBy('draws.drawn_at')
+                ->select('draws.*')->with('user')->get(),
             'periods' => collect($reports->periods())->map(fn ($range) => $reports->awardedSummary(...$range)),
             'odds' => $inventory->odds(),
             'boxValue' => $inventory->boxValueCents(),

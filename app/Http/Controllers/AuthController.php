@@ -8,6 +8,7 @@ use App\Notifications\LoginCode as LoginCodeNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -32,7 +33,15 @@ class AuthController extends Controller
                 'code_hash' => Hash::make($code),
                 'expires_at' => now()->addMinutes(10),
             ]);
-            $user->notify(new LoginCodeNotification($code));
+            try {
+                $user->notify(new LoginCodeNotification($code));
+            } catch (Throwable $e) {
+                report($e);
+
+                return back()->withInput()->withErrors([
+                    'email' => "We couldn't send your sign-in code right now. Please try again in a few minutes, or let a supervisor know.",
+                ]);
+            }
         }
 
         $request->session()->put('login_email', $email);

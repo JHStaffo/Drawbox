@@ -9,6 +9,11 @@ class GiftCardStock extends Model
 {
     protected $guarded = [];
 
+    protected function casts(): array
+    {
+        return ['active' => 'boolean'];
+    }
+
     public function prize(): BelongsTo
     {
         return $this->belongsTo(Prize::class);

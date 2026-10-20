@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Notifications\DrawCredited;
 use App\Notifications\DrawsExpiringSoon;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class Credits
 {
@@ -26,8 +27,13 @@ class Credits
             return $call;
         });
 
+        // The credits are saved either way; a mail outage only skips the heads-up email.
         foreach ($call->credits()->with('user')->get() as $credit) {
-            $credit->user->notify(new DrawCredited($credit));
+            try {
+                $credit->user->notify(new DrawCredited($credit));
+            } catch (Throwable $e) {
+                report($e);
+            }
         }
 
         return $call;
@@ -54,11 +60,19 @@ class Credits
             ->with('user', 'call')->get()
             ->groupBy('user_id');
 
+        $sent = 0;
         foreach ($byUser as $credits) {
-            $credits->first()->user->notify(new DrawsExpiringSoon($credits));
+            try {
+                $credits->first()->user->notify(new DrawsExpiringSoon($credits));
+            } catch (Throwable $e) {
+                report($e); // Not marked as reminded, so the next hourly run tries again.
+
+                continue;
+            }
             DrawCredit::whereKey($credits->modelKeys())->update(['reminded_at' => now()]);
+            $sent++;
         }
 
-        return $byUser->count();
+        return $sent;
     }
 }

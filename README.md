@@ -42,12 +42,16 @@ Run the tests with `php artisan test`.
 
 1. **PHP:** in WHM's MultiPHP Manager, set the subdomain to PHP 8.3 or newer. It needs the extensions `pdo_mysql`, `mbstring`, `openssl`, `tokenizer`, `xml`, `ctype`, `fileinfo` and `bcmath`.
 2. **Subdomain:** create `drawbox.fasttrackems.com` in cPanel and set its document root to `drawbox/public`. Run AutoSSL so it gets a certificate.
+   > The document root must be the `public` folder, never the project folder itself. Otherwise `.env`, with its database and mail passwords, can be downloaded from the web.
 3. **Database:** create a MySQL database and user in cPanel, and give the user all privileges on the database.
-4. **Mailbox:** create `drawbox@fasttrackems.com` (or use an existing mailbox) for sending sign-in codes and reminders.
-5. **Code:** in cPanel's Git Version Control, clone this repository into `~/drawbox`. Then, in cPanel's Terminal:
+4. **Mail:** the app sends mail as `drawbox@fasttrackems.com` through Google Workspace. Sign in to that account, turn on 2-Step Verification, and create an App Password at myaccount.google.com/apppasswords. In WHM, go to Security Center, then SMTP Restrictions, and make sure it is **disabled**. When it's on, cPanel blocks connections to Gmail.
+5. **Code:** in cPanel's Git Version Control, clone this repository into `~/drawbox`. Then, in cPanel's Terminal (cPanel's jailed shell has no `composer` command, so download a copy into the project; it's git-ignored):
    ```sh
    cd ~/drawbox
-   composer install --no-dev --optimize-autoloader
+   php -v    # must say 8.3 or newer; if not, use the full path below in place of "php"
+             # /opt/cpanel/ea-php83/root/usr/bin/php
+   curl -sS https://getcomposer.org/installer | php
+   php composer.phar install --no-dev --optimize-autoloader
    cp .env.example .env
    php artisan key:generate
    ```
@@ -65,11 +69,11 @@ Run the tests with `php artisan test`.
    DB_PASSWORD=...
 
    MAIL_MAILER=smtp
-   MAIL_HOST=mail.fasttrackems.com
-   MAIL_PORT=465
-   MAIL_SCHEME=smtps
+   MAIL_HOST=smtp.gmail.com
+   MAIL_PORT=587
+   MAIL_SCHEME=null
    MAIL_USERNAME=drawbox@fasttrackems.com
-   MAIL_PASSWORD=...
+   MAIL_PASSWORD="the 16-character app password"
    MAIL_FROM_ADDRESS=drawbox@fasttrackems.com
    ```
    Then:
@@ -82,6 +86,7 @@ Run the tests with `php artisan test`.
    ```
    * * * * * cd ~/drawbox && php artisan schedule:run >> /dev/null 2>&1
    ```
+   If `php -v` showed an older version, use `/opt/cpanel/ea-php83/root/usr/bin/php` in place of `php` here too.
 
 ### Updating
 
@@ -89,7 +94,7 @@ Use **Update from Remote** in Git Version Control, then:
 
 ```sh
 cd ~/drawbox
-composer install --no-dev --optimize-autoloader
+php composer.phar install --no-dev --optimize-autoloader
 php artisan migrate --force
 php artisan config:cache && php artisan route:cache && php artisan view:cache
 ```

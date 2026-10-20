@@ -56,6 +56,31 @@ class DrawBoxTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    public function test_mail_failure_shows_a_message_instead_of_an_error_page(): void
+    {
+        $user = User::factory()->create();
+        Notification::shouldReceive('send')->andThrow(new \RuntimeException('SMTP down'));
+
+        $this->from('/login')->post('/login', ['email' => $user->email])
+            ->assertRedirect('/login')
+            ->assertSessionHasErrors('email');
+    }
+
+    public function test_dispatch_still_credits_crew_when_mail_fails(): void
+    {
+        $dispatcher = User::factory()->role('dispatcher')->create();
+        $crew = User::factory()->create();
+        Notification::shouldReceive('send')->andThrow(new \RuntimeException('SMTP down'));
+
+        $this->actingAs($dispatcher)->post('/dispatch', [
+            'occurred_at' => now()->subHour()->format('Y-m-d H:i'),
+            'location' => 'Sentara Leigh',
+            'crew' => [$crew->id],
+        ])->assertRedirect('/dispatch');
+
+        $this->assertSame(1, DrawCredit::count());
+    }
+
     public function test_unknown_or_inactive_email_gets_no_code(): void
     {
         $inactive = User::factory()->create(['active' => false]);
@@ -351,6 +376,90 @@ class DrawBoxTest extends TestCase
         $this->assertFalse($draw->fresh()->cash_bonus);
     }
 
+    public function test_admin_can_edit_and_delete_a_won_prize_but_supervisor_cannot(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $supervisor = User::factory()->role('supervisor')->create();
+        $shears = Prize::create(['name' => 'Raptor shears', 'type' => 'item', 'value_cents' => 6000, 'quantity' => 1]);
+        $draw = app(DrawMachine::class)->draw($this->credit(User::factory()->create()));
+
+        $this->actingAs($supervisor)->get("/admin/draws/{$draw->id}/edit")->assertForbidden();
+        $this->actingAs($supervisor)->delete("/admin/draws/{$draw->id}")->assertForbidden();
+        $this->actingAs($supervisor)->get('/supervisor')->assertDontSee("/admin/draws/{$draw->id}/edit");
+        $this->actingAs($admin)->get('/supervisor')->assertSee("/admin/draws/{$draw->id}/edit");
+
+        $this->actingAs($admin)->put("/admin/draws/{$draw->id}", ['prize_name' => 'Raptor shears (black)', 'value' => 55, 'taxable' => '1'])->assertRedirect('/supervisor');
+        $this->assertSame(5500, $draw->fresh()->value_cents);
+        $this->assertSame('Raptor shears (black)', $draw->fresh()->prize_name);
+
+        $this->actingAs($admin)->delete("/admin/draws/{$draw->id}")->assertRedirect('/supervisor');
+        $this->assertNull($draw->fresh());
+        $this->assertSame(1, $shears->fresh()->quantity);
+        $this->assertSame('void', $draw->credit->fresh()->status);
+    }
+
+    public function test_won_list_is_sorted_by_employee(): void
+    {
+        Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 5]);
+        $zoe = User::factory()->create(['name' => 'Zoe Zimmer']);
+        $amy = User::factory()->create(['name' => 'Amy Adams']);
+        app(DrawMachine::class)->draw($this->credit($zoe));
+        app(DrawMachine::class)->draw($this->credit($amy));
+
+        $this->actingAs(User::factory()->role('supervisor')->create())->get('/supervisor')
+            ->assertSeeInOrder(['Amy Adams', 'Zoe Zimmer']);
+    }
+
+    public function test_won_by_employee_report_separates_pto(): void
+    {
+        $supervisor = User::factory()->role('supervisor')->create();
+        $user = User::factory()->create(['name' => 'Pat Medic']);
+        $pto = Prize::create(['name' => 'PTO (2 hours)', 'type' => 'pto', 'pto_hours' => 2, 'value_cents' => 5000, 'quantity' => 1]);
+        $machine = app(DrawMachine::class);
+        $machine->draw($this->credit($user));
+        $pto->update(['active' => false]);
+        Prize::create(['name' => 'Stethoscope', 'type' => 'item', 'value_cents' => 9000, 'quantity' => 1]);
+        $machine->draw($this->credit($user));
+
+        $rows = app(\App\Services\Reports::class)->wonByEmployee(now()->subDay()->toImmutable(), now()->addDay()->toImmutable());
+        $this->assertSame(2, $rows[0]['count']);
+        $this->assertSame(9000, $rows[0]['value_cents']);
+        $this->assertSame(2.0, $rows[0]['pto_hours']);
+
+        $this->actingAs($supervisor)->get('/supervisor/reports/won')->assertOk()->assertSee('Pat Medic')->assertSee('$90');
+        $csv = $this->actingAs($supervisor)->get('/supervisor/reports/won.csv')->streamedContent();
+        $this->assertStringContainsString('"Pat Medic TOTAL",,,"2 prizes",90.00,2', $csv);
+    }
+
+    public function test_hidden_and_deleted_prizes_leave_the_box_but_keep_history(): void
+    {
+        $supervisor = User::factory()->role('supervisor')->create();
+        $shears = Prize::create(['name' => 'Raptor shears', 'type' => 'item', 'value_cents' => 6000, 'quantity' => 3]);
+        $draw = app(DrawMachine::class)->draw($this->credit(User::factory()->create()));
+        $card = Prize::create(['name' => '$10 gift card', 'type' => 'gift_card', 'value_cents' => 1000]);
+        $wawa = GiftCardStock::create(['prize_id' => $card->id, 'brand' => 'Wawa', 'quantity' => 2]);
+        $amazon = GiftCardStock::create(['prize_id' => $card->id, 'brand' => 'Amazon', 'quantity' => 2]);
+        $inventory = app(Inventory::class);
+        $this->assertSame(4, $inventory->envelopes()[$card->id]['count']);
+
+        $this->actingAs($supervisor)->post("/supervisor/inventory/brands/{$wawa->id}/toggle");
+        $this->assertSame(2, $inventory->envelopes()[$card->id]['count']);
+        $this->actingAs($supervisor)->get('/supervisor/inventory')->assertSee('Hidden prizes and gift cards (1)');
+
+        $this->actingAs($supervisor)->post("/supervisor/inventory/prizes/{$shears->id}/toggle");
+        $this->assertArrayNotHasKey($shears->id, $inventory->envelopes()->all());
+        $this->actingAs($supervisor)->post("/supervisor/inventory/prizes/{$shears->id}/toggle");
+        $this->assertArrayHasKey($shears->id, $inventory->envelopes()->all());
+
+        $this->actingAs($supervisor)->delete("/supervisor/inventory/brands/{$amazon->id}");
+        $this->assertNull($amazon->fresh());
+        $this->actingAs($supervisor)->delete("/supervisor/inventory/prizes/{$shears->id}");
+        $this->assertSoftDeleted($shears);
+        $this->actingAs($supervisor)->get('/supervisor/inventory')->assertDontSee('value="Raptor shears"', false);
+        // The past draw still shows its prize.
+        $this->actingAs($supervisor)->get('/supervisor/reports')->assertOk()->assertSee($draw->fresh()->prize_name);
+    }
+
     public function test_pages_render(): void
     {
         $this->seed();
@@ -359,7 +468,7 @@ class DrawBoxTest extends TestCase
         Prize::where('name', 'Candy')->update(['quantity' => 5]);
         $draw = app(DrawMachine::class)->draw($credit);
 
-        foreach (['/', '/dispatch', '/supervisor', '/supervisor/reports', '/supervisor/inventory', '/supervisor/inventory/log', '/supervisor/settings', '/admin/users', "/draws/{$draw->id}?reveal=1"] as $page) {
+        foreach (['/', '/dispatch', '/supervisor', '/supervisor/reports', '/supervisor/inventory', '/supervisor/inventory/log', '/supervisor/settings', '/admin/users', '/supervisor/reports/won', "/admin/draws/{$draw->id}/edit", "/draws/{$draw->id}?reveal=1"] as $page) {
             $this->actingAs($admin)->get($page)->assertOk();
         }
         $this->get('/login')->assertRedirect('/');
