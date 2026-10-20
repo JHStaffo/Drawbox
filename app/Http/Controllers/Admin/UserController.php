@@ -11,7 +11,7 @@ class UserController extends Controller
 {
     public function index()
     {
-        return view('admin.users', ['users' => User::orderBy('active', 'desc')->orderBy('name')->get()]);
+        return view('admin.users', ['users' => User::all()->sortBy([fn ($a, $b) => $b->active <=> $a->active, fn ($a, $b) => $a->sortName() <=> $b->sortName()])->values()]);
     }
 
     public function store(Request $request)

@@ -113,23 +113,91 @@ class DrawMachine
     {
         DB::transaction(function () use ($draw, $by) {
             $draw = Draw::with('prize', 'user', 'credit')->lockForUpdate()->findOrFail($draw->id);
-            $reason = "Returned: {$by->name} removed {$draw->user->name}'s prize";
-
-            if ($draw->gift_card_stock_id) {
-                $stock = GiftCardStock::lockForUpdate()->find($draw->gift_card_stock_id);
-                if ($stock) {
-                    $stock->increment('quantity');
-                    $this->inventory->log($by, "{$draw->prize_name} {$stock->brand}", 1, $stock->quantity, $reason);
-                }
-            } elseif (! $draw->cash_bonus && ! $draw->prize->isGiftCard() && $draw->prize->diminishing) {
-                $prize = Prize::withTrashed()->lockForUpdate()->findOrFail($draw->prize_id);
-                $prize->increment('quantity');
-                $this->inventory->log($by, $prize->name, 1, $prize->quantity, $reason);
-            }
+            $this->returnToBox($draw, $by, "Returned: {$by->name} removed {$draw->user->name}'s prize");
 
             $draw->credit->update(['status' => 'void']);
             $draw->delete();
         });
+    }
+
+    /**
+     * Give an employee a different prize (an admin correcting a mistake).
+     * The old envelope goes back in the box and the new one comes out, and
+     * the new prize's details are copied onto the draw like a real draw.
+     * $details can override value_cents, pto_hours and taxable.
+     */
+    public function changePrize(Draw $draw, Prize $prize, ?GiftCardStock $stock, User $by, array $details = []): Draw
+    {
+        return DB::transaction(function () use ($draw, $prize, $stock, $by, $details) {
+            $draw = Draw::with('prize', 'user')->lockForUpdate()->findOrFail($draw->id);
+            $stock = $prize->isGiftCard() && ! $draw->cash_bonus ? $stock : null;
+
+            $samePrize = $draw->prize_id === $prize->id && $draw->gift_card_stock_id === $stock?->id;
+            if (! $samePrize && ! $draw->cash_bonus) {
+                $reason = "Changed by {$by->name}: {$draw->user->name}'s prize";
+                $this->returnToBox($draw, $by, $reason);
+                $this->takeFromBox($prize, $stock, $by, $reason);
+            }
+
+            $status = $draw->status;
+            if ($prize->isGiftCard() && ! $draw->cash_bonus && ! $stock) {
+                $status = 'pending_brand';
+            } elseif ($status === 'pending_brand') {
+                $status = 'won';
+            }
+
+            $draw->update([
+                'prize_id' => $prize->id,
+                'prize_name' => $prize->name,
+                'prize_type' => $prize->type,
+                'value_cents' => $details['value_cents'] ?? $prize->value_cents,
+                'pto_hours' => $draw->cash_bonus ? null : (array_key_exists('pto_hours', $details) ? $details['pto_hours'] : $prize->pto_hours),
+                'taxable' => $draw->cash_bonus ? true : ($details['taxable'] ?? $prize->taxable),
+                'gift_card_stock_id' => $stock?->id,
+                'brand' => $stock?->brand,
+                'status' => $status,
+            ]);
+
+            return $draw;
+        });
+    }
+
+    /** Put back whatever a draw took out of the box. */
+    private function returnToBox(Draw $draw, User $by, string $reason): void
+    {
+        if ($draw->cash_bonus) {
+            return;
+        }
+
+        if ($draw->gift_card_stock_id) {
+            $stock = GiftCardStock::lockForUpdate()->find($draw->gift_card_stock_id);
+            if ($stock) {
+                $stock->increment('quantity');
+                $this->inventory->log($by, "{$draw->prize_name} {$stock->brand}", 1, $stock->quantity, $reason);
+            }
+        } elseif (! $draw->prize->isGiftCard() && $draw->prize->diminishing) {
+            $prize = Prize::withTrashed()->lockForUpdate()->findOrFail($draw->prize_id);
+            $prize->increment('quantity');
+            $this->inventory->log($by, $prize->name, 1, $prize->quantity, $reason);
+        }
+    }
+
+    /** Take one envelope out of the box for a prize given by hand. Counts never go below zero. */
+    private function takeFromBox(Prize $prize, ?GiftCardStock $stock, User $by, string $reason): void
+    {
+        if ($stock) {
+            $stock = GiftCardStock::lockForUpdate()->findOrFail($stock->id);
+            if ($stock->quantity > 0) {
+                $stock->decrement('quantity');
+                $this->inventory->log($by, "{$prize->name} {$stock->brand}", -1, $stock->quantity, $reason);
+            }
+        } elseif (! $prize->isGiftCard() && $prize->diminishing) {
+            $prize = Prize::withTrashed()->lockForUpdate()->findOrFail($prize->id);
+            if ($prize->quantity > 0) {
+                $prize->decrement('quantity');
+                $this->inventory->log($by, $prize->name, -1, $prize->quantity, $reason);
+            }
+        }
     }
 
     /** Brands the winner can still pick for a gift card they drew. */

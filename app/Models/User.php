@@ -30,6 +30,21 @@ class User extends Authenticatable
         return array_search($this->role, self::ROLES, true) >= array_search($role, self::ROLES, true);
     }
 
+    /** Sort key for lists in last-name order: "Smith John" for "John Smith". */
+    public function sortName(): string
+    {
+        $parts = preg_split('/\s+/', trim($this->name));
+        $last = array_pop($parts);
+
+        return mb_strtolower(trim($last.' '.implode(' ', $parts)));
+    }
+
+    /** @param  \Illuminate\Support\Collection<int, User>  $users */
+    public static function byLastName($users)
+    {
+        return $users->sortBy(fn (User $u) => $u->sortName())->values();
+    }
+
     public function credits(): HasMany
     {
         return $this->hasMany(DrawCredit::class);

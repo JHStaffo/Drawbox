@@ -5,6 +5,69 @@
     <p>Each crew member you pick gets one draw, good for {{ $windowDays }} {{ Str::plural('day', (int) $windowDays) }}.</p>
 @endsection
 
+@push('scripts')
+<script>
+(function () {
+    const picker = document.getElementById('crew-picker');
+    const search = picker.querySelector('.picker-search');
+    const list = picker.querySelector('.picker-list');
+    const chips = picker.querySelector('.picker-chips');
+    const empty = picker.querySelector('.picker-empty');
+    const labels = Array.from(list.querySelectorAll('label'));
+
+    // Without JavaScript the full checkbox list shows. With it, the list
+    // becomes a dropdown under a search box and picked names show as chips.
+    picker.classList.add('picker-ready');
+    search.hidden = false;
+
+    function open() { picker.classList.add('picker-open'); }
+    function close() { picker.classList.remove('picker-open'); }
+
+    function filter() {
+        const q = search.value.trim().toLowerCase();
+        let shown = 0;
+        labels.forEach(function (l) {
+            const match = !q || q.split(/\s+/).every(function (w) { return l.dataset.name.includes(w); });
+            l.hidden = !match;
+            if (match) shown++;
+        });
+        empty.hidden = shown > 0;
+    }
+
+    function renderChips() {
+        chips.innerHTML = '';
+        labels.forEach(function (l) {
+            const box = l.querySelector('input');
+            if (!box.checked) return;
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'chip';
+            chip.textContent = l.textContent.trim() + ' \u00d7';
+            chip.title = 'Remove';
+            chip.addEventListener('click', function () { box.checked = false; renderChips(); });
+            chips.appendChild(chip);
+        });
+    }
+
+    search.addEventListener('focus', open);
+    search.addEventListener('input', function () { filter(); open(); });
+    search.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const first = labels.find(function (l) { return !l.hidden; });
+            if (first) { first.querySelector('input').checked = true; renderChips(); search.value = ''; filter(); }
+        } else if (e.key === 'Escape') {
+            close();
+        }
+    });
+    list.addEventListener('change', function () { renderChips(); search.value = ''; filter(); search.focus(); });
+    document.addEventListener('click', function (e) { if (!picker.contains(e.target)) close(); });
+
+    renderChips();
+})();
+</script>
+@endpush
+
 @section('content')
 <div class="grid grid-2">
     <form class="card" method="post" action="{{ route('dispatch.store') }}">
@@ -24,11 +87,16 @@
             <input id="location" type="text" name="location" value="{{ old('location') }}" required>
         </div>
         <div class="field">
-            <label>Crew on the truck</label>
-            <div class="crew-list">
-                @foreach ($employees as $e)
-                    <label><input type="checkbox" name="crew[]" value="{{ $e->id }}" @checked(in_array($e->id, old('crew', [])))> {{ $e->name }}</label>
-                @endforeach
+            <label for="crew-search">Crew on the truck</label>
+            <div class="picker" id="crew-picker">
+                <div class="picker-chips" aria-live="polite"></div>
+                <input id="crew-search" class="picker-search" type="search" placeholder="Type a name to search" autocomplete="off" hidden>
+                <div class="picker-list">
+                    @foreach ($employees as $e)
+                        <label data-name="{{ Str::lower($e->name) }}"><input type="checkbox" name="crew[]" value="{{ $e->id }}" @checked(in_array($e->id, old('crew', [])))> {{ $e->name }}</label>
+                    @endforeach
+                    <div class="picker-empty empty" hidden>No one matches that name.</div>
+                </div>
             </div>
         </div>
         <div class="field">
@@ -51,3 +119,66 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    const picker = document.getElementById('crew-picker');
+    const search = picker.querySelector('.picker-search');
+    const list = picker.querySelector('.picker-list');
+    const chips = picker.querySelector('.picker-chips');
+    const empty = picker.querySelector('.picker-empty');
+    const labels = Array.from(list.querySelectorAll('label'));
+
+    // Without JavaScript the full checkbox list shows. With it, the list
+    // becomes a dropdown under a search box and picked names show as chips.
+    picker.classList.add('picker-ready');
+    search.hidden = false;
+
+    function open() { picker.classList.add('picker-open'); }
+    function close() { picker.classList.remove('picker-open'); }
+
+    function filter() {
+        const q = search.value.trim().toLowerCase();
+        let shown = 0;
+        labels.forEach(function (l) {
+            const match = !q || q.split(/\s+/).every(function (w) { return l.dataset.name.includes(w); });
+            l.hidden = !match;
+            if (match) shown++;
+        });
+        empty.hidden = shown > 0;
+    }
+
+    function renderChips() {
+        chips.innerHTML = '';
+        labels.forEach(function (l) {
+            const box = l.querySelector('input');
+            if (!box.checked) return;
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'chip';
+            chip.textContent = l.textContent.trim() + ' \u00d7';
+            chip.title = 'Remove';
+            chip.addEventListener('click', function () { box.checked = false; renderChips(); });
+            chips.appendChild(chip);
+        });
+    }
+
+    search.addEventListener('focus', open);
+    search.addEventListener('input', function () { filter(); open(); });
+    search.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const first = labels.find(function (l) { return !l.hidden; });
+            if (first) { first.querySelector('input').checked = true; renderChips(); search.value = ''; filter(); }
+        } else if (e.key === 'Escape') {
+            close();
+        }
+    });
+    list.addEventListener('change', function () { renderChips(); search.value = ''; filter(); search.focus(); });
+    document.addEventListener('click', function (e) { if (!picker.contains(e.target)) close(); });
+
+    renderChips();
+})();
+</script>
+@endpush
