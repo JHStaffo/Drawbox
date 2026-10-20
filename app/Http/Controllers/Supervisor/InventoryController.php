@@ -18,6 +18,7 @@ class InventoryController extends Controller
     {
         return view('supervisor.inventory', [
             'odds' => $this->inventory->odds(),
+            'boxValue' => $this->inventory->boxValueCents(),
             'prizes' => Prize::with('stocks')->orderBy('sort')->orderBy('value_cents')->get(),
             'types' => Prize::TYPES,
         ]);
@@ -94,6 +95,7 @@ class InventoryController extends Controller
             'value' => 'required|numeric|min:0|max:100000',
             'pto_hours' => 'nullable|numeric|min:0|max:200',
             'taxable' => 'boolean',
+            'diminishing' => 'boolean',
             'quantity' => 'nullable|integer|min:0|max:10000',
             'monthly_quantity' => 'nullable|integer|min:0|max:10000',
             'active' => 'boolean',
@@ -105,6 +107,7 @@ class InventoryController extends Controller
             'value_cents' => (int) round($data['value'] * 100),
             'pto_hours' => $data['type'] === 'pto' ? ($data['pto_hours'] ?? 0) : null,
             'taxable' => $request->boolean('taxable'),
+            'diminishing' => $data['type'] === 'gift_card' || $request->boolean('diminishing'),
             'monthly_quantity' => $data['monthly_quantity'] ?? 0,
             'active' => $prize ? $request->boolean('active') : true,
         ] + (isset($data['quantity']) ? ['quantity' => (int) $data['quantity']] : []);

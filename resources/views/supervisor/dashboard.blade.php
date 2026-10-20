@@ -2,11 +2,12 @@
 
 @section('band')
     <h1>Supervisor dashboard</h1>
-    <p>Prizes received, by when they were handed out.</p>
+    <p>There is currently a value of <strong>{{ money($boxValue) }}</strong> in the draw box.</p>
 @endsection
 
 @section('content')
 <div class="stack">
+    <h2 style="margin-bottom:0">Prizes received</h2>
     <div class="grid grid-4">
         @foreach ($periods as $label => $p)
             <div class="card">

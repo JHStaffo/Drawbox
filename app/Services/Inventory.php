@@ -38,6 +38,15 @@ class Inventory
         });
     }
 
+    /**
+     * Dollar value of every envelope in the box right now. Prizes already
+     * won, including gift cards waiting on a brand pick, are not counted.
+     */
+    public function boxValueCents(): int
+    {
+        return (int) $this->envelopes()->sum(fn ($e) => $e['count'] * $e['prize']->value_cents);
+    }
+
     /** Each prize's chance of being drawn right now, as a fraction. */
     public function odds(): Collection
     {
@@ -78,7 +87,7 @@ class Inventory
     {
         $changed = 0;
 
-        foreach (Prize::where('active', true)->whereIn('type', ['item', 'pto'])->get() as $prize) {
+        foreach (Prize::where('active', true)->where('type', '!=', 'gift_card')->where('diminishing', true)->get() as $prize) {
             if ($prize->quantity < $prize->monthly_quantity) {
                 $this->setPrizeQuantity($prize, $prize->monthly_quantity, $by, 'Monthly restock');
                 $changed++;

@@ -12,7 +12,7 @@ class SettingsController extends Controller
     {
         return view('supervisor.settings', [
             'drawWindowDays' => Setting::get('draw_window_days'),
-            'reminderDaysBefore' => Setting::get('reminder_days_before'),
+            'expiryReminderEnabled' => (bool) Setting::get('expiry_reminder_enabled'),
         ]);
     }
 
@@ -20,12 +20,11 @@ class SettingsController extends Controller
     {
         $data = $request->validate([
             'draw_window_days' => 'required|integer|min:1|max:365',
-            'reminder_days_before' => 'required|integer|min:0|max:30',
+            'expiry_reminder_enabled' => 'boolean',
         ]);
 
-        foreach ($data as $key => $value) {
-            Setting::put($key, (string) $value);
-        }
+        Setting::put('draw_window_days', (string) $data['draw_window_days']);
+        Setting::put('expiry_reminder_enabled', $request->boolean('expiry_reminder_enabled') ? '1' : '0');
 
         return back()->with('status', 'Settings saved. The draw window applies to calls credited from now on.');
     }

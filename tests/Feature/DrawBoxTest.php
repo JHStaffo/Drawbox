@@ -11,7 +11,7 @@ use App\Models\Prize;
 use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\DrawCredited;
-use App\Notifications\DrawExpiringSoon;
+use App\Notifications\DrawsExpiringSoon;
 use App\Notifications\LoginCode as LoginCodeNotification;
 use App\Services\Credits;
 use App\Services\DrawMachine;
@@ -108,7 +108,7 @@ class DrawBoxTest extends TestCase
 
     public function test_draw_uses_inventory_weighted_odds_and_decrements_items(): void
     {
-        $candy = Prize::create(['name' => 'Candy', 'type' => 'constant', 'quantity' => 3]);
+        $candy = Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 3]);
         $shears = Prize::create(['name' => 'Raptor shears', 'type' => 'item', 'value_cents' => 6000, 'quantity' => 1]);
 
         $odds = app(Inventory::class)->odds();
@@ -131,7 +131,7 @@ class DrawBoxTest extends TestCase
 
     public function test_credit_can_only_be_drawn_once_and_not_after_expiry(): void
     {
-        Prize::create(['name' => 'Candy', 'type' => 'constant', 'quantity' => 1]);
+        Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 1]);
         $user = User::factory()->create();
         $credit = $this->credit($user);
 
@@ -146,7 +146,7 @@ class DrawBoxTest extends TestCase
 
     public function test_cannot_draw_someone_elses_credit(): void
     {
-        Prize::create(['name' => 'Candy', 'type' => 'constant', 'quantity' => 1]);
+        Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 1]);
         $credit = $this->credit(User::factory()->create());
 
         $this->actingAs(User::factory()->create())->post("/credits/{$credit->id}/draw")->assertForbidden();
@@ -213,29 +213,86 @@ class DrawBoxTest extends TestCase
         $this->actingAs($supervisor)->get('/supervisor/inventory/log')->assertSee('Monthly restock');
     }
 
-    public function test_expiry_and_reminders(): void
+    public function test_expiry_and_one_reminder_email_per_employee(): void
     {
         $user = User::factory()->create();
+        $other = User::factory()->create();
         $old = $this->credit($user, ['expires_at' => now()->subDay()]);
-        $soon = $this->credit($user, ['expires_at' => now()->addDay()]);
-        $later = $this->credit($user, ['expires_at' => now()->addDays(10)]);
+        $soon = $this->credit($user, ['expires_at' => now()->addHours(20)]);
+        $soonToo = $this->credit($user, ['expires_at' => now()->addHours(23)]);
+        $tomorrowish = $this->credit($user, ['expires_at' => now()->addHours(30)]);
+        $this->credit($other, ['expires_at' => now()->addHours(5)]);
 
         $credits = app(Credits::class);
         $this->assertSame(1, $credits->expireOverdue());
         $this->assertSame('expired', $old->fresh()->status);
 
-        $this->assertSame(1, $credits->sendReminders());
+        $this->assertSame(2, $credits->sendReminders());
         $this->assertSame(0, $credits->sendReminders());
-        Notification::assertSentToTimes($user, DrawExpiringSoon::class, 1);
-        $this->assertNull($later->fresh()->reminded_at);
+        Notification::assertSentToTimes($user, DrawsExpiringSoon::class, 1);
+        Notification::assertSentTo($user, DrawsExpiringSoon::class, fn ($n) => $n->credits->count() === 2);
+        Notification::assertSentToTimes($other, DrawsExpiringSoon::class, 1);
         $this->assertNotNull($soon->fresh()->reminded_at);
+        $this->assertNotNull($soonToo->fresh()->reminded_at);
+        $this->assertNull($tomorrowish->fresh()->reminded_at);
+    }
+
+    public function test_reminders_can_be_turned_off(): void
+    {
+        Setting::put('expiry_reminder_enabled', '0');
+        $this->credit(User::factory()->create(), ['expires_at' => now()->addHours(2)]);
+
+        $this->assertSame(0, app(Credits::class)->sendReminders());
+        Notification::assertNothingSent();
+    }
+
+    public function test_non_diminishing_prizes_are_not_restocked_and_box_value_excludes_won_prizes(): void
+    {
+        $candy = Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'value_cents' => 100, 'quantity' => 10, 'monthly_quantity' => 50]);
+        $shears = Prize::create(['name' => 'Raptor shears', 'type' => 'item', 'value_cents' => 6000, 'quantity' => 2]);
+        $card = Prize::create(['name' => '$50 gift card', 'type' => 'gift_card', 'value_cents' => 5000]);
+        GiftCardStock::create(['prize_id' => $card->id, 'brand' => 'Amazon', 'quantity' => 2]);
+        $inventory = app(Inventory::class);
+
+        // 10 x $1 + 2 x $60 + 2 x $50
+        $this->assertSame(23000, $inventory->boxValueCents());
+
+        $inventory->restock(null);
+        $this->assertSame(10, $candy->fresh()->quantity);
+
+        // Take the candy and shears out of the running so the next draw is a gift card.
+        $candy->update(['active' => false]);
+        $shears->update(['active' => false]);
+        $draw = app(DrawMachine::class)->draw($this->credit(User::factory()->create()));
+        $this->assertSame('pending_brand', $draw->status);
+        $this->assertSame(5000, $inventory->boxValueCents());
+
+        $supervisor = User::factory()->role('supervisor')->create();
+        $this->actingAs($supervisor)->get('/supervisor')->assertSee('There is currently a value of', false)->assertSee('$50');
+    }
+
+    public function test_supervisor_toggles_diminishing_on_a_prize(): void
+    {
+        $supervisor = User::factory()->role('supervisor')->create();
+        $prize = Prize::create(['name' => 'Snack', 'type' => 'item', 'quantity' => 5]);
+
+        $this->actingAs($supervisor)->put("/supervisor/inventory/prizes/{$prize->id}", [
+            'name' => 'Snack', 'type' => 'item', 'value' => 2, 'quantity' => 5,
+            'diminishing' => '0', 'taxable' => '0', 'active' => '1',
+        ])->assertRedirect();
+        $this->assertFalse($prize->fresh()->diminishing);
+
+        $credit = $this->credit(User::factory()->create());
+        app(DrawMachine::class)->draw($credit);
+        $this->assertSame(5, $prize->fresh()->quantity);
     }
 
     public function test_supervisor_changes_draw_window(): void
     {
         $supervisor = User::factory()->role('supervisor')->create();
-        $this->actingAs($supervisor)->put('/supervisor/settings', ['draw_window_days' => 21, 'reminder_days_before' => 3])->assertRedirect();
+        $this->actingAs($supervisor)->put('/supervisor/settings', ['draw_window_days' => 21, 'expiry_reminder_enabled' => '0'])->assertRedirect();
         $this->assertSame('21', Setting::get('draw_window_days'));
+        $this->assertSame('0', Setting::get('expiry_reminder_enabled'));
     }
 
     public function test_pages_render(): void

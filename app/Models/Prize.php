@@ -12,13 +12,12 @@ class Prize extends Model
     public const TYPES = [
         'item' => 'Item',
         'pto' => 'PTO',
-        'constant' => 'Always in the box',
         'gift_card' => 'Gift card',
     ];
 
     protected function casts(): array
     {
-        return ['taxable' => 'boolean', 'active' => 'boolean', 'pto_hours' => 'decimal:2'];
+        return ['diminishing' => 'boolean', 'taxable' => 'boolean', 'active' => 'boolean', 'pto_hours' => 'decimal:2'];
     }
 
     public function stocks(): HasMany
@@ -31,10 +30,14 @@ class Prize extends Model
         return $this->type === 'gift_card';
     }
 
-    /** Constant prizes (candy, snack) are never used up. */
-    public function isConstant(): bool
+    /**
+     * Whether drawing this prize uses up an envelope. Non-diminishing prizes
+     * (candy, snack) stay at the same count, so they only set the odds.
+     * Gift cards always diminish through their brand stock.
+     */
+    public function diminishes(): bool
     {
-        return $this->type === 'constant';
+        return $this->isGiftCard() || $this->diminishing;
     }
 
     public function dollars(): string

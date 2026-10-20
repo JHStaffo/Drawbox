@@ -16,7 +16,7 @@ class Setting extends Model
 
     public const DEFAULTS = [
         'draw_window_days' => '7',
-        'reminder_days_before' => '2',
+        'expiry_reminder_enabled' => '1',
     ];
 
     public static function get(string $key): string

@@ -45,7 +45,7 @@ class DrawMachine
             /** @var Prize $prize */
             $prize = $envelope['prize'];
 
-            if (in_array($prize->type, ['item', 'pto'])) {
+            if (! $prize->isGiftCard() && $prize->diminishing) {
                 $prize->decrement('quantity');
                 $this->inventory->log($credit->user, $prize->name, -1, $prize->quantity, "Drawn by {$credit->user->name}");
             }

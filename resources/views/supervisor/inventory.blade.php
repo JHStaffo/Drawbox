@@ -2,7 +2,8 @@
 
 @section('band')
     <h1>Inventory and restocking</h1>
-    <p>The odds are the envelopes left for each prize out of all envelopes in the box. Candy, snack and other "always in the box" prizes never run out.</p>
+    <p>The odds are the envelopes left for each prize out of all envelopes in the box. Prizes that aren't diminishing (like candy and snack) never run out when drawn.</p>
+    <p>There is currently a value of <strong>{{ money($boxValue) }}</strong> in the draw box.</p>
 @endsection
 
 @section('content')
@@ -25,7 +26,7 @@
     <div class="card">
         <h2>Prizes</h2>
         <div class="table-wrap"><table>
-            <tr><th>Prize</th><th>Type</th><th class="num">Value $</th><th class="num">In box</th><th class="num">Monthly</th><th>Taxable</th><th>Active</th><th class="num">Odds</th><th></th></tr>
+            <tr><th>Prize</th><th>Type</th><th class="num">Value $</th><th class="num">In box</th><th class="num">Monthly</th><th>Diminishing</th><th>Taxable</th><th>Active</th><th class="num">Odds</th><th></th></tr>
             @foreach ($nonCards as $prize)
                 <tr>
                     <td>
@@ -40,10 +41,8 @@
                     <td><span class="pill">{{ $types[$prize->type] }}</span></td>
                     <td class="num"><input form="p{{ $prize->id }}" type="number" step="0.01" min="0" name="value" value="{{ $prize->value_cents / 100 }}" style="width:90px"></td>
                     <td class="num"><input form="p{{ $prize->id }}" type="number" min="0" name="quantity" value="{{ $prize->quantity }}" style="width:80px"></td>
-                    <td class="num">
-                        @if ($prize->isConstant())<span class="hint">n/a</span><input form="p{{ $prize->id }}" type="hidden" name="monthly_quantity" value="0">
-                        @else<input form="p{{ $prize->id }}" type="number" min="0" name="monthly_quantity" value="{{ $prize->monthly_quantity }}" style="width:80px">@endif
-                    </td>
+                    <td class="num"><input form="p{{ $prize->id }}" type="number" min="0" name="monthly_quantity" value="{{ $prize->monthly_quantity }}" style="width:80px" @disabled(! $prize->diminishing) title="{{ $prize->diminishing ? '' : 'Not restocked because drawing it never uses one up' }}"></td>
+                    <td><input form="p{{ $prize->id }}" type="hidden" name="diminishing" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="diminishing" value="1" @checked($prize->diminishing)></td>
                     <td><input form="p{{ $prize->id }}" type="hidden" name="taxable" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="taxable" value="1" @checked($prize->taxable)></td>
                     <td><input form="p{{ $prize->id }}" type="hidden" name="active" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="active" value="1" @checked($prize->active)></td>
                     <td class="num">{{ isset($odds[$prize->id]) ? number_format($odds[$prize->id]['odds'] * 100, 1).'%' : '—' }}</td>
@@ -119,6 +118,8 @@
                 <div class="field"><label>In box</label><input type="number" min="0" name="quantity" value="0"></div>
                 <div class="field"><label>Monthly</label><input type="number" min="0" name="monthly_quantity" value="0"></div>
             </div>
+            <input type="hidden" name="diminishing" value="0">
+            <label class="check"><input type="checkbox" name="diminishing" value="1" checked> Diminishing (drawing it uses one up)</label>
             <input type="hidden" name="taxable" value="0">
             <label class="check"><input type="checkbox" name="taxable" value="1" checked> Taxable</label>
             <p class="hint">For a new gift card value, choose "Gift card" and then add brands to it.</p>
