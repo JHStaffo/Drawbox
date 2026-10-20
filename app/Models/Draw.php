@@ -13,6 +13,7 @@ class Draw extends Model
     {
         return [
             'taxable' => 'boolean',
+            'cash_bonus' => 'boolean',
             'pto_hours' => 'decimal:2',
             'drawn_at' => 'datetime',
             'awarded_at' => 'datetime',
@@ -21,7 +22,20 @@ class Draw extends Model
 
     public function label(): string
     {
+        if ($this->cash_bonus) {
+            return 'Cash bonus '.money($this->value_cents)." (instead of {$this->prize_name})";
+        }
+
         return $this->brand ? "{$this->prize_name} ({$this->brand})" : $this->prize_name;
+    }
+
+    /** The winner can swap the prize for a taxable cash bonus until it's handed out. */
+    public function canTakeCashBonus(): bool
+    {
+        return ! $this->cash_bonus
+            && in_array($this->status, ['pending_brand', 'won'])
+            && $this->value_cents > 0
+            && $this->prize->cash_bonus_allowed;
     }
 
     public function user(): BelongsTo

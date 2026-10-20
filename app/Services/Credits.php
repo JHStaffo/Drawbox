@@ -7,7 +7,7 @@ use App\Models\DrawCredit;
 use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\DrawCredited;
-use App\Notifications\DrawExpiringSoon;
+use App\Notifications\DrawsExpiringSoon;
 use Illuminate\Support\Facades\DB;
 
 class Credits
@@ -38,23 +38,27 @@ class Credits
         return DrawCredit::where('status', 'open')->where('expires_at', '<=', now())->update(['status' => 'expired']);
     }
 
+    /**
+     * Email each employee once about all their draws that expire within the
+     * next 24 hours. Returns the number of emails sent.
+     */
     public function sendReminders(): int
     {
-        $days = (int) Setting::get('reminder_days_before');
-        if ($days <= 0) {
+        if (! Setting::get('expiry_reminder_enabled')) {
             return 0;
         }
 
-        $credits = DrawCredit::available()
+        $byUser = DrawCredit::available()
             ->whereNull('reminded_at')
-            ->where('expires_at', '<=', now()->addDays($days))
-            ->with('user', 'call')->get();
+            ->where('expires_at', '<=', now()->addDay())
+            ->with('user', 'call')->get()
+            ->groupBy('user_id');
 
-        foreach ($credits as $credit) {
-            $credit->user->notify(new DrawExpiringSoon($credit));
-            $credit->update(['reminded_at' => now()]);
+        foreach ($byUser as $credits) {
+            $credits->first()->user->notify(new DrawsExpiringSoon($credits));
+            DrawCredit::whereKey($credits->modelKeys())->update(['reminded_at' => now()]);
         }
 
-        return $credits->count();
+        return $byUser->count();
     }
 }

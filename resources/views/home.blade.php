@@ -9,6 +9,7 @@
             No draws waiting right now. Bring in a call and your crew earns one each.
         @endif
     </p>
+    <p>There is currently a value of <strong>{{ money($boxValue) }}</strong> in the draw box.</p>
 @endsection
 
 @section('content')

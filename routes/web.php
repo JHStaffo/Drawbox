@@ -26,6 +26,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/credits/{credit}/draw', [DrawController::class, 'store'])->name('draws.store');
     Route::get('/draws/{draw}', [DrawController::class, 'show'])->name('draws.show');
     Route::post('/draws/{draw}/brand', [DrawController::class, 'brand'])->name('draws.brand');
+    Route::post('/draws/{draw}/cash-bonus', [DrawController::class, 'cashBonus'])->name('draws.cash-bonus');
 
     Route::middleware('role:dispatcher')->group(function () {
         Route::get('/dispatch', [DispatchController::class, 'create'])->name('dispatch.create');

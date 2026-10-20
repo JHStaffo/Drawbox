@@ -44,12 +44,13 @@
             <p class="empty">No prizes received in this range.</p>
         @else
             <div class="table-wrap"><table>
-                <tr><th>Employee</th><th class="num">Prizes</th><th class="num">Taxable</th><th class="num">Non-taxable</th><th class="num">PTO hrs</th></tr>
+                <tr><th>Employee</th><th class="num">Prizes</th><th class="num">Taxable</th><th class="num">Of which cash bonus</th><th class="num">Non-taxable</th><th class="num">PTO hrs</th></tr>
                 @foreach ($totals as $t)
                     <tr>
                         <td>{{ $t['user']->name }}</td>
                         <td class="num">{{ $t['count'] }}</td>
                         <td class="num">{{ money($t['taxable_cents']) }}</td>
+                        <td class="num">{{ money($t['cash_bonus_cents']) }}</td>
                         <td class="num">{{ money($t['nontaxable_cents']) }}</td>
                         <td class="num">{{ $t['pto_hours'] + 0 }}</td>
                     </tr>
@@ -58,6 +59,7 @@
                     <td><strong>Total</strong></td>
                     <td class="num"><strong>{{ $totals->sum('count') }}</strong></td>
                     <td class="num"><strong>{{ money($totals->sum('taxable_cents')) }}</strong></td>
+                    <td class="num"><strong>{{ money($totals->sum('cash_bonus_cents')) }}</strong></td>
                     <td class="num"><strong>{{ money($totals->sum('nontaxable_cents')) }}</strong></td>
                     <td class="num"><strong>{{ $totals->sum('pto_hours') + 0 }}</strong></td>
                 </tr>

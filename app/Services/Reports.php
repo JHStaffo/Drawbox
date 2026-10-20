@@ -49,6 +49,7 @@ class Reports
                 'user' => $draws->first()->user,
                 'count' => $draws->count(),
                 'taxable_cents' => $draws->where('taxable', true)->sum('value_cents'),
+                'cash_bonus_cents' => $draws->where('cash_bonus', true)->sum('value_cents'),
                 'nontaxable_cents' => $draws->where('taxable', false)->sum('value_cents'),
                 'pto_hours' => $draws->sum(fn ($d) => (float) $d->pto_hours),
             ])

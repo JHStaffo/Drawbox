@@ -31,14 +31,14 @@ class ReportController extends Controller
         $rows = $this->query($request, $from, $to)->get()->map(fn (Draw $d) => [
             $d->drawn_at->format('Y-m-d H:i'), $d->user->name, $d->user->employee_number,
             $d->label(), number_format($d->value_cents / 100, 2), $d->pto_hours,
-            $d->taxable ? 'yes' : 'no', $d->status,
+            $d->taxable ? 'yes' : 'no', $d->cash_bonus ? 'yes' : 'no', $d->status,
             $d->awarded_at?->format('Y-m-d H:i'), $d->awarder?->name,
             $d->credit->call->location, $d->credit->call->occurred_at->format('Y-m-d H:i'),
         ]);
 
         return $this->csv("prizes-{$from->toDateString()}-to-{$to->toDateString()}.csv", [
             'Drawn', 'Employee', 'Employee #', 'Prize', 'Value', 'PTO hours', 'Taxable',
-            'Status', 'Received', 'Handed out by', 'Call location', 'Call time',
+            'Cash bonus', 'Status', 'Received', 'Handed out by', 'Call location', 'Call time',
         ], $rows);
     }
 
@@ -47,11 +47,12 @@ class ReportController extends Controller
         [$from, $to] = $this->range($request);
         $rows = $reports->employeeTotals($from, $to)->map(fn ($r) => [
             $r['user']->name, $r['user']->employee_number, $r['user']->email, $r['count'],
-            number_format($r['taxable_cents'] / 100, 2), number_format($r['nontaxable_cents'] / 100, 2), $r['pto_hours'],
+            number_format($r['taxable_cents'] / 100, 2), number_format($r['cash_bonus_cents'] / 100, 2),
+            number_format($r['nontaxable_cents'] / 100, 2), $r['pto_hours'],
         ]);
 
         return $this->csv("employee-totals-{$from->toDateString()}-to-{$to->toDateString()}.csv", [
-            'Employee', 'Employee #', 'Email', 'Prizes received', 'Taxable value', 'Non-taxable value', 'PTO hours',
+            'Employee', 'Employee #', 'Email', 'Prizes received', 'Taxable value', 'Of which cash bonus', 'Non-taxable value', 'PTO hours',
         ], $rows);
     }
 

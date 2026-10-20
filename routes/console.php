@@ -11,7 +11,7 @@ Artisan::command('drawbox:expire', function (Credits $credits) {
 
 Artisan::command('drawbox:remind', function (Credits $credits) {
     $this->info('Sent '.$credits->sendReminders().' reminder(s).');
-})->purpose('Email employees whose draws expire soon');
+})->purpose('Email employees whose draws expire within 24 hours');
 
 Artisan::command('drawbox:make-admin {email} {name}', function (string $email, string $name) {
     $user = User::updateOrCreate(['email' => strtolower($email)], ['name' => $name, 'role' => 'admin', 'active' => true]);
@@ -19,4 +19,4 @@ Artisan::command('drawbox:make-admin {email} {name}', function (string $email, s
 })->purpose('Create or promote an admin account');
 
 Schedule::command('drawbox:expire')->everyFifteenMinutes();
-Schedule::command('drawbox:remind')->dailyAt('09:00');
+Schedule::command('drawbox:remind')->hourly();

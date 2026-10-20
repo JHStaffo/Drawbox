@@ -17,6 +17,7 @@ class DashboardController extends Controller
             'unawarded' => Draw::whereIn('status', ['won', 'pending_brand'])->with('user')->orderBy('drawn_at')->get(),
             'periods' => collect($reports->periods())->map(fn ($range) => $reports->awardedSummary(...$range)),
             'odds' => $inventory->odds(),
+            'boxValue' => $inventory->boxValueCents(),
         ]);
     }
 }

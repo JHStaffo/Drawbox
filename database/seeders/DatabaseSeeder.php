@@ -14,8 +14,8 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $prizes = [
-            ['Candy', 'constant', 0, false],
-            ['Snack', 'constant', 0, false],
+            ['Candy', 'item', 0, false, null, false],
+            ['Snack', 'item', 0, false, null, false],
             ['PTO (2 hours)', 'pto', 0, true, 2],
             ['Stethoscope', 'item', 0, true],
             ['Raptor shears', 'item', 0, true],
@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
                 'value_cents' => $p[2],
                 'taxable' => $p[3],
                 'pto_hours' => $p[4] ?? null,
+                'diminishing' => $p[5] ?? true,
                 'sort' => $i,
             ]);
         }
