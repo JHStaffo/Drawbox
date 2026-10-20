@@ -96,6 +96,7 @@ class InventoryController extends Controller
             'pto_hours' => 'nullable|numeric|min:0|max:200',
             'taxable' => 'boolean',
             'diminishing' => 'boolean',
+            'cash_bonus_allowed' => 'boolean',
             'quantity' => 'nullable|integer|min:0|max:10000',
             'monthly_quantity' => 'nullable|integer|min:0|max:10000',
             'active' => 'boolean',
@@ -108,6 +109,7 @@ class InventoryController extends Controller
             'pto_hours' => $data['type'] === 'pto' ? ($data['pto_hours'] ?? 0) : null,
             'taxable' => $request->boolean('taxable'),
             'diminishing' => $data['type'] === 'gift_card' || $request->boolean('diminishing'),
+            'cash_bonus_allowed' => $request->boolean('cash_bonus_allowed'),
             'monthly_quantity' => $data['monthly_quantity'] ?? 0,
             'active' => $prize ? $request->boolean('active') : true,
         ] + (isset($data['quantity']) ? ['quantity' => (int) $data['quantity']] : []);

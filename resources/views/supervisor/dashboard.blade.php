@@ -36,7 +36,7 @@
                                 <span class="pill pill-teal">Picking brand</span>
                             @else
                                 <form method="post" action="{{ route('supervisor.award', $draw) }}">@csrf
-                                    <button class="btn btn-small btn-teal" type="submit">Mark received</button>
+                                    <button class="btn btn-small btn-teal" type="submit">{{ $draw->cash_bonus ? 'Mark paid' : 'Mark received' }}</button>
                                 </form>
                             @endif
                         </td>

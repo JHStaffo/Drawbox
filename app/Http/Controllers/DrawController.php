@@ -36,6 +36,19 @@ class DrawController extends Controller
         ]);
     }
 
+    public function cashBonus(Request $request, Draw $draw)
+    {
+        abort_unless($draw->user_id === $request->user()->id, 403);
+
+        try {
+            $this->machine->takeCashBonus($draw);
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('draws.show', $draw);
+    }
+
     public function brand(Request $request, Draw $draw)
     {
         abort_unless($draw->user_id === $request->user()->id, 403);

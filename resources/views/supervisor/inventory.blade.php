@@ -26,7 +26,7 @@
     <div class="card">
         <h2>Prizes</h2>
         <div class="table-wrap"><table>
-            <tr><th>Prize</th><th>Type</th><th class="num">Value $</th><th class="num">In box</th><th class="num">Monthly</th><th>Diminishing</th><th>Taxable</th><th>Active</th><th class="num">Odds</th><th></th></tr>
+            <tr><th>Prize</th><th>Type</th><th class="num">Value $</th><th class="num">In box</th><th class="num">Monthly</th><th>Diminishing</th><th>Cash bonus OK</th><th>Taxable</th><th>Active</th><th class="num">Odds</th><th></th></tr>
             @foreach ($nonCards as $prize)
                 <tr>
                     <td>
@@ -43,6 +43,7 @@
                     <td class="num"><input form="p{{ $prize->id }}" type="number" min="0" name="quantity" value="{{ $prize->quantity }}" style="width:80px"></td>
                     <td class="num"><input form="p{{ $prize->id }}" type="number" min="0" name="monthly_quantity" value="{{ $prize->monthly_quantity }}" style="width:80px" @disabled(! $prize->diminishing) title="{{ $prize->diminishing ? '' : 'Not restocked because drawing it never uses one up' }}"></td>
                     <td><input form="p{{ $prize->id }}" type="hidden" name="diminishing" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="diminishing" value="1" @checked($prize->diminishing)></td>
+                    <td><input form="p{{ $prize->id }}" type="hidden" name="cash_bonus_allowed" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="cash_bonus_allowed" value="1" @checked($prize->cash_bonus_allowed)></td>
                     <td><input form="p{{ $prize->id }}" type="hidden" name="taxable" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="taxable" value="1" @checked($prize->taxable)></td>
                     <td><input form="p{{ $prize->id }}" type="hidden" name="active" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="active" value="1" @checked($prize->active)></td>
                     <td class="num">{{ isset($odds[$prize->id]) ? number_format($odds[$prize->id]['odds'] * 100, 1).'%' : '—' }}</td>
@@ -94,6 +95,8 @@
                             <div class="field"><label>Name</label><input type="text" name="name" value="{{ $prize->name }}" required></div>
                             <div class="field"><label>Value $</label><input type="number" step="0.01" min="0" name="value" value="{{ $prize->value_cents / 100 }}" required></div>
                         </div>
+                        <input type="hidden" name="cash_bonus_allowed" value="0">
+                        <label class="check"><input type="checkbox" name="cash_bonus_allowed" value="1" @checked($prize->cash_bonus_allowed)> Allow taxable cash bonus instead</label>
                         <input type="hidden" name="taxable" value="0">
                         <label class="check"><input type="checkbox" name="taxable" value="1" @checked($prize->taxable)> Taxable</label>
                         <input type="hidden" name="active" value="0">
@@ -120,6 +123,8 @@
             </div>
             <input type="hidden" name="diminishing" value="0">
             <label class="check"><input type="checkbox" name="diminishing" value="1" checked> Diminishing (drawing it uses one up)</label>
+            <input type="hidden" name="cash_bonus_allowed" value="0">
+            <label class="check"><input type="checkbox" name="cash_bonus_allowed" value="1"> Allow taxable cash bonus instead</label>
             <input type="hidden" name="taxable" value="0">
             <label class="check"><input type="checkbox" name="taxable" value="1" checked> Taxable</label>
             <p class="hint">For a new gift card value, choose "Gift card" and then add brands to it.</p>

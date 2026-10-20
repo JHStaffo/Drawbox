@@ -17,7 +17,7 @@ class Prize extends Model
 
     protected function casts(): array
     {
-        return ['diminishing' => 'boolean', 'taxable' => 'boolean', 'active' => 'boolean', 'pto_hours' => 'decimal:2'];
+        return ['diminishing' => 'boolean', 'taxable' => 'boolean', 'cash_bonus_allowed' => 'boolean', 'active' => 'boolean', 'pto_hours' => 'decimal:2'];
     }
 
     public function stocks(): HasMany

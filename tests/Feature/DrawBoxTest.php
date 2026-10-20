@@ -295,6 +295,62 @@ class DrawBoxTest extends TestCase
         $this->assertSame('0', Setting::get('expiry_reminder_enabled'));
     }
 
+    public function test_cash_bonus_returns_item_to_box_and_counts_as_taxable(): void
+    {
+        $supervisor = User::factory()->role('supervisor')->create();
+        $user = User::factory()->create();
+        $shears = Prize::create(['name' => 'Raptor shears', 'type' => 'item', 'value_cents' => 6000, 'quantity' => 1, 'taxable' => false, 'cash_bonus_allowed' => true]);
+        $draw = app(DrawMachine::class)->draw($this->credit($user));
+        $this->assertSame(0, $shears->fresh()->quantity);
+
+        $this->actingAs($user)->get("/draws/{$draw->id}")->assertSee('Issue as taxable cash bonus ($60)', false);
+        $this->actingAs($user)->post("/draws/{$draw->id}/cash-bonus")->assertRedirect("/draws/{$draw->id}");
+
+        $draw->refresh();
+        $this->assertTrue($draw->cash_bonus);
+        $this->assertTrue($draw->taxable);
+        $this->assertSame(1, $shears->fresh()->quantity);
+        $this->assertSame('Cash bonus $60 (instead of Raptor shears)', $draw->label());
+
+        // Only once, and not after it has been paid.
+        $this->actingAs($user)->post("/draws/{$draw->id}/cash-bonus")->assertSessionHas('error');
+        $this->actingAs($supervisor)->post("/supervisor/draws/{$draw->id}/award");
+        $totals = app(\App\Services\Reports::class)->employeeTotals(now()->subDay()->toImmutable(), now()->addDay()->toImmutable());
+        $this->assertSame(6000, $totals[0]['taxable_cents']);
+        $this->assertSame(6000, $totals[0]['cash_bonus_cents']);
+    }
+
+    public function test_cash_bonus_on_gift_card_releases_reserved_or_chosen_card(): void
+    {
+        $fifty = Prize::create(['name' => '$50 gift card', 'type' => 'gift_card', 'value_cents' => 5000, 'cash_bonus_allowed' => true]);
+        $amazon = GiftCardStock::create(['prize_id' => $fifty->id, 'brand' => 'Amazon', 'quantity' => 2]);
+        $machine = app(DrawMachine::class);
+        $inventory = app(Inventory::class);
+        $user = User::factory()->create();
+
+        $pending = $machine->draw($this->credit($user));
+        $this->assertSame(1, $inventory->envelopes()[$fifty->id]['count']);
+        $machine->takeCashBonus($pending);
+        $this->assertSame(2, $inventory->envelopes()[$fifty->id]['count']);
+
+        $chosen = $machine->chooseBrand($machine->draw($this->credit($user)), $amazon->id);
+        $this->assertSame(1, $amazon->fresh()->quantity);
+        $machine->takeCashBonus($chosen);
+        $this->assertSame(2, $amazon->fresh()->quantity);
+        $this->assertNull($chosen->fresh()->brand);
+    }
+
+    public function test_cash_bonus_not_offered_when_prize_not_eligible(): void
+    {
+        Prize::create(['name' => 'Stethoscope', 'type' => 'item', 'value_cents' => 9000, 'quantity' => 1]);
+        $user = User::factory()->create();
+        $draw = app(DrawMachine::class)->draw($this->credit($user));
+
+        $this->actingAs($user)->get("/draws/{$draw->id}")->assertDontSee('Issue as taxable cash bonus');
+        $this->actingAs($user)->post("/draws/{$draw->id}/cash-bonus")->assertSessionHas('error');
+        $this->assertFalse($draw->fresh()->cash_bonus);
+    }
+
     public function test_pages_render(): void
     {
         $this->seed();

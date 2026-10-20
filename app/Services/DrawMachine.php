@@ -67,6 +67,42 @@ class DrawMachine
         });
     }
 
+    /**
+     * Swap a won prize for a taxable cash bonus of the same value. Whatever
+     * the prize took out of the box goes back in.
+     */
+    public function takeCashBonus(Draw $draw): Draw
+    {
+        return DB::transaction(function () use ($draw) {
+            $draw = Draw::with('prize', 'user')->lockForUpdate()->findOrFail($draw->id);
+            if (! $draw->canTakeCashBonus()) {
+                throw new RuntimeException('This prize can\'t be swapped for a cash bonus.');
+            }
+
+            $reason = "Returned: {$draw->user->name} took a cash bonus";
+            if ($draw->gift_card_stock_id) {
+                $stock = GiftCardStock::lockForUpdate()->findOrFail($draw->gift_card_stock_id);
+                $stock->increment('quantity');
+                $this->inventory->log($draw->user, "{$draw->prize_name} {$stock->brand}", 1, $stock->quantity, $reason);
+            } elseif (! $draw->prize->isGiftCard() && $draw->prize->diminishing) {
+                $prize = Prize::lockForUpdate()->findOrFail($draw->prize_id);
+                $prize->increment('quantity');
+                $this->inventory->log($draw->user, $prize->name, 1, $prize->quantity, $reason);
+            }
+
+            $draw->update([
+                'cash_bonus' => true,
+                'taxable' => true,
+                'pto_hours' => null,
+                'gift_card_stock_id' => null,
+                'brand' => null,
+                'status' => 'won',
+            ]);
+
+            return $draw;
+        });
+    }
+
     /** Brands the winner can still pick for a gift card they drew. */
     public function brandsFor(Draw $draw)
     {
