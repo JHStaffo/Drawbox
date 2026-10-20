@@ -56,6 +56,31 @@ class DrawBoxTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    public function test_mail_failure_shows_a_message_instead_of_an_error_page(): void
+    {
+        $user = User::factory()->create();
+        Notification::shouldReceive('send')->andThrow(new \RuntimeException('SMTP down'));
+
+        $this->from('/login')->post('/login', ['email' => $user->email])
+            ->assertRedirect('/login')
+            ->assertSessionHasErrors('email');
+    }
+
+    public function test_dispatch_still_credits_crew_when_mail_fails(): void
+    {
+        $dispatcher = User::factory()->role('dispatcher')->create();
+        $crew = User::factory()->create();
+        Notification::shouldReceive('send')->andThrow(new \RuntimeException('SMTP down'));
+
+        $this->actingAs($dispatcher)->post('/dispatch', [
+            'occurred_at' => now()->subHour()->format('Y-m-d H:i'),
+            'location' => 'Sentara Leigh',
+            'crew' => [$crew->id],
+        ])->assertRedirect('/dispatch');
+
+        $this->assertSame(1, DrawCredit::count());
+    }
+
     public function test_unknown_or_inactive_email_gets_no_code(): void
     {
         $inactive = User::factory()->create(['active' => false]);
