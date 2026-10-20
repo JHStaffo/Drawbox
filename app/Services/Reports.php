@@ -35,6 +35,32 @@ class Reports
     }
 
     /**
+     * Every prize won (drawn) in a range, grouped by employee. Dollar totals
+     * leave out PTO prizes, which are totaled in hours instead.
+     */
+    public function wonByEmployee(CarbonImmutable $from, CarbonImmutable $to): Collection
+    {
+        return Draw::with('user')
+            ->whereBetween('drawn_at', [$from, $to])
+            ->orderBy('drawn_at')
+            ->get()
+            ->groupBy('user_id')
+            ->map(function (Collection $draws) {
+                $pto = $draws->filter(fn ($d) => $d->pto_hours !== null);
+
+                return [
+                    'user' => $draws->first()->user,
+                    'draws' => $draws,
+                    'count' => $draws->count(),
+                    'value_cents' => $draws->diff($pto)->sum('value_cents'),
+                    'pto_hours' => $pto->sum(fn ($d) => (float) $d->pto_hours),
+                ];
+            })
+            ->sortBy(fn ($row) => $row['user']->name)
+            ->values();
+    }
+
+    /**
      * Per-employee totals of prizes received (awarded) in a range. Prizes are
      * counted when the employee physically received them.
      */

@@ -31,6 +31,7 @@
         <div class="row-actions">
             <button class="btn" type="submit">Run report</button>
             <a class="btn btn-outline" href="{{ route('supervisor.reports.prizes', $query) }}">Download prizes CSV</a>
+            <a class="btn btn-outline" href="{{ route('supervisor.reports.won', ['from' => $from->toDateString(), 'to' => $to->toDateString()]) }}">Prizes won by employee</a>
         </div>
     </form>
 

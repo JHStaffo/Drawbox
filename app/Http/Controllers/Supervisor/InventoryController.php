@@ -20,6 +20,7 @@ class InventoryController extends Controller
             'odds' => $this->inventory->odds(),
             'boxValue' => $this->inventory->boxValueCents(),
             'prizes' => Prize::with('stocks')->orderBy('sort')->orderBy('value_cents')->get(),
+            'hiddenStocks' => GiftCardStock::with('prize')->where('active', false)->whereHas('prize', fn ($q) => $q->where('active', true))->orderBy('brand')->get(),
             'types' => Prize::TYPES,
         ]);
     }
@@ -80,6 +81,37 @@ class InventoryController extends Controller
         return back()->with('status', "Saved {$stock->prize->name} {$stock->brand}.");
     }
 
+    public function togglePrize(Prize $prize)
+    {
+        $prize->update(['active' => ! $prize->active]);
+
+        return back()->with('status', $prize->active ? "{$prize->name} is back in the box." : "{$prize->name} is hidden. It can't be drawn until you unhide it.");
+    }
+
+    /** Remove a prize for good. Past winners keep it in their history. */
+    public function destroyPrize(Prize $prize)
+    {
+        $prize->stocks()->delete();
+        $prize->delete();
+
+        return back()->with('status', "Deleted {$prize->name}.");
+    }
+
+    public function toggleStock(GiftCardStock $stock)
+    {
+        $stock->update(['active' => ! $stock->active]);
+        $name = "{$stock->prize->name} {$stock->brand}";
+
+        return back()->with('status', $stock->active ? "{$name} is back in the box." : "{$name} is hidden. It can't be drawn or picked until you unhide it.");
+    }
+
+    public function destroyStock(GiftCardStock $stock)
+    {
+        $stock->delete();
+
+        return back()->with('status', "Deleted {$stock->prize->name} {$stock->brand}.");
+    }
+
     public function log()
     {
         return view('supervisor.inventory-log', [
@@ -99,7 +131,6 @@ class InventoryController extends Controller
             'cash_bonus_allowed' => 'boolean',
             'quantity' => 'nullable|integer|min:0|max:10000',
             'monthly_quantity' => 'nullable|integer|min:0|max:10000',
-            'active' => 'boolean',
         ]);
 
         return [
@@ -111,7 +142,7 @@ class InventoryController extends Controller
             'diminishing' => $data['type'] === 'gift_card' || $request->boolean('diminishing'),
             'cash_bonus_allowed' => $request->boolean('cash_bonus_allowed'),
             'monthly_quantity' => $data['monthly_quantity'] ?? 0,
-            'active' => $prize ? $request->boolean('active') : true,
+            'active' => $prize ? $prize->active : true,
         ] + (isset($data['quantity']) ? ['quantity' => (int) $data['quantity']] : []);
     }
 }

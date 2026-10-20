@@ -22,7 +22,7 @@ class Inventory
     {
         $prizes = Prize::where('active', true)->orderBy('sort')->get();
 
-        $stock = GiftCardStock::selectRaw('prize_id, sum(quantity) as total')
+        $stock = GiftCardStock::where('active', true)->selectRaw('prize_id, sum(quantity) as total')
             ->groupBy('prize_id')->pluck('total', 'prize_id');
 
         $reserved = Draw::where('status', 'pending_brand')
@@ -94,7 +94,7 @@ class Inventory
             }
         }
 
-        foreach (GiftCardStock::whereHas('prize', fn ($q) => $q->where('active', true))->get() as $stock) {
+        foreach (GiftCardStock::where('active', true)->whereHas('prize', fn ($q) => $q->where('active', true))->get() as $stock) {
             if ($stock->quantity < $stock->monthly_quantity) {
                 $this->setStockQuantity($stock, $stock->monthly_quantity, $by, 'Monthly restock');
                 $changed++;

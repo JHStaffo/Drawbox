@@ -31,7 +31,7 @@
                         <td>{{ $draw->label() }}</td>
                         <td class="num">{{ money($draw->value_cents) }}</td>
                         <td>{{ $draw->drawn_at->format('M j') }}</td>
-                        <td class="right">
+                        <td class="right"><div class="row-actions" style="justify-content:flex-end">
                             @if ($draw->status === 'pending_brand')
                                 <span class="pill pill-teal">Picking brand</span>
                             @else
@@ -39,7 +39,13 @@
                                     <button class="btn btn-small btn-teal" type="submit">{{ $draw->cash_bonus ? 'Mark paid' : 'Mark received' }}</button>
                                 </form>
                             @endif
-                        </td>
+                            @if (auth()->user()->hasRole('admin'))
+                                <a class="btn btn-small btn-outline" href="{{ route('admin.draws.edit', $draw) }}">Edit</a>
+                                <form method="post" action="{{ route('admin.draws.destroy', $draw) }}" onsubmit="return confirm('Delete this prize from the employee? It goes back in the box and the draw is not given back.')">@csrf @method('delete')
+                                    <button class="btn btn-small btn-outline" style="color:var(--red)" type="submit">Delete</button>
+                                </form>
+                            @endif
+                        </div></td>
                     </tr>
                 @endforeach
             </table></div>

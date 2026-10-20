@@ -25,6 +25,46 @@ class ReportController extends Controller
         ]);
     }
 
+    public function won(Request $request, Reports $reports)
+    {
+        [$from, $to] = $this->range($request);
+
+        return view('supervisor.won', [
+            'from' => $from,
+            'to' => $to,
+            'rows' => $reports->wonByEmployee($from, $to),
+        ]);
+    }
+
+    public function wonCsv(Request $request, Reports $reports)
+    {
+        [$from, $to] = $this->range($request);
+        $lines = collect();
+        foreach ($reports->wonByEmployee($from, $to) as $row) {
+            foreach ($row['draws'] as $d) {
+                $lines->push([
+                    $row['user']->name, $row['user']->employee_number, $d->drawn_at->format('Y-m-d'), $d->label(),
+                    $d->pto_hours === null ? number_format($d->value_cents / 100, 2) : '', $d->pto_hours === null ? '' : $d->pto_hours + 0,
+                    $this->statusLabel($d),
+                ]);
+            }
+            $lines->push([$row['user']->name.' TOTAL', '', '', $row['count'].' prizes', number_format($row['value_cents'] / 100, 2), $row['pto_hours'], '']);
+        }
+
+        return $this->csv("prizes-won-{$from->toDateString()}-to-{$to->toDateString()}.csv", [
+            'Employee', 'Employee #', 'Drawn', 'Prize', 'Value', 'PTO hours', 'Status',
+        ], $lines);
+    }
+
+    private function statusLabel(Draw $d): string
+    {
+        return match ($d->status) {
+            'awarded' => $d->cash_bonus ? 'Paid' : 'Received',
+            'pending_brand' => 'Picking brand',
+            default => 'Not handed out',
+        };
+    }
+
     public function prizesCsv(Request $request)
     {
         [$from, $to] = $this->range($request);
