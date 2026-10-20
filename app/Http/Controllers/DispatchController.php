@@ -14,7 +14,7 @@ class DispatchController extends Controller
     public function create()
     {
         return view('dispatch.create', [
-            'employees' => User::where('active', true)->orderBy('name')->get(),
+            'employees' => User::byLastName(User::where('active', true)->get()),
             'recent' => Call::with('credits.user')->latest()->limit(10)->get(),
             'windowDays' => Setting::get('draw_window_days'),
         ]);

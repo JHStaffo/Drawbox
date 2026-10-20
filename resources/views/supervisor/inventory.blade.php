@@ -64,6 +64,10 @@
                     <h3 style="margin:0">{{ $prize->name }}</h3>
                     <span class="pill pill-teal">{{ $odds[$prize->id]['count'] ?? 0 }} left · {{ isset($odds[$prize->id]) ? number_format($odds[$prize->id]['odds'] * 100, 1) : '0.0' }}%</span>
                 </div>
+                <div class="row-actions mt">
+                    <span class="hint">This whole gift card value:</span>
+                    @include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.prizes.toggle', $prize), 'destroy' => route('supervisor.inventory.prizes.destroy', $prize), 'name' => $prize->name, 'hidden' => false])
+                </div>
                 <div class="table-wrap mt"><table>
                     <tr><th>Brand</th><th class="num">In box</th><th class="num">Monthly</th><th></th></tr>
                     @forelse ($prize->stocks->where('active', true) as $stock)
@@ -107,10 +111,6 @@
                         <label class="check"><input type="checkbox" name="taxable" value="1" @checked($prize->taxable)> Taxable</label>
                         <button class="btn btn-small btn-teal mt" type="submit">Save</button>
                     </form>
-                    <div class="row-actions mt">
-                        <span class="hint">Remove this whole value:</span>
-                        @include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.prizes.toggle', $prize), 'destroy' => route('supervisor.inventory.prizes.destroy', $prize), 'name' => $prize->name, 'hidden' => false])
-                    </div>
                 </details>
             </div>
         @endforeach

@@ -53,5 +53,6 @@
         @yield('content')
     </main>
 @endif
+@stack('scripts')
 </body>
 </html>

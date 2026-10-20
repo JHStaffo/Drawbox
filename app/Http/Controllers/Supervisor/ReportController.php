@@ -19,7 +19,7 @@ class ReportController extends Controller
             'from' => $from,
             'to' => $to,
             'filters' => $request->only(['user_id', 'status']),
-            'employees' => User::orderBy('name')->get(),
+            'employees' => User::byLastName(User::all()),
             'draws' => $this->query($request, $from, $to)->get(),
             'totals' => $reports->employeeTotals($from, $to),
         ]);

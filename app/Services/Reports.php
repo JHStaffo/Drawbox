@@ -56,7 +56,7 @@ class Reports
                     'pto_hours' => $pto->sum(fn ($d) => (float) $d->pto_hours),
                 ];
             })
-            ->sortBy(fn ($row) => $row['user']->name)
+            ->sortBy(fn ($row) => $row['user']->sortName())
             ->values();
     }
 
@@ -79,7 +79,7 @@ class Reports
                 'nontaxable_cents' => $draws->where('taxable', false)->sum('value_cents'),
                 'pto_hours' => $draws->sum(fn ($d) => (float) $d->pto_hours),
             ])
-            ->sortBy(fn ($row) => $row['user']->name)
+            ->sortBy(fn ($row) => $row['user']->sortName())
             ->values();
     }
 }

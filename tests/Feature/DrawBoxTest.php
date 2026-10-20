@@ -388,9 +388,9 @@ class DrawBoxTest extends TestCase
         $this->actingAs($supervisor)->get('/supervisor')->assertDontSee("/admin/draws/{$draw->id}/edit");
         $this->actingAs($admin)->get('/supervisor')->assertSee("/admin/draws/{$draw->id}/edit");
 
-        $this->actingAs($admin)->put("/admin/draws/{$draw->id}", ['prize_name' => 'Raptor shears (black)', 'value' => 55, 'taxable' => '1'])->assertRedirect('/supervisor');
+        $this->actingAs($admin)->put("/admin/draws/{$draw->id}", ['prize_id' => $shears->id, 'value' => 55, 'taxable' => '1'])->assertRedirect('/supervisor');
         $this->assertSame(5500, $draw->fresh()->value_cents);
-        $this->assertSame('Raptor shears (black)', $draw->fresh()->prize_name);
+        $this->assertSame(0, $shears->fresh()->quantity);
 
         $this->actingAs($admin)->delete("/admin/draws/{$draw->id}")->assertRedirect('/supervisor');
         $this->assertNull($draw->fresh());
@@ -398,16 +398,55 @@ class DrawBoxTest extends TestCase
         $this->assertSame('void', $draw->credit->fresh()->status);
     }
 
-    public function test_won_list_is_sorted_by_employee(): void
+    public function test_admin_changes_a_won_prize_to_a_gift_card_brand_and_the_box_follows(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $shears = Prize::create(['name' => 'Raptor shears', 'type' => 'item', 'value_cents' => 6000, 'quantity' => 1]);
+        $draw = app(DrawMachine::class)->draw($this->credit(User::factory()->create()));
+        $card = Prize::create(['name' => '$25 gift card', 'type' => 'gift_card', 'value_cents' => 2500, 'cash_bonus_allowed' => true]);
+        $amazon = GiftCardStock::create(['prize_id' => $card->id, 'brand' => 'Amazon', 'quantity' => 3]);
+        GiftCardStock::create(['prize_id' => $card->id, 'brand' => 'Wawa', 'quantity' => 2]);
+
+        $this->actingAs($admin)->get("/admin/draws/{$draw->id}/edit")->assertOk()->assertSee('$25 gift card')->assertSee('Wawa');
+
+        $this->actingAs($admin)->put("/admin/draws/{$draw->id}", ['prize_id' => $card->id, 'gift_card_stock_id' => $amazon->id, 'value' => 25, 'taxable' => '1'])
+            ->assertRedirect('/supervisor');
+
+        $draw->refresh();
+        $this->assertSame('$25 gift card', $draw->prize_name);
+        $this->assertSame('gift_card', $draw->prize_type);
+        $this->assertSame('Amazon', $draw->brand);
+        $this->assertSame('won', $draw->status);
+        $this->assertSame(2500, $draw->value_cents);
+        $this->assertSame(1, $shears->fresh()->quantity);
+        $this->assertSame(2, $amazon->fresh()->quantity);
+
+        // Leaving the brand open lets the employee pick, and the Amazon card goes back.
+        $this->actingAs($admin)->put("/admin/draws/{$draw->id}", ['prize_id' => $card->id, 'gift_card_stock_id' => '', 'value' => 25, 'taxable' => '1']);
+        $this->assertSame('pending_brand', $draw->fresh()->status);
+        $this->assertSame(3, $amazon->fresh()->quantity);
+    }
+
+    public function test_won_list_is_sorted_by_last_name(): void
     {
         Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 5]);
-        $zoe = User::factory()->create(['name' => 'Zoe Zimmer']);
-        $amy = User::factory()->create(['name' => 'Amy Adams']);
+        $zoe = User::factory()->create(['name' => 'Amy Zimmer']);
+        $amy = User::factory()->create(['name' => 'Zoe Adams']);
         app(DrawMachine::class)->draw($this->credit($zoe));
         app(DrawMachine::class)->draw($this->credit($amy));
 
         $this->actingAs(User::factory()->role('supervisor')->create())->get('/supervisor')
-            ->assertSeeInOrder(['Amy Adams', 'Zoe Zimmer']);
+            ->assertSeeInOrder(['Zoe Adams', 'Amy Zimmer']);
+    }
+
+    public function test_employees_and_crew_picker_are_in_last_name_order(): void
+    {
+        $admin = User::factory()->role('admin')->create(['name' => 'Mia Middle']);
+        User::factory()->create(['name' => 'Amy Zimmer']);
+        User::factory()->create(['name' => 'Zoe Adams']);
+
+        $this->actingAs($admin)->get('/admin/users')->assertSeeInOrder(['Zoe Adams', 'Mia Middle', 'Amy Zimmer']);
+        $this->actingAs($admin)->get('/dispatch')->assertSeeInOrder(['Zoe Adams', 'Mia Middle', 'Amy Zimmer'])->assertSee('Type a name to search');
     }
 
     public function test_won_by_employee_report_separates_pto(): void
