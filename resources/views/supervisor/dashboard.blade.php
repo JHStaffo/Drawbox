@@ -39,12 +39,7 @@
                                     <button class="btn btn-small btn-teal" type="submit">{{ $draw->cash_bonus ? 'Mark paid' : 'Mark received' }}</button>
                                 </form>
                             @endif
-                            @if (auth()->user()->hasRole('admin'))
-                                <a class="btn btn-small btn-outline" href="{{ route('admin.draws.edit', $draw) }}">Edit</a>
-                                <form method="post" action="{{ route('admin.draws.destroy', $draw) }}" onsubmit="return confirm('Delete this prize from the employee? It goes back in the box and the draw is not given back.')">@csrf @method('delete')
-                                    <button class="btn btn-small btn-outline" style="color:var(--red)" type="submit">Delete</button>
-                                </form>
-                            @endif
+                            @include('admin.partials.draw-actions')
                         </div></td>
                     </tr>
                 @endforeach

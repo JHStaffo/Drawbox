@@ -74,7 +74,7 @@
             <p class="empty">No prizes match.</p>
         @else
             <div class="table-wrap"><table>
-                <tr><th>Drawn</th><th>Employee</th><th>Prize</th><th class="num">Value</th><th>Status</th><th>Handed out by</th></tr>
+                <tr><th>Drawn</th><th>Employee</th><th>Prize</th><th class="num">Value</th><th>Status</th><th>Handed out by</th>@if (auth()->user()->hasRole('admin'))<th></th>@endif</tr>
                 @foreach ($draws as $d)
                     <tr>
                         <td>{{ $d->drawn_at->format('M j, Y') }}</td>
@@ -82,11 +82,14 @@
                         <td>{{ $d->label() }}</td>
                         <td class="num">{{ money($d->value_cents) }}</td>
                         <td>
-                            @if ($d->status === 'awarded')<span class="pill pill-green">Received {{ $d->awarded_at->format('M j') }}</span>
+                            @if ($d->status === 'awarded')<span class="pill pill-green">{{ $d->cash_bonus ? 'Paid' : 'Received' }} {{ $d->awarded_at->format('M j') }}</span>
                             @elseif ($d->status === 'pending_brand')<span class="pill pill-teal">Picking brand</span>
                             @else<span class="pill">Not handed out</span>@endif
                         </td>
                         <td>{{ $d->awarder?->name }}</td>
+                        @if (auth()->user()->hasRole('admin'))
+                            <td class="right"><div class="row-actions" style="justify-content:flex-end;flex-wrap:nowrap">@include('admin.partials.draw-actions', ['draw' => $d])</div></td>
+                        @endif
                     </tr>
                 @endforeach
             </table></div>

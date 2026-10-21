@@ -427,6 +427,24 @@ class DrawBoxTest extends TestCase
         $this->assertSame(3, $amazon->fresh()->quantity);
     }
 
+    public function test_admin_deletes_a_prize_already_handed_out_from_the_reports(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $shears = Prize::create(['name' => 'Raptor shears', 'type' => 'item', 'value_cents' => 6000, 'quantity' => 1]);
+        $draw = app(DrawMachine::class)->draw($this->credit(User::factory()->create(['name' => 'Pat Medic'])));
+        $this->actingAs($admin)->post(route('supervisor.award', $draw));
+        $this->assertSame('awarded', $draw->fresh()->status);
+
+        $this->actingAs($admin)->get('/supervisor/reports')->assertSee("/admin/draws/{$draw->id}/edit");
+        $this->actingAs($admin)->get('/supervisor/reports/won')->assertSee("/admin/draws/{$draw->id}/edit");
+        $this->actingAs(User::factory()->role('supervisor')->create())->get('/supervisor/reports')->assertDontSee("/admin/draws/{$draw->id}/edit");
+
+        $this->actingAs($admin)->from('/supervisor/reports')->delete("/admin/draws/{$draw->id}")->assertRedirect('/supervisor/reports');
+        $this->assertNull($draw->fresh());
+        $this->assertSame(0, $shears->fresh()->quantity);
+        $this->assertSame(0, app(\App\Services\Reports::class)->wonByEmployee(now()->subDay()->toImmutable(), now()->addDay()->toImmutable())->count());
+    }
+
     public function test_won_list_is_sorted_by_last_name(): void
     {
         Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 5]);
