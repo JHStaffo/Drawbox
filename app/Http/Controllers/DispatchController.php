@@ -15,7 +15,7 @@ class DispatchController extends Controller
     {
         return view('dispatch.create', [
             'employees' => User::byLastName(User::where('active', true)->get()),
-            'recent' => Call::with('credits.user')->latest()->limit(10)->get(),
+            'recent' => Call::with('credits.user', 'credits.draw')->latest()->limit(10)->get(),
             'windowDays' => Setting::get('draw_window_days'),
         ]);
     }
@@ -39,5 +39,19 @@ class DispatchController extends Controller
 
         return redirect()->route('dispatch.create')
             ->with('status', 'Credited '.$call->credits()->count().' crew member(s) for the call at '.$call->location.'.');
+    }
+
+    /** Take back a call credited by mistake, as long as nobody has drawn from it yet. */
+    public function destroy(Call $call)
+    {
+        $drawn = $call->credits()->whereHas('draw')->with('user')->get();
+        if ($drawn->isNotEmpty()) {
+            return back()->withErrors(['undo' => $drawn->pluck('user.name')->join(', ').' already drew from this call, so it can\'t be undone. A supervisor can remove that draw from the dashboard.']);
+        }
+
+        $call->delete();
+
+        return redirect()->route('dispatch.create')
+            ->with('status', 'Undid the credit for the call at '.$call->location.'.');
     }
 }
