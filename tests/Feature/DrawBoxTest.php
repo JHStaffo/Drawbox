@@ -436,6 +436,33 @@ class DrawBoxTest extends TestCase
         $this->assertFalse($draw->fresh()->cash_bonus);
     }
 
+    public function test_admin_imports_team_members_from_a_csv(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        User::factory()->role('supervisor')->create(['email' => 'boss@example.com']);
+        $csv = "\xEF\xBB\xBFFirst Name,Last Name,Email\r\n"
+            ."Amy,Zimmer,Amy@Example.com\r\n"
+            ."\"Mary Jo\",O'Neil,maryjo@example.com\r\n"
+            ."Boss,Person,boss@example.com\r\n"
+            ."No,Email,\r\n"
+            .",,\r\n"
+            ."Amy,Again,amy@example.com\r\n";
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('team.csv', $csv);
+
+        $this->actingAs($admin)->post('/admin/users/import', ['file' => $file])
+            ->assertSessionHas('status', 'Added 2 team member(s). Skipped 2 already on the roster. Skipped line(s) 5 with a missing name or email.');
+
+        $this->assertSame('employee', User::where('email', 'amy@example.com')->value('role'));
+        $this->assertSame("Mary Jo O'Neil", User::where('email', 'maryjo@example.com')->value('name'));
+        $this->assertSame('supervisor', User::where('email', 'boss@example.com')->value('role'));
+        $this->assertSame(4, User::count());
+
+        $headerless = \Illuminate\Http\UploadedFile::fake()->createWithContent('team.csv', "Sam,Crew,sam@example.com\n");
+        $this->actingAs($admin)->post('/admin/users/import', ['file' => $headerless])->assertSessionHas('status', 'Added 1 team member(s).');
+
+        $this->actingAs(User::factory()->role('supervisor')->create())->post('/admin/users/import', ['file' => $headerless])->assertForbidden();
+    }
+
     public function test_admin_can_edit_and_delete_a_won_prize_but_supervisor_cannot(): void
     {
         $admin = User::factory()->role('admin')->create();

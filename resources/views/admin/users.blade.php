@@ -22,6 +22,15 @@
         </form>
     </div>
 
+    <div class="card">
+        <h2>Import from a CSV</h2>
+        <p class="hint">Use a file with First Name, Last Name and Email columns. Everyone is added as a Team Member, and anyone whose email is already on the roster is skipped.</p>
+        <form method="post" action="{{ route('admin.users.import') }}" enctype="multipart/form-data">@csrf
+            <div class="field"><input type="file" name="file" accept=".csv,text/csv" required></div>
+            <button class="btn btn-teal" type="submit">Import team members</button>
+        </form>
+    </div>
+
     @php($active = $users->where('active', true))
     @php($inactive = $users->where('active', false))
     <div class="card">
