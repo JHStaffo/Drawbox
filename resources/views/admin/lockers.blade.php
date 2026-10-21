@@ -7,7 +7,7 @@
 
 @section('content')
 <div class="stack">
-    <div class="legend"><span class="l-open">Open</span><span class="l-taken">In use</span><span class="l-forfeited">Forfeited, needs emptying</span></div>
+    <div class="legend"><span class="l-open">Open</span><span class="l-taken">In use</span><span class="l-overdue">Overdue, a supervisor needs to check it</span></div>
     @foreach ($offices as $office)
         <div class="card">
             <h2>{{ $office['name'] }} office</h2>

@@ -92,35 +92,23 @@ class Lockers
     }
 
     /**
-     * Forfeit lockers past their pickup date. Their prizes go straight back in
-     * the box; the locker stays marked until a supervisor empties it.
-     * Returns how many lockers were forfeited.
+     * A supervisor checked an overdue locker and the prizes were still in it.
+     * They're forfeited, go back in the box, and the locker is open again.
      */
-    public function forfeitOverdue(): int
+    public function forfeit(LockerAssignment $assignment, User $by): void
     {
-        $count = 0;
-        foreach (LockerAssignment::waiting()->where('due_at', '<=', now())->with('locker', 'user', 'draws.prize', 'draws.user')->get() as $assignment) {
-            DB::transaction(function () use ($assignment) {
-                foreach ($assignment->draws->where('status', 'in_locker') as $draw) {
-                    $this->machine->returnToBox($draw, null, "Returned: {$assignment->user->name} didn't pick up from locker {$assignment->locker->number}");
-                }
-                $assignment->update(['forfeited_at' => now()]);
-                $assignment->draws()->where('status', 'in_locker')->update(['status' => 'forfeited']);
-            });
-            $count++;
-        }
+        DB::transaction(function () use ($assignment, $by) {
+            $assignment = LockerAssignment::with('locker', 'user', 'draws.prize', 'draws.user')->lockForUpdate()->findOrFail($assignment->id);
+            if (! $assignment->isOverdue()) {
+                throw new RuntimeException('Only a locker past its pickup date can be forfeited.');
+            }
 
-        return $count;
-    }
-
-    /** A supervisor took forfeited prizes out of a locker, so it's open again. */
-    public function clear(LockerAssignment $assignment, User $by): void
-    {
-        $assignment = LockerAssignment::findOrFail($assignment->id);
-        if (! $assignment->isForfeited()) {
-            throw new RuntimeException('Only a forfeited locker can be emptied.');
-        }
-        $assignment->update(['cleared_at' => now()]);
+            foreach ($assignment->draws->where('status', 'in_locker') as $draw) {
+                $this->machine->returnToBox($draw, $by, "Returned: {$assignment->user->name} didn't pick up from locker {$assignment->locker->number}");
+            }
+            $assignment->draws()->where('status', 'in_locker')->update(['status' => 'forfeited']);
+            $assignment->update(['forfeited_at' => now(), 'cleared_at' => now()]);
+        });
     }
 
     /** Each office's lockers with what's in them now, for the maps. */

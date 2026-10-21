@@ -2,14 +2,12 @@
 
 use App\Models\User;
 use App\Services\Credits;
-use App\Services\Lockers;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('drawbox:expire', function (Credits $credits, Lockers $lockers) {
+Artisan::command('drawbox:expire', function (Credits $credits) {
     $this->info('Expired '.$credits->expireOverdue().' draw(s).');
-    $this->info('Forfeited '.$lockers->forfeitOverdue().' locker(s).');
-})->purpose('Mark draws and locker pickups past their window as expired or forfeited');
+})->purpose('Mark draws past their window as expired');
 
 Artisan::command('drawbox:remind', function (Credits $credits) {
     $this->info('Sent '.$credits->sendReminders().' reminder(s).');

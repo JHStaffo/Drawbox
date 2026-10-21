@@ -571,7 +571,7 @@ class DrawBoxTest extends TestCase
         Notification::assertNotSentTo($pat, PrizesInLocker::class);
     }
 
-    public function test_locker_dispense_pickup_and_forfeit(): void
+    public function test_locker_dispense_pickup_and_supervisor_forfeit(): void
     {
         $supervisor = User::factory()->role('supervisor')->create();
         $pat = User::factory()->create(['name' => 'Pat Medic']);
@@ -612,21 +612,43 @@ class DrawBoxTest extends TestCase
         $this->assertSame($supervisor->id, $first->fresh()->awarded_by);
         $this->assertNull($locker->fresh()->current);
 
-        // A second batch for the other employee is never picked up and is forfeited back into the box.
+        // Past the pickup date nothing happens on its own; a supervisor checks the locker.
         app(Lockers::class)->dispense($other, [$second->id], $supervisor, $locker, '1 2 3');
         $this->assertSame(0, $shears->fresh()->quantity);
+        $current = $locker->fresh()->current;
+        $this->actingAs($supervisor)->post("/supervisor/lockers/{$current->id}/forfeit")->assertSessionHas('error');
         $this->travel(8)->days();
         $this->artisan('drawbox:expire')->assertSuccessful();
-        $this->assertSame('forfeited', $second->fresh()->status);
-        $this->assertSame(1, $shears->fresh()->quantity);
-        $this->assertTrue($locker->fresh()->current->isForfeited());
+        $this->assertSame('in_locker', $second->fresh()->status);
+        $this->assertTrue($current->fresh()->isOverdue());
+        $this->actingAs($other)->get('/')->assertSee('has run out');
 
         $admin = User::factory()->role('admin')->create();
-        $this->actingAs($admin)->get('/admin/lockers')->assertOk()->assertSee('Forfeited')->assertSee('1 2 3');
-        $this->actingAs($supervisor)->post("/supervisor/lockers/{$locker->current->id}/clear")->assertRedirect();
-        $this->assertNull($locker->fresh()->current);
+        $this->actingAs($admin)->get('/admin/lockers')->assertOk()->assertSee('Overdue')->assertSee('1 2 3');
+        $this->actingAs($supervisor)->get('/supervisor')->assertSee('Still full, forfeit')->assertSee('Empty, picked up');
+
+        // Still full: forfeited back into the box, and the locker is open again.
+        $this->actingAs($supervisor)->post("/supervisor/lockers/{$current->id}/forfeit")->assertRedirect();
+        $this->assertSame('forfeited', $second->fresh()->status);
+        $this->assertNull($second->fresh()->awarded_at);
         $this->assertSame(1, $shears->fresh()->quantity);
+        $this->assertNull($locker->fresh()->current);
         $this->actingAs($admin)->get('/admin/lockers')->assertSee('Last: '.$other->name, false);
+    }
+
+    public function test_overdue_locker_found_empty_counts_as_picked_up(): void
+    {
+        $supervisor = User::factory()->role('supervisor')->create();
+        $pat = User::factory()->create();
+        $shears = Prize::create(['name' => 'Raptor shears', 'type' => 'item', 'value_cents' => 6000, 'quantity' => 1]);
+        $draw = app(DrawMachine::class)->draw($this->credit($pat));
+        $assignment = app(Lockers::class)->dispense($pat, [$draw->id], $supervisor, Locker::where('number', 100)->first(), '4 5 6');
+
+        $this->travel(10)->days();
+        $this->actingAs($supervisor)->post("/supervisor/lockers/{$assignment->id}/picked-up")->assertRedirect();
+        $this->assertSame('awarded', $draw->fresh()->status);
+        $this->assertSame(0, $shears->fresh()->quantity);
+        $this->assertNull(Locker::where('number', 100)->first()->current);
     }
 
     public function test_pto_and_cash_bonus_cannot_go_in_a_locker(): void

@@ -87,13 +87,16 @@ document.querySelectorAll('.check-all').forEach(function (all) {
                         <td>{{ $a->user->name }}</td>
                         <td>{{ $a->draws->map->label()->join(', ') }}</td>
                         <td>
-                            @if ($a->isForfeited())<span class="pill pill-red">Forfeited</span>
+                            @if ($a->isOverdue())<span class="pill pill-red">Overdue, check locker</span>
                             @else{{ $a->due_at->format('M j') }} <span class="hint">({{ $a->daysLeft() }} {{ Str::plural('day', $a->daysLeft()) }} left)</span>@endif
                         </td>
                         <td class="right"><div class="row-actions" style="justify-content:flex-end">
-                            @if ($a->isForfeited())
-                                <form method="post" action="{{ route('supervisor.lockers.clear', $a) }}" onsubmit="return confirm(@js('Did you take the forfeited prizes out of locker '.$a->locker->number.'? It will show as open again.'))">@csrf
-                                    <button class="btn btn-small btn-teal" type="submit">Emptied</button>
+                            @if ($a->isOverdue())
+                                <form method="post" action="{{ route('supervisor.lockers.picked-up', $a) }}" onsubmit="return confirm(@js('Locker '.$a->locker->number.' was empty? '.$a->user->name.'\'s prizes will be marked as picked up.'))">@csrf
+                                    <button class="btn btn-small btn-teal" type="submit">Empty, picked up</button>
+                                </form>
+                                <form method="post" action="{{ route('supervisor.lockers.forfeit', $a) }}" onsubmit="return confirm(@js('Prizes still in locker '.$a->locker->number.'? Take them out. They will be forfeited and go back in the box.'))">@csrf
+                                    <button class="btn btn-small btn-outline" style="color:var(--red)" type="submit">Still full, forfeit</button>
                                 </form>
                             @else
                                 <form method="post" action="{{ route('supervisor.lockers.picked-up', $a) }}" onsubmit="return confirm(@js('Mark locker '.$a->locker->number.' as picked up by '.$a->user->name.'?'))">@csrf
