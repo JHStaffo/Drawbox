@@ -52,7 +52,7 @@ class ReportController extends Controller
         }
 
         return $this->csv("prizes-won-{$from->toDateString()}-to-{$to->toDateString()}.csv", [
-            'Employee', 'Employee #', 'Drawn', 'Prize', 'Value', 'PTO hours', 'Status',
+            'Team Member', 'Team Member #', 'Drawn', 'Prize', 'Value', 'PTO hours', 'Status',
         ], $lines);
     }
 
@@ -79,7 +79,7 @@ class ReportController extends Controller
         ]);
 
         return $this->csv("prizes-{$from->toDateString()}-to-{$to->toDateString()}.csv", [
-            'Drawn', 'Employee', 'Employee #', 'Prize', 'Value', 'PTO hours', 'Taxable',
+            'Drawn', 'Team Member', 'Team Member #', 'Prize', 'Value', 'PTO hours', 'Taxable',
             'Cash bonus', 'Status', 'Received', 'Handed out by', 'Call location', 'Call time',
         ], $rows);
     }
@@ -93,8 +93,8 @@ class ReportController extends Controller
             number_format($r['nontaxable_cents'] / 100, 2), $r['pto_hours'],
         ]);
 
-        return $this->csv("employee-totals-{$from->toDateString()}-to-{$to->toDateString()}.csv", [
-            'Employee', 'Employee #', 'Email', 'Prizes received', 'Taxable value', 'Of which cash bonus', 'Non-taxable value', 'PTO hours',
+        return $this->csv("team-member-totals-{$from->toDateString()}-to-{$to->toDateString()}.csv", [
+            'Team Member', 'Team Member #', 'Email', 'Prizes received', 'Taxable value', 'Of which cash bonus', 'Non-taxable value', 'PTO hours',
         ], $rows);
     }
 

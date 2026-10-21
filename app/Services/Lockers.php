@@ -29,7 +29,7 @@ class Lockers
         $assignment = DB::transaction(function () use ($employee, $drawIds, $by, $locker, $combination) {
             $draws = Draw::lockForUpdate()->whereKey($drawIds)->where('user_id', $employee->id)->get();
             if ($draws->isEmpty() || $draws->count() !== count(array_unique($drawIds))) {
-                throw new RuntimeException('Pick at least one of this employee\'s prizes.');
+                throw new RuntimeException('Pick at least one of this team member\'s prizes.');
             }
             if ($draws->contains(fn (Draw $d) => $d->status !== 'won')) {
                 throw new RuntimeException('Some of those prizes were already handed out.');

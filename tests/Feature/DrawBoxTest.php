@@ -575,7 +575,7 @@ class DrawBoxTest extends TestCase
     {
         $supervisor = User::factory()->role('supervisor')->create();
         $pat = User::factory()->create(['name' => 'Pat Medic']);
-        $other = User::factory()->create();
+        $other = User::factory()->create(['name' => 'Chris Other']);
         $shears = Prize::create(['name' => 'Raptor shears', 'type' => 'item', 'value_cents' => 6000, 'quantity' => 2]);
         $first = app(DrawMachine::class)->draw($this->credit($pat));
         $locker = Locker::where('number', 23)->first();
@@ -663,6 +663,17 @@ class DrawBoxTest extends TestCase
             'draws' => [$pto->id], 'method' => 'locker', 'office' => 'main', 'locker_id' => Locker::where('number', 1)->value('id'), 'combination' => [1, 2, 3],
         ])->assertSessionHas('error');
         $this->assertSame('won', $pto->fresh()->status);
+    }
+
+    public function test_inactive_team_members_are_listed_below_the_roster(): void
+    {
+        $admin = User::factory()->role('admin')->create(['name' => 'Mia Middle']);
+        User::factory()->create(['name' => 'Zoe Adams', 'active' => false]);
+        User::factory()->create(['name' => 'Amy Zimmer']);
+
+        $this->actingAs($admin)->get('/admin/users')
+            ->assertSee('Roster (2 active)')
+            ->assertSeeInOrder(['Mia Middle', 'Amy Zimmer', 'Inactive team members (1)', 'Zoe Adams']);
     }
 
     public function test_pages_render(): void

@@ -1,7 +1,7 @@
-@extends('layouts.app', ['title' => 'Prizes won by employee'])
+@extends('layouts.app', ['title' => 'Prizes won by team member'])
 
 @section('band')
-    <h1>Prizes won by employee</h1>
+    <h1>Prizes won by team member</h1>
     <p>Every prize drawn from {{ $from->format('M j, Y') }} to {{ $to->format('M j, Y') }}, whether or not it has been handed out yet.</p>
 @endsection
 
@@ -26,7 +26,7 @@
         <div class="card">
             <h2>Summary</h2>
             <div class="table-wrap"><table>
-                <tr><th>Employee</th><th class="num">Prizes</th><th class="num">Prize value</th><th class="num">PTO hours</th></tr>
+                <tr><th>Team Member</th><th class="num">Prizes</th><th class="num">Prize value</th><th class="num">PTO hours</th></tr>
                 @foreach ($rows as $r)
                     <tr><td>{{ $r['user']->name }}</td><td class="num">{{ $r['count'] }}</td><td class="num">{{ money($r['value_cents']) }}</td><td class="num">{{ $r['pto_hours'] + 0 }}</td></tr>
                 @endforeach

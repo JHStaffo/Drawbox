@@ -13,7 +13,7 @@
             <div class="field"><label for="from">From</label><input id="from" type="date" name="from" value="{{ $from->toDateString() }}"></div>
             <div class="field"><label for="to">To</label><input id="to" type="date" name="to" value="{{ $to->toDateString() }}"></div>
             <div class="field">
-                <label for="user_id">Employee</label>
+                <label for="user_id">Team Member</label>
                 <select id="user_id" name="user_id">
                     <option value="">Everyone</option>
                     @foreach ($employees as $e)<option value="{{ $e->id }}" @selected(($filters['user_id'] ?? '') == $e->id)>{{ $e->name }}</option>@endforeach
@@ -33,21 +33,21 @@
         <div class="row-actions">
             <button class="btn" type="submit">Run report</button>
             <a class="btn btn-outline" href="{{ route('supervisor.reports.prizes', $query) }}">Download prizes CSV</a>
-            <a class="btn btn-outline" href="{{ route('supervisor.reports.won', ['from' => $from->toDateString(), 'to' => $to->toDateString()]) }}">Prizes won by employee</a>
+            <a class="btn btn-outline" href="{{ route('supervisor.reports.won', ['from' => $from->toDateString(), 'to' => $to->toDateString()]) }}">Prizes won by team member</a>
         </div>
     </form>
 
     <div class="card">
         <div class="row-actions" style="justify-content:space-between">
-            <h2 style="margin:0">Value received per employee (for taxes)</h2>
+            <h2 style="margin:0">Value received per team member (for taxes)</h2>
             <a class="btn btn-small btn-outline" href="{{ route('supervisor.reports.employees', $query) }}">Download CSV</a>
         </div>
-        <p class="hint mt">Counts prizes by the date the employee received them. Each prize's value is what it was worth when drawn.</p>
+        <p class="hint mt">Counts prizes by the date the team member received them. Each prize's value is what it was worth when drawn.</p>
         @if ($totals->isEmpty())
             <p class="empty">No prizes received in this range.</p>
         @else
             <div class="table-wrap"><table>
-                <tr><th>Employee</th><th class="num">Prizes</th><th class="num">Taxable</th><th class="num">Of which cash bonus</th><th class="num">Non-taxable</th><th class="num">PTO hrs</th></tr>
+                <tr><th>Team Member</th><th class="num">Prizes</th><th class="num">Taxable</th><th class="num">Of which cash bonus</th><th class="num">Non-taxable</th><th class="num">PTO hrs</th></tr>
                 @foreach ($totals as $t)
                     <tr>
                         <td>{{ $t['user']->name }}</td>
@@ -76,7 +76,7 @@
             <p class="empty">No prizes match.</p>
         @else
             <div class="table-wrap"><table>
-                <tr><th>Drawn</th><th>Employee</th><th>Prize</th><th class="num">Value</th><th>Status</th><th>Handed out by</th>@if (auth()->user()->hasRole('admin'))<th></th>@endif</tr>
+                <tr><th>Drawn</th><th>Team Member</th><th>Prize</th><th class="num">Value</th><th>Status</th><th>Handed out by</th>@if (auth()->user()->hasRole('admin'))<th></th>@endif</tr>
                 @foreach ($draws as $d)
                     <tr>
                         <td>{{ $d->drawn_at->format('M j, Y') }}</td>
