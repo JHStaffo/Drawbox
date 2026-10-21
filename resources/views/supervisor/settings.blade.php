@@ -14,7 +14,7 @@
     <div class="field">
         <label for="locker_pickup_days">Locker pickup window (days)</label>
         <input id="locker_pickup_days" type="number" min="1" max="90" name="locker_pickup_days" value="{{ $lockerPickupDays }}" required>
-        <div class="hint">How long a crew member has to pick up prizes left in a locker. After that the prizes are forfeited and go back in the box. Changes apply to prizes put in lockers from now on.</div>
+        <div class="hint">How long a crew member has to pick up prizes left in a locker. After that, a supervisor checks the locker: if it's empty the prizes count as picked up, and if they're still there they're forfeited and go back in the box. Changes apply to prizes put in lockers from now on.</div>
     </div>
     <div class="field">
         <input type="hidden" name="expiry_reminder_enabled" value="0">

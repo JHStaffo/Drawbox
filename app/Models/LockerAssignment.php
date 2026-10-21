@@ -32,9 +32,10 @@ class LockerAssignment extends Model
         return ! $this->picked_up_at && ! $this->forfeited_at && ! $this->cleared_at;
     }
 
-    public function isForfeited(): bool
+    /** Past the pickup date and still waiting for a supervisor to check the locker. */
+    public function isOverdue(): bool
     {
-        return $this->forfeited_at && ! $this->cleared_at;
+        return $this->isWaiting() && $this->due_at->isPast();
     }
 
     /** Calendar days until the pickup date. The last day still counts as one. */

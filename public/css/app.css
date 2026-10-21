@@ -184,7 +184,7 @@ details > summary { cursor: pointer; color: var(--blue); font-weight: 600; }
 .locker-combo { font-family: ui-monospace, monospace; }
 .locker-who, .locker-combo { padding-right: 12px; }
 .locker-taken { background: linear-gradient(180deg, #f6d9db, #e8b5b8); }
-.locker-forfeited { background: linear-gradient(180deg, #fbe8c8, #f0cf93); }
+.locker-overdue { background: linear-gradient(180deg, #fbe8c8, #f0cf93); }
 label.locker { cursor: pointer; }
 label.locker input { position: absolute; opacity: 0; pointer-events: none; }
 label.locker-open:hover { outline: 3px solid var(--teal); }
@@ -198,4 +198,4 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; border: 1px solid #3f4c57; }
 .legend .l-open::before { background: #dfe6ec; }
 .legend .l-taken::before { background: #e8b5b8; }
-.legend .l-forfeited::before { background: #f0cf93; }
+.legend .l-overdue::before { background: #f0cf93; }

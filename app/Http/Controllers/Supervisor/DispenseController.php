@@ -74,14 +74,14 @@ class DispenseController extends Controller
         return back()->with('status', "Marked locker {$assignment->locker->number} as picked up by {$assignment->user->name}.");
     }
 
-    public function clear(Request $request, LockerAssignment $assignment, Lockers $lockers)
+    public function forfeit(Request $request, LockerAssignment $assignment, Lockers $lockers)
     {
         try {
-            $lockers->clear($assignment, $request->user());
+            $lockers->forfeit($assignment, $request->user());
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('status', "Locker {$assignment->locker->number} is open again.");
+        return back()->with('status', "{$assignment->user->name}'s prizes from locker {$assignment->locker->number} are forfeited and back in the box. The locker is open again.");
     }
 }

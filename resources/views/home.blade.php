@@ -16,7 +16,11 @@
 <div class="stack">
     @foreach ($lockers as $a)
         <div class="card locker-banner">
-            <p style="margin:0 0 8px">You have prizes waiting in <strong>locker {{ $a->locker->number }}</strong> at the <strong>{{ $a->locker->officeName() }}</strong> office. Use combination <span class="combo-big">{{ $a->combination }}</span> to open it. You have <strong>{{ $a->daysLeft() }} {{ Str::plural('day', $a->daysLeft()) }}</strong> left to retrieve your prizes before they are forfeited.</p>
+            @if ($a->isOverdue())
+                <p style="margin:0 0 8px">Your time to pick up the prizes in <strong>locker {{ $a->locker->number }}</strong> at the <strong>{{ $a->locker->officeName() }}</strong> office has run out. If you already took them, press Picked Up. Otherwise a supervisor will check the locker, and prizes still in it are forfeited.</p>
+            @else
+                <p style="margin:0 0 8px">You have prizes waiting in <strong>locker {{ $a->locker->number }}</strong> at the <strong>{{ $a->locker->officeName() }}</strong> office. Use combination <span class="combo-big">{{ $a->combination }}</span> to open it. You have <strong>{{ $a->daysLeft() }} {{ Str::plural('day', $a->daysLeft()) }}</strong> left to retrieve your prizes before they are forfeited.</p>
+            @endif
             <div class="row-actions" style="justify-content:space-between">
                 <span class="hint">{{ $a->draws->map->label()->join(', ') }}</span>
                 <form method="post" action="{{ route('lockers.picked-up', $a) }}">@csrf

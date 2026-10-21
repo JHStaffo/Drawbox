@@ -45,7 +45,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/dispense/{user}', [DispenseController::class, 'create'])->name('dispense');
         Route::post('/dispense/{user}', [DispenseController::class, 'store'])->name('dispense.store');
         Route::post('/lockers/{assignment}/picked-up', [DispenseController::class, 'pickUp'])->name('lockers.picked-up');
-        Route::post('/lockers/{assignment}/clear', [DispenseController::class, 'clear'])->name('lockers.clear');
+        Route::post('/lockers/{assignment}/forfeit', [DispenseController::class, 'forfeit'])->name('lockers.forfeit');
 
         Route::get('/reports', [ReportController::class, 'index'])->name('reports');
         Route::get('/reports/won', [ReportController::class, 'won'])->name('reports.won');
