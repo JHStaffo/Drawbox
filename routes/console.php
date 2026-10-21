@@ -9,6 +9,10 @@ Artisan::command('drawbox:expire', function (Credits $credits) {
     $this->info('Expired '.$credits->expireOverdue().' draw(s).');
 })->purpose('Mark draws past their window as expired');
 
+Artisan::command('drawbox:notify', function (Credits $credits) {
+    $this->info('Sent '.$credits->sendNewDrawNotices().' new-draw email(s).');
+})->purpose('Email team members about draws they earned since the last run');
+
 Artisan::command('drawbox:remind', function (Credits $credits) {
     $this->info('Sent '.$credits->sendReminders().' reminder(s).');
 })->purpose('Email team members whose draws expire within 24 hours');
@@ -19,4 +23,5 @@ Artisan::command('drawbox:make-admin {email} {name}', function (string $email, s
 })->purpose('Create or promote an admin account');
 
 Schedule::command('drawbox:expire')->everyFifteenMinutes();
+Schedule::command('drawbox:notify')->everyTwoHours();
 Schedule::command('drawbox:remind')->hourly();

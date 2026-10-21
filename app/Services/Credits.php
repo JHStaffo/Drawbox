@@ -13,10 +13,10 @@ use Throwable;
 
 class Credits
 {
-    /** Record a solicited call and give each crew member a draw. */
+    /** Record a solicited call and give each crew member a draw. The email goes out with the next batch. */
     public function creditCall(array $call, array $crewIds, User $by): Call
     {
-        $call = DB::transaction(function () use ($call, $crewIds, $by) {
+        return DB::transaction(function () use ($call, $crewIds, $by) {
             $call = Call::create($call + ['created_by' => $by->id]);
             $expires = now()->addDays((int) Setting::get('draw_window_days'))->endOfDay();
 
@@ -26,17 +26,34 @@ class Credits
 
             return $call;
         });
+    }
 
-        // The credits are saved either way; a mail outage only skips the heads-up email.
-        foreach ($call->credits()->with('user')->get() as $credit) {
+    /**
+     * Email each team member once about the draws they earned since the last
+     * run. Runs every two hours, so a credit undone by dispatch in the
+     * meantime never sends an email. Returns the number of emails sent.
+     */
+    public function sendNewDrawNotices(): int
+    {
+        $byUser = DrawCredit::available()
+            ->whereNull('notified_at')
+            ->with('user', 'call')->get()
+            ->groupBy('user_id');
+
+        $sent = 0;
+        foreach ($byUser as $credits) {
             try {
-                $credit->user->notify(new DrawCredited($credit));
+                $credits->first()->user->notify(new DrawCredited($credits));
             } catch (Throwable $e) {
-                report($e);
+                report($e); // Not marked as notified, so the next run tries again.
+
+                continue;
             }
+            DrawCredit::whereKey($credits->modelKeys())->update(['notified_at' => now()]);
+            $sent++;
         }
 
-        return $call;
+        return $sent;
     }
 
     public function expireOverdue(): int

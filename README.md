@@ -8,6 +8,7 @@ Fast Track EMS's draw box, online. Dispatch credits a crew for a solicited call,
 - Each prize has a **Diminishing** checkbox. Drawing a diminishing prize uses up one envelope. Non-diminishing prizes (candy, snack) keep the same count, so the count only sets their odds, and restock skips them.
 - The home page, dashboard and inventory page all show the current dollar value of the box: every envelope left times its prize value. Prizes already won are not included.
 - Prizes with **Cash bonus OK** checked let the winner choose "Issue as taxable cash bonus" instead, any time before the prize is handed out. The bonus equals the prize's value and is always taxable. Whatever the prize took out of the box (an item or a gift card) goes back in. Supervisors mark it paid, and the tax report shows cash bonuses in their own column.
+- Crew members aren't emailed the moment dispatch credits them. Every 2 hours, each team member with new draws gets one email listing them, so a credit undone in the meantime never sends anything.
 - When the setting is on, each employee gets one email listing all of their draws that expire within the next 24 hours (checked hourly).
 - Each gift card value (for example $50) gets as many envelopes as there are brand cards in stock at that value. After winning a value, the employee picks a brand. Their card is held for them until they choose, so nobody else can take it.
 - Draws happen on the server, are final, and are logged in the inventory change log.
@@ -82,7 +83,7 @@ Run the tests with `php artisan test`.
    php artisan drawbox:make-admin you@fasttrackems.com "Your Name"
    php artisan config:cache && php artisan route:cache && php artisan view:cache
    ```
-6. **Cron:** in cPanel's Cron Jobs, add a job that runs every minute. It expires overdue draws and sends reminder emails.
+6. **Cron:** in cPanel's Cron Jobs, add a job that runs every minute. It expires overdue draws and sends the new-draw emails (every 2 hours) and reminder emails.
    ```
    * * * * * cd ~/drawbox && php artisan schedule:run >> /dev/null 2>&1
    ```

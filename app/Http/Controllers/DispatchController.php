@@ -38,7 +38,7 @@ class DispatchController extends Controller
         );
 
         return redirect()->route('dispatch.create')
-            ->with('status', 'Credited '.$call->credits()->count().' crew member(s) for the call at '.$call->location.'.');
+            ->with('status', 'Credited '.$call->credits()->count().' crew member(s) for the call at '.$call->location.'. They\'ll get an email with the next batch, sent every 2 hours.');
     }
 
     /** Take back a call credited by mistake, as long as nobody has drawn from it yet. */
