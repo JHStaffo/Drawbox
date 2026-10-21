@@ -312,6 +312,25 @@ class DrawBoxTest extends TestCase
         $this->assertSame(5, $prize->fresh()->quantity);
     }
 
+    public function test_saving_quantities_from_the_inventory_page(): void
+    {
+        $supervisor = User::factory()->role('supervisor')->create();
+        $candy = Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 5]);
+        $card = Prize::create(['name' => '$10 gift card', 'type' => 'gift_card', 'value_cents' => 1000]);
+        $stock = GiftCardStock::create(['prize_id' => $card->id, 'brand' => 'Wawa', 'quantity' => 1, 'monthly_quantity' => 2]);
+
+        // Exactly the fields the inventory page posts for each row.
+        $this->actingAs($supervisor)->from('/supervisor/inventory')
+            ->put("/supervisor/inventory/brands/{$stock->id}", ['quantity' => 4, 'monthly_quantity' => 2])
+            ->assertRedirect('/supervisor/inventory');
+        $this->assertSame(4, $stock->fresh()->quantity);
+
+        $this->actingAs($supervisor)->from('/supervisor/inventory')
+            ->put("/supervisor/inventory/prizes/{$candy->id}", ['type' => 'item', 'name' => 'Candy', 'value' => 0, 'quantity' => 9, 'diminishing' => '0', 'cash_bonus_allowed' => '0', 'taxable' => '0'])
+            ->assertRedirect('/supervisor/inventory');
+        $this->assertSame(9, $candy->fresh()->quantity);
+    }
+
     public function test_supervisor_changes_draw_window(): void
     {
         $supervisor = User::factory()->role('supervisor')->create();
