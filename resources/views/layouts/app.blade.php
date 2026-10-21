@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Oswald:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=2">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ @filemtime(public_path('css/app.css')) }}">
     <link rel="icon" href="{{ asset('images/logo.png') }}">
 </head>
 <body>
@@ -29,7 +29,8 @@
                     <a href="{{ route('supervisor.settings') }}" @class(['active' => request()->routeIs('supervisor.settings')])>Settings</a>
                 @endif
                 @if ($u->hasRole('admin'))
-                    <a href="{{ route('admin.users') }}" @class(['active' => request()->routeIs('admin.*')])>Employees</a>
+                    <a href="{{ route('admin.lockers') }}" @class(['active' => request()->routeIs('admin.lockers')])>Lockers</a>
+                    <a href="{{ route('admin.users') }}" @class(['active' => request()->routeIs('admin.users*', 'admin.draws.*')])>Employees</a>
                 @endif
                 <form method="post" action="{{ route('logout') }}">@csrf<button type="submit">Sign out</button></form>
             </nav>

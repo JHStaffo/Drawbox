@@ -1,13 +1,16 @@
 <?php
 
 use App\Http\Controllers\Admin\DrawController as AdminDrawController;
+use App\Http\Controllers\Admin\LockerController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DispatchController;
 use App\Http\Controllers\DrawController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\PickUpController;
 use App\Http\Controllers\Supervisor\AwardController;
 use App\Http\Controllers\Supervisor\DashboardController;
+use App\Http\Controllers\Supervisor\DispenseController;
 use App\Http\Controllers\Supervisor\InventoryController;
 use App\Http\Controllers\Supervisor\ReportController;
 use App\Http\Controllers\Supervisor\SettingsController;
@@ -28,6 +31,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/draws/{draw}', [DrawController::class, 'show'])->name('draws.show');
     Route::post('/draws/{draw}/brand', [DrawController::class, 'brand'])->name('draws.brand');
     Route::post('/draws/{draw}/cash-bonus', [DrawController::class, 'cashBonus'])->name('draws.cash-bonus');
+    Route::post('/lockers/{assignment}/picked-up', [PickUpController::class, 'store'])->name('lockers.picked-up');
 
     Route::middleware('role:dispatcher')->group(function () {
         Route::get('/dispatch', [DispatchController::class, 'create'])->name('dispatch.create');
@@ -38,6 +42,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
         Route::post('/draws/{draw}/award', [AwardController::class, 'store'])->name('award');
         Route::post('/credits/{credit}/void', [AwardController::class, 'voidCredit'])->name('credits.void');
+        Route::get('/dispense/{user}', [DispenseController::class, 'create'])->name('dispense');
+        Route::post('/dispense/{user}', [DispenseController::class, 'store'])->name('dispense.store');
+        Route::post('/lockers/{assignment}/picked-up', [DispenseController::class, 'pickUp'])->name('lockers.picked-up');
+        Route::post('/lockers/{assignment}/clear', [DispenseController::class, 'clear'])->name('lockers.clear');
 
         Route::get('/reports', [ReportController::class, 'index'])->name('reports');
         Route::get('/reports/won', [ReportController::class, 'won'])->name('reports.won');
@@ -65,6 +73,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::get('/lockers', [LockerController::class, 'index'])->name('lockers');
         Route::get('/draws/{draw}/edit', [AdminDrawController::class, 'edit'])->name('draws.edit');
         Route::put('/draws/{draw}', [AdminDrawController::class, 'update'])->name('draws.update');
         Route::delete('/draws/{draw}', [AdminDrawController::class, 'destroy'])->name('draws.destroy');

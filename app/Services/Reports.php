@@ -46,13 +46,15 @@ class Reports
             ->get()
             ->groupBy('user_id')
             ->map(function (Collection $draws) {
-                $pto = $draws->filter(fn ($d) => $d->pto_hours !== null);
+                // Forfeited prizes are listed but went back in the box, so they don't count.
+                $kept = $draws->where('status', '!=', 'forfeited');
+                $pto = $kept->filter(fn ($d) => $d->pto_hours !== null);
 
                 return [
                     'user' => $draws->first()->user,
                     'draws' => $draws,
-                    'count' => $draws->count(),
-                    'value_cents' => $draws->diff($pto)->sum('value_cents'),
+                    'count' => $kept->count(),
+                    'value_cents' => $kept->diff($pto)->sum('value_cents'),
                     'pto_hours' => $pto->sum(fn ($d) => (float) $d->pto_hours),
                 ];
             })

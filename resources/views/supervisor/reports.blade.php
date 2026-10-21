@@ -24,6 +24,8 @@
                 <select id="status" name="status">
                     <option value="">All prizes drawn</option>
                     <option value="won" @selected(($filters['status'] ?? '') === 'won')>Pending Dispensing</option>
+                    <option value="in_locker" @selected(($filters['status'] ?? '') === 'in_locker')>In a locker</option>
+                    <option value="forfeited" @selected(($filters['status'] ?? '') === 'forfeited')>Forfeited</option>
                     <option value="awarded" @selected(($filters['status'] ?? '') === 'awarded')>Received (by date received)</option>
                 </select>
             </div>
@@ -84,6 +86,8 @@
                         <td>
                             @if ($d->status === 'awarded')<span class="pill pill-green">{{ $d->cash_bonus ? 'Paid' : 'Received' }} {{ $d->awarded_at->format('M j') }}</span>
                             @elseif ($d->status === 'pending_brand')<span class="pill pill-teal">Picking brand</span>
+                            @elseif ($d->status === 'in_locker')<span class="pill pill-teal">In locker</span>
+                            @elseif ($d->status === 'forfeited')<span class="pill pill-red">Forfeited</span>
                             @else<span class="pill">Pending Dispensing</span>@endif
                         </td>
                         <td>{{ $d->awarder?->name }}</td>

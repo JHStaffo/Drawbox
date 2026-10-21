@@ -61,6 +61,8 @@ class ReportController extends Controller
         return match ($d->status) {
             'awarded' => $d->cash_bonus ? 'Paid' : 'Received',
             'pending_brand' => 'Picking brand',
+            'in_locker' => 'In locker',
+            'forfeited' => 'Forfeited',
             default => 'Pending Dispensing',
         };
     }

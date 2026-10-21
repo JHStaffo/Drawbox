@@ -14,6 +14,18 @@
 
 @section('content')
 <div class="stack">
+    @foreach ($lockers as $a)
+        <div class="card locker-banner">
+            <p style="margin:0 0 8px">You have prizes waiting in <strong>locker {{ $a->locker->number }}</strong> at the <strong>{{ $a->locker->officeName() }}</strong> office. Use combination <span class="combo-big">{{ $a->combination }}</span> to open it. You have <strong>{{ $a->daysLeft() }} {{ Str::plural('day', $a->daysLeft()) }}</strong> left to retrieve your prizes before they are forfeited.</p>
+            <div class="row-actions" style="justify-content:space-between">
+                <span class="hint">{{ $a->draws->map->label()->join(', ') }}</span>
+                <form method="post" action="{{ route('lockers.picked-up', $a) }}">@csrf
+                    <button class="btn btn-teal" type="submit">Picked Up</button>
+                </form>
+            </div>
+        </div>
+    @endforeach
+
     @foreach ($pending as $draw)
         <div class="card card-teal ticket">
             <div>
@@ -56,6 +68,10 @@
                         <td>
                             @if ($draw->status === 'awarded')
                                 <span class="pill pill-green">Received {{ $draw->awarded_at->format('M j') }}</span>
+                            @elseif ($draw->status === 'in_locker')
+                                <span class="pill pill-teal">In locker {{ $draw->lockerAssignment?->locker->number }}</span>
+                            @elseif ($draw->status === 'forfeited')
+                                <span class="pill pill-red">Forfeited</span>
                             @else
                                 <span class="pill">Pending Dispensing</span>
                             @endif

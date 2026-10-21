@@ -12,6 +12,11 @@
         <div class="hint">How long a crew member has to draw after dispatch credits a call. Changes apply to calls credited from now on.</div>
     </div>
     <div class="field">
+        <label for="locker_pickup_days">Locker pickup window (days)</label>
+        <input id="locker_pickup_days" type="number" min="1" max="90" name="locker_pickup_days" value="{{ $lockerPickupDays }}" required>
+        <div class="hint">How long a crew member has to pick up prizes left in a locker. After that the prizes are forfeited and go back in the box. Changes apply to prizes put in lockers from now on.</div>
+    </div>
+    <div class="field">
         <input type="hidden" name="expiry_reminder_enabled" value="0">
         <label class="check"><input type="checkbox" name="expiry_reminder_enabled" value="1" @checked($expiryReminderEnabled)> Email employees 24 hours before a draw expires</label>
         <div class="hint">Each employee gets one email listing all their draws that expire within 24 hours, not one email per draw.</div>
