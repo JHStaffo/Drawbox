@@ -76,7 +76,7 @@ class InventoryController extends Controller
             'reason' => 'nullable|string|max:255',
         ]);
         $stock->update(['monthly_quantity' => $data['monthly_quantity']]);
-        $this->inventory->setStockQuantity($stock, $data['quantity'], $request->user(), $data['reason'] ?: 'Manual change');
+        $this->inventory->setStockQuantity($stock, $data['quantity'], $request->user(), ($data['reason'] ?? null) ?: 'Manual change');
 
         return back()->with('status', "Saved {$stock->prize->name} {$stock->brand}.");
     }
