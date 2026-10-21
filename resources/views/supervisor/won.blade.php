@@ -54,7 +54,7 @@
                             <td>
                                 @if ($d->status === 'awarded')<span class="pill pill-green">{{ $d->cash_bonus ? 'Paid' : 'Received' }}</span>
                                 @elseif ($d->status === 'pending_brand')<span class="pill pill-teal">Picking brand</span>
-                                @else<span class="pill">Not handed out</span>@endif
+                                @else<span class="pill">Pending Dispensing</span>@endif
                             </td>
                             @if (auth()->user()->hasRole('admin'))
                                 <td class="right"><div class="row-actions" style="justify-content:flex-end;flex-wrap:nowrap">@include('admin.partials.draw-actions', ['draw' => $d])</div></td>

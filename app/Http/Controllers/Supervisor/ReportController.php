@@ -61,7 +61,7 @@ class ReportController extends Controller
         return match ($d->status) {
             'awarded' => $d->cash_bonus ? 'Paid' : 'Received',
             'pending_brand' => 'Picking brand',
-            default => 'Not handed out',
+            default => 'Pending Dispensing',
         };
     }
 
@@ -71,7 +71,7 @@ class ReportController extends Controller
         $rows = $this->query($request, $from, $to)->get()->map(fn (Draw $d) => [
             $d->drawn_at->format('Y-m-d H:i'), $d->user->name, $d->user->employee_number,
             $d->label(), number_format($d->value_cents / 100, 2), $d->pto_hours,
-            $d->taxable ? 'yes' : 'no', $d->cash_bonus ? 'yes' : 'no', $d->status,
+            $d->taxable ? 'yes' : 'no', $d->cash_bonus ? 'yes' : 'no', $this->statusLabel($d),
             $d->awarded_at?->format('Y-m-d H:i'), $d->awarder?->name,
             $d->credit->call->location, $d->credit->call->occurred_at->format('Y-m-d H:i'),
         ]);
