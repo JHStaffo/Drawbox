@@ -17,6 +17,7 @@ class Setting extends Model
     public const DEFAULTS = [
         'draw_window_days' => '7',
         'expiry_reminder_enabled' => '1',
+        'locker_pickup_days' => '7',
     ];
 
     public static function get(string $key): string

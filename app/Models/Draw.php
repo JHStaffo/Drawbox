@@ -53,6 +53,11 @@ class Draw extends Model
         return $this->belongsTo(Prize::class)->withTrashed();
     }
 
+    public function lockerAssignment(): BelongsTo
+    {
+        return $this->belongsTo(LockerAssignment::class);
+    }
+
     public function awarder(): BelongsTo
     {
         return $this->belongsTo(User::class, 'awarded_by');

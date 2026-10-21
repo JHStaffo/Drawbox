@@ -6,6 +6,8 @@ use App\Models\Call;
 use App\Models\Draw;
 use App\Models\DrawCredit;
 use App\Models\GiftCardStock;
+use App\Models\Locker;
+use App\Models\LockerAssignment;
 use App\Models\LoginCode;
 use App\Models\Prize;
 use App\Models\Setting;
@@ -13,9 +15,11 @@ use App\Models\User;
 use App\Notifications\DrawCredited;
 use App\Notifications\DrawsExpiringSoon;
 use App\Notifications\LoginCode as LoginCodeNotification;
+use App\Notifications\PrizesInLocker;
 use App\Services\Credits;
 use App\Services\DrawMachine;
 use App\Services\Inventory;
+use App\Services\Lockers;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
@@ -334,8 +338,9 @@ class DrawBoxTest extends TestCase
     public function test_supervisor_changes_draw_window(): void
     {
         $supervisor = User::factory()->role('supervisor')->create();
-        $this->actingAs($supervisor)->put('/supervisor/settings', ['draw_window_days' => 21, 'expiry_reminder_enabled' => '0'])->assertRedirect();
+        $this->actingAs($supervisor)->put('/supervisor/settings', ['draw_window_days' => 21, 'locker_pickup_days' => 10, 'expiry_reminder_enabled' => '0'])->assertRedirect();
         $this->assertSame('21', Setting::get('draw_window_days'));
+        $this->assertSame('10', Setting::get('locker_pickup_days'));
         $this->assertSame('0', Setting::get('expiry_reminder_enabled'));
     }
 
@@ -536,6 +541,108 @@ class DrawBoxTest extends TestCase
         $this->actingAs($supervisor)->get('/supervisor/reports')->assertOk()->assertSee($draw->fresh()->prize_name);
     }
 
+    public function test_lockers_are_laid_out_and_numbered_down_each_column(): void
+    {
+        $this->assertSame(72, Locker::where('office', 'main')->count());
+        $this->assertSame(['row' => 0, 'col' => 0], Locker::where('number', 1)->first()->only('row', 'col'));
+        $this->assertSame(['row' => 5, 'col' => 0], Locker::where('number', 6)->first()->only('row', 'col'));
+        $this->assertSame(['row' => 0, 'col' => 1], Locker::where('number', 7)->first()->only('row', 'col'));
+        $this->assertSame(['row' => 5, 'col' => 11], Locker::where('number', 72)->first()->only('row', 'col'));
+        $this->assertSame([100, 101, 102, 103, 104], Locker::where('office', 'newport_news')->orderBy('row')->pluck('number')->all());
+    }
+
+    public function test_supervisor_dispenses_checked_prizes_directly(): void
+    {
+        $supervisor = User::factory()->role('supervisor')->create();
+        $pat = User::factory()->create(['name' => 'Pat Medic']);
+        Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 5]);
+        $a = app(DrawMachine::class)->draw($this->credit($pat));
+        $b = app(DrawMachine::class)->draw($this->credit($pat));
+        $c = app(DrawMachine::class)->draw($this->credit($pat));
+
+        $this->actingAs($supervisor)->get('/supervisor')->assertOk()->assertSee('Dispense checked');
+        $this->actingAs($supervisor)->get("/supervisor/dispense/{$pat->id}?draws[]={$a->id}&draws[]={$b->id}")->assertOk()->assertSee('Newport News');
+
+        $this->actingAs($supervisor)->post("/supervisor/dispense/{$pat->id}", ['draws' => [$a->id, $b->id], 'method' => 'direct'])
+            ->assertRedirect('/supervisor');
+        $this->assertSame('awarded', $a->fresh()->status);
+        $this->assertSame('awarded', $b->fresh()->status);
+        $this->assertSame('won', $c->fresh()->status);
+        Notification::assertNotSentTo($pat, PrizesInLocker::class);
+    }
+
+    public function test_locker_dispense_pickup_and_forfeit(): void
+    {
+        $supervisor = User::factory()->role('supervisor')->create();
+        $pat = User::factory()->create(['name' => 'Pat Medic']);
+        $other = User::factory()->create();
+        $shears = Prize::create(['name' => 'Raptor shears', 'type' => 'item', 'value_cents' => 6000, 'quantity' => 2]);
+        $first = app(DrawMachine::class)->draw($this->credit($pat));
+        $locker = Locker::where('number', 23)->first();
+
+        $this->actingAs($supervisor)->post("/supervisor/dispense/{$pat->id}", [
+            'draws' => [$first->id], 'method' => 'locker', 'office' => 'main', 'locker_id' => $locker->id, 'combination' => ['12', '34', '5'],
+        ])->assertRedirect('/supervisor');
+
+        $assignment = LockerAssignment::first();
+        $this->assertSame('12 34 5', $assignment->combination);
+        $this->assertSame('in_locker', $first->fresh()->status);
+        $this->assertNull($first->fresh()->awarded_at);
+        Notification::assertSentTo($pat, PrizesInLocker::class);
+
+        // The employee sees the locker, combination and days left; someone else can't pick it up.
+        $this->actingAs($pat)->get('/')->assertSee('locker 23', false)->assertSee('Main')->assertSee('12 34 5')->assertSee('7 days')->assertSee('Picked Up');
+        $this->actingAs($other)->post("/lockers/{$assignment->id}/picked-up")->assertForbidden();
+
+        // The locker is taken until it's picked up.
+        $second = app(DrawMachine::class)->draw($this->credit($other));
+        $this->actingAs($supervisor)->post("/supervisor/dispense/{$other->id}", [
+            'draws' => [$second->id], 'method' => 'locker', 'office' => 'main', 'locker_id' => $locker->id, 'combination' => [1, 2, 3],
+        ])->assertSessionHas('error');
+        $this->assertSame('won', $second->fresh()->status);
+
+        // A Newport News locker can't be picked with the Main office chosen.
+        $this->actingAs($supervisor)->post("/supervisor/dispense/{$other->id}", [
+            'draws' => [$second->id], 'method' => 'locker', 'office' => 'main', 'locker_id' => Locker::where('number', 100)->value('id'), 'combination' => [1, 2, 3],
+        ])->assertSessionHasErrors('locker_id');
+
+        $this->actingAs($pat)->post("/lockers/{$assignment->id}/picked-up")->assertRedirect();
+        $this->assertSame('awarded', $first->fresh()->status);
+        $this->assertNotNull($first->fresh()->awarded_at);
+        $this->assertSame($supervisor->id, $first->fresh()->awarded_by);
+        $this->assertNull($locker->fresh()->current);
+
+        // A second batch for the other employee is never picked up and is forfeited back into the box.
+        app(Lockers::class)->dispense($other, [$second->id], $supervisor, $locker, '1 2 3');
+        $this->assertSame(0, $shears->fresh()->quantity);
+        $this->travel(8)->days();
+        $this->artisan('drawbox:expire')->assertSuccessful();
+        $this->assertSame('forfeited', $second->fresh()->status);
+        $this->assertSame(1, $shears->fresh()->quantity);
+        $this->assertTrue($locker->fresh()->current->isForfeited());
+
+        $admin = User::factory()->role('admin')->create();
+        $this->actingAs($admin)->get('/admin/lockers')->assertOk()->assertSee('Forfeited')->assertSee('1 2 3');
+        $this->actingAs($supervisor)->post("/supervisor/lockers/{$locker->current->id}/clear")->assertRedirect();
+        $this->assertNull($locker->fresh()->current);
+        $this->assertSame(1, $shears->fresh()->quantity);
+        $this->actingAs($admin)->get('/admin/lockers')->assertSee('Last: '.$other->name, false);
+    }
+
+    public function test_pto_and_cash_bonus_cannot_go_in_a_locker(): void
+    {
+        $supervisor = User::factory()->role('supervisor')->create();
+        $pat = User::factory()->create();
+        Prize::create(['name' => 'PTO (2 hours)', 'type' => 'pto', 'pto_hours' => 2, 'value_cents' => 5000, 'quantity' => 1]);
+        $pto = app(DrawMachine::class)->draw($this->credit($pat));
+
+        $this->actingAs($supervisor)->get('/supervisor')->assertSee('Mark PTO given');
+        $this->actingAs($supervisor)->post("/supervisor/dispense/{$pat->id}", [
+            'draws' => [$pto->id], 'method' => 'locker', 'office' => 'main', 'locker_id' => Locker::where('number', 1)->value('id'), 'combination' => [1, 2, 3],
+        ])->assertSessionHas('error');
+        $this->assertSame('won', $pto->fresh()->status);
+    }
+
     public function test_pages_render(): void
     {
         $this->seed();
@@ -544,7 +651,7 @@ class DrawBoxTest extends TestCase
         Prize::where('name', 'Candy')->update(['quantity' => 5]);
         $draw = app(DrawMachine::class)->draw($credit);
 
-        foreach (['/', '/dispatch', '/supervisor', '/supervisor/reports', '/supervisor/inventory', '/supervisor/inventory/log', '/supervisor/settings', '/admin/users', '/supervisor/reports/won', "/admin/draws/{$draw->id}/edit", "/draws/{$draw->id}?reveal=1"] as $page) {
+        foreach (['/', '/dispatch', '/supervisor', '/supervisor/reports', '/supervisor/inventory', '/supervisor/inventory/log', '/supervisor/settings', '/admin/users', '/admin/lockers', '/supervisor/reports/won', "/admin/draws/{$draw->id}/edit", "/draws/{$draw->id}?reveal=1"] as $page) {
             $this->actingAs($admin)->get($page)->assertOk();
         }
         $this->get('/login')->assertRedirect('/');

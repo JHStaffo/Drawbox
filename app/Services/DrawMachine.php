@@ -167,7 +167,7 @@ class DrawMachine
     }
 
     /** Put back whatever a draw took out of the box. */
-    private function returnToBox(Draw $draw, User $by, string $reason): void
+    public function returnToBox(Draw $draw, ?User $by, string $reason): void
     {
         if ($draw->cash_bonus) {
             return;
