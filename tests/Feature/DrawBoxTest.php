@@ -127,6 +127,27 @@ class DrawBoxTest extends TestCase
         Notification::assertSentTo([$a, $b], DrawCredited::class);
     }
 
+    public function test_dispatch_can_undo_a_call_until_someone_draws(): void
+    {
+        Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 5]);
+        $dispatcher = User::factory()->role('dispatcher')->create();
+        $crew = User::factory()->create(['name' => 'Sam Crew']);
+
+        $mistake = $this->credit($crew)->call;
+        $this->actingAs($dispatcher)->get('/dispatch')->assertSee('Undo');
+        $this->actingAs($dispatcher)->delete("/dispatch/calls/{$mistake->id}")->assertRedirect('/dispatch');
+        $this->assertModelMissing($mistake);
+        $this->assertSame(0, DrawCredit::count());
+
+        $credit = $this->credit($crew);
+        $this->actingAs($crew)->post("/credits/{$credit->id}/draw");
+        $this->actingAs($dispatcher)->get('/dispatch')->assertSee('Already drawn')->assertDontSee('>Undo<', false);
+        $this->actingAs($dispatcher)->delete("/dispatch/calls/{$credit->call_id}")->assertSessionHasErrors('undo');
+        $this->assertSame(1, Draw::count());
+
+        $this->actingAs($crew)->delete("/dispatch/calls/{$credit->call_id}")->assertForbidden();
+    }
+
     public function test_employees_cannot_use_dispatch_or_supervisor_pages(): void
     {
         $employee = User::factory()->create();

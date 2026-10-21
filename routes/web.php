@@ -36,6 +36,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:dispatcher')->group(function () {
         Route::get('/dispatch', [DispatchController::class, 'create'])->name('dispatch.create');
         Route::post('/dispatch', [DispatchController::class, 'store'])->name('dispatch.store');
+        Route::delete('/dispatch/calls/{call}', [DispatchController::class, 'destroy'])->name('dispatch.destroy');
     });
 
     Route::middleware('role:supervisor')->prefix('supervisor')->name('supervisor.')->group(function () {

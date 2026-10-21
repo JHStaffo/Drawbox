@@ -109,9 +109,19 @@
     <div class="card">
         <h2>Recently credited</h2>
         @forelse ($recent as $call)
-            <div style="padding:8px 0;border-bottom:1px solid var(--line)">
-                <strong>{{ $call->location }}</strong>{{ $call->unit ? ' · '.$call->unit : '' }}
-                <div class="hint">{{ $call->occurred_at->format('M j, g:i A') }} · {{ $call->credits->pluck('user.name')->join(', ') }}</div>
+            <div style="padding:8px 0;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;justify-content:space-between">
+                <div>
+                    <strong>{{ $call->location }}</strong>{{ $call->unit ? ' · '.$call->unit : '' }}
+                    <div class="hint">{{ $call->occurred_at->format('M j, g:i A') }} · {{ $call->credits->pluck('user.name')->join(', ') }}</div>
+                </div>
+                @if ($call->credits->contains(fn ($c) => $c->draw))
+                    <span class="hint">Already drawn</span>
+                @else
+                    <form method="post" action="{{ route('dispatch.destroy', $call) }}" onsubmit="return confirm('Undo this credit? The crew will lose these draws.')">
+                        @csrf @method('delete')
+                        <button class="btn btn-small btn-outline" type="submit">Undo</button>
+                    </form>
+                @endif
             </div>
         @empty
             <p class="empty">No calls credited yet.</p>
