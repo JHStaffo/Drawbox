@@ -30,7 +30,7 @@
                 @endif
                 @if ($u->hasRole('admin'))
                     <a href="{{ route('admin.lockers') }}" @class(['active' => request()->routeIs('admin.lockers')])>Lockers</a>
-                    <a href="{{ route('admin.users') }}" @class(['active' => request()->routeIs('admin.users*', 'admin.draws.*')])>Employees</a>
+                    <a href="{{ route('admin.users') }}" @class(['active' => request()->routeIs('admin.users*', 'admin.draws.*')])>Team Members</a>
                 @endif
                 <form method="post" action="{{ route('logout') }}">@csrf<button type="submit">Sign out</button></form>
             </nav>

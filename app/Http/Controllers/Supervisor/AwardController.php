@@ -14,7 +14,7 @@ class AwardController extends Controller
     {
         if ($draw->status !== 'won') {
             return back()->with('error', $draw->status === 'pending_brand'
-                ? 'The employee still needs to pick a gift card brand.'
+                ? 'The team member still needs to pick a gift card brand.'
                 : 'That prize was already marked as received.');
         }
 

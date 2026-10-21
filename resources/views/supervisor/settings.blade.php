@@ -18,8 +18,8 @@
     </div>
     <div class="field">
         <input type="hidden" name="expiry_reminder_enabled" value="0">
-        <label class="check"><input type="checkbox" name="expiry_reminder_enabled" value="1" @checked($expiryReminderEnabled)> Email employees 24 hours before a draw expires</label>
-        <div class="hint">Each employee gets one email listing all their draws that expire within 24 hours, not one email per draw.</div>
+        <label class="check"><input type="checkbox" name="expiry_reminder_enabled" value="1" @checked($expiryReminderEnabled)> Email team members 24 hours before a draw expires</label>
+        <div class="hint">Each team member gets one email listing all their draws that expire within 24 hours, not one email per draw.</div>
     </div>
     <button class="btn" type="submit">Save settings</button>
 </form>

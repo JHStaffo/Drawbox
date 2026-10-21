@@ -19,6 +19,8 @@ class User extends Authenticatable
 
     public const ROLES = ['employee', 'dispatcher', 'supervisor', 'admin'];
 
+    public const ROLE_LABELS = ['employee' => 'Team Member', 'dispatcher' => 'Dispatcher', 'supervisor' => 'Supervisor', 'admin' => 'Admin'];
+
     protected function casts(): array
     {
         return ['active' => 'boolean'];

@@ -9,7 +9,7 @@
 @php($currentBrand = old('gift_card_stock_id', $draw->gift_card_stock_id))
 <form class="card" method="post" action="{{ route('admin.draws.update', $draw) }}" style="max-width:560px">@csrf @method('put')
     @if ($draw->cash_bonus)
-        <p class="hint">The employee took a cash bonus instead of this prize, so nothing moves in the box.</p>
+        <p class="hint">The team member took a cash bonus instead of this prize, so nothing moves in the box.</p>
     @endif
     <div class="field">
         <label for="prize_id">Prize</label>
@@ -58,7 +58,7 @@
         brandSelect.required = show && awarded;
         brandSelect.innerHTML = '';
         if (!show) return;
-        if (!awarded) brandSelect.add(new Option('Let the employee pick', ''));
+        if (!awarded) brandSelect.add(new Option('Let the team member pick', ''));
         prize.brands.forEach(function (b) {
             brandSelect.add(new Option(b.brand + ' (' + b.left + ' left)', b.id, false, b.id === brand));
         });

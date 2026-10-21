@@ -33,7 +33,7 @@ document.querySelectorAll('.check-all').forEach(function (all) {
         @if ($unawarded->isEmpty())
             <p class="empty">Everything won has been handed out.</p>
         @else
-            <p class="hint">Check the prizes you're handing one employee, then press Dispense checked to give them directly or put them in a locker. PTO and cash bonuses don't go in lockers, so they have their own button.</p>
+            <p class="hint">Check the prizes you're handing one team member, then press Dispense checked to give them directly or put them in a locker. PTO and cash bonuses don't go in lockers, so they have their own button.</p>
             <div class="table-wrap"><table class="dispense-table">
                 <tr><th style="width:36px"></th><th>Prize</th><th class="num">Value</th><th>Drawn</th><th></th></tr>
                 @foreach ($unawarded->groupBy('user_id') as $userDraws)
@@ -80,7 +80,7 @@ document.querySelectorAll('.check-all').forEach(function (all) {
                 @if (auth()->user()->hasRole('admin'))<a class="btn btn-small btn-outline" href="{{ route('admin.lockers') }}">Locker map</a>@endif
             </div>
             <div class="table-wrap mt"><table>
-                <tr><th>Locker</th><th>Employee</th><th>Prizes</th><th>Pick up by</th><th></th></tr>
+                <tr><th>Locker</th><th>Team Member</th><th>Prizes</th><th>Pick up by</th><th></th></tr>
                 @foreach ($lockerAssignments as $a)
                     <tr>
                         <td><strong>{{ $a->locker->number }}</strong> · {{ $a->locker->officeName() }}</td>
@@ -117,7 +117,7 @@ document.querySelectorAll('.check-all').forEach(function (all) {
                 <p class="empty">No open draws.</p>
             @else
                 <div class="table-wrap"><table>
-                    <tr><th>Employee</th><th>Call</th><th>Expires</th><th></th></tr>
+                    <tr><th>Team Member</th><th>Call</th><th>Expires</th><th></th></tr>
                     @foreach ($undrawn as $credit)
                         <tr>
                             <td>{{ $credit->user->name }}</td>
