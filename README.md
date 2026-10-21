@@ -20,8 +20,8 @@ Fast Track EMS's draw box, online. Dispatch credits a crew for a solicited call,
 |---|---|
 | employee | Draw, pick a gift card brand, see their own prizes |
 | dispatcher | Everything an employee can, plus the call credit form |
-| supervisor | Everything a dispatcher can, plus the dashboard, marking prizes received, reports, inventory, restock and settings |
-| admin | Everything a supervisor can, plus managing the employee roster |
+| supervisor | Everything a dispatcher can, plus the dashboard: marking prizes received, dispensing to lockers and checking overdue lockers |
+| admin | Everything a supervisor can, plus reports, inventory, restock, settings, the locker map and managing the team member roster |
 
 ## Run locally
 
