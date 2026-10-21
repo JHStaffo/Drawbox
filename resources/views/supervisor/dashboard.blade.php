@@ -19,7 +19,7 @@
     </div>
 
     <div class="card">
-        <h2>Won, waiting to be handed out ({{ $unawarded->count() }})</h2>
+        <h2>Won, pending dispensing ({{ $unawarded->count() }})</h2>
         @if ($unawarded->isEmpty())
             <p class="empty">Everything won has been handed out.</p>
         @else
