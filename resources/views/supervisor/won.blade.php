@@ -44,7 +44,7 @@
             <div class="card">
                 <h2>{{ $r['user']->name }}</h2>
                 <div class="table-wrap"><table>
-                    <tr><th>Drawn</th><th>Prize</th><th class="num">Value</th><th class="num">PTO hours</th><th>Status</th></tr>
+                    <tr><th>Drawn</th><th>Prize</th><th class="num">Value</th><th class="num">PTO hours</th><th>Status</th>@if (auth()->user()->hasRole('admin'))<th></th>@endif</tr>
                     @foreach ($r['draws'] as $d)
                         <tr>
                             <td>{{ $d->drawn_at->format('M j, Y') }}</td>
@@ -56,6 +56,9 @@
                                 @elseif ($d->status === 'pending_brand')<span class="pill pill-teal">Picking brand</span>
                                 @else<span class="pill">Not handed out</span>@endif
                             </td>
+                            @if (auth()->user()->hasRole('admin'))
+                                <td class="right"><div class="row-actions" style="justify-content:flex-end;flex-wrap:nowrap">@include('admin.partials.draw-actions', ['draw' => $d])</div></td>
+                            @endif
                         </tr>
                     @endforeach
                     <tr>
@@ -63,6 +66,7 @@
                         <td class="num"><strong>{{ money($r['value_cents']) }}</strong></td>
                         <td class="num"><strong>{{ $r['pto_hours'] + 0 }}</strong></td>
                         <td></td>
+                        @if (auth()->user()->hasRole('admin'))<td></td>@endif
                     </tr>
                 </table></div>
             </div>

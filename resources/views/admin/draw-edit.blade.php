@@ -36,7 +36,7 @@
     <label class="check field"><input id="taxable" type="checkbox" name="taxable" value="1" @checked(old('taxable', $draw->taxable))> Taxable</label>
     <div class="row-actions">
         <button class="btn" type="submit">Save</button>
-        <a class="btn btn-outline" href="{{ route('supervisor.dashboard') }}">Cancel</a>
+        <a class="btn btn-outline" href="{{ session('draw_edit_return', route('supervisor.dashboard')) }}">Cancel</a>
     </div>
 </form>
 

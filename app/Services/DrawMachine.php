@@ -107,13 +107,17 @@ class DrawMachine
     /**
      * Take a prize back from an employee (an admin correcting a mistake).
      * The draw is deleted, the credit is voided rather than reopened, and
-     * whatever the prize took out of the box goes back in.
+     * whatever the prize took out of the box goes back in unless it was
+     * already handed out.
      */
     public function removeDraw(Draw $draw, User $by): void
     {
         DB::transaction(function () use ($draw, $by) {
             $draw = Draw::with('prize', 'user', 'credit')->lockForUpdate()->findOrFail($draw->id);
-            $this->returnToBox($draw, $by, "Returned: {$by->name} removed {$draw->user->name}'s prize");
+            // A prize already handed out isn't in the building any more, so it stays out of the box.
+            if ($draw->status !== 'awarded') {
+                $this->returnToBox($draw, $by, "Returned: {$by->name} removed {$draw->user->name}'s prize");
+            }
 
             $draw->credit->update(['status' => 'void']);
             $draw->delete();

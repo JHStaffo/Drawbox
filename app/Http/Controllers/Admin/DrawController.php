@@ -36,6 +36,14 @@ class DrawController extends Controller
                     ->values(),
             ]);
 
+        // Go back to the page the admin came from (dashboard or a report) after saving.
+        $from = (string) request()->headers->get('referer');
+        if (str_starts_with($from, url('/').'/') && $from !== url()->current()) {
+            session(['draw_edit_return' => $from]);
+        } elseif ($from !== url()->current()) {
+            session()->forget('draw_edit_return');
+        }
+
         return view('admin.draw-edit', ['draw' => $draw, 'prizes' => $prizes, 'types' => Prize::TYPES]);
     }
 
@@ -64,15 +72,16 @@ class DrawController extends Controller
             'taxable' => $request->boolean('taxable'),
         ]);
 
-        return redirect()->route('supervisor.dashboard')->with('status', "Saved {$draw->user->name}'s prize: {$draw->label()}.");
+        return redirect(session()->pull('draw_edit_return', route('supervisor.dashboard')))->with('status', "Saved {$draw->user->name}'s prize: {$draw->label()}.");
     }
 
     public function destroy(Request $request, Draw $draw, DrawMachine $machine)
     {
         $label = $draw->label();
         $name = $draw->user->name;
+        $handedOut = $draw->status === 'awarded';
         $machine->removeDraw($draw, $request->user());
 
-        return redirect()->route('supervisor.dashboard')->with('status', "Removed {$label} from {$name}. It went back in the box.");
+        return back()->with('status', "Removed {$label} from {$name}.".($handedOut ? '' : ' It went back in the box.'));
     }
 }
