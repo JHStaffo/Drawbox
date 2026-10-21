@@ -57,7 +57,7 @@
                             @if ($draw->status === 'awarded')
                                 <span class="pill pill-green">Received {{ $draw->awarded_at->format('M j') }}</span>
                             @else
-                                <span class="pill">Pick up from a supervisor</span>
+                                <span class="pill">Pending Dispensing</span>
                             @endif
                         </td>
                     </tr>
