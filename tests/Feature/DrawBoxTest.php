@@ -665,6 +665,17 @@ class DrawBoxTest extends TestCase
         $this->assertSame('won', $pto->fresh()->status);
     }
 
+    public function test_inactive_employees_are_listed_below_the_roster(): void
+    {
+        $admin = User::factory()->role('admin')->create(['name' => 'Mia Middle']);
+        User::factory()->create(['name' => 'Zoe Adams', 'active' => false]);
+        User::factory()->create(['name' => 'Amy Zimmer']);
+
+        $this->actingAs($admin)->get('/admin/users')
+            ->assertSee('Roster (2 active)')
+            ->assertSeeInOrder(['Mia Middle', 'Amy Zimmer', 'Inactive employees (1)', 'Zoe Adams']);
+    }
+
     public function test_pages_render(): void
     {
         $this->seed();
