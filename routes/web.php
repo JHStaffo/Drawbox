@@ -73,6 +73,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
+        Route::post('/users/import', [UserController::class, 'import'])->name('users.import');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::get('/lockers', [LockerController::class, 'index'])->name('lockers');
         Route::get('/draws/{draw}/edit', [AdminDrawController::class, 'edit'])->name('draws.edit');
