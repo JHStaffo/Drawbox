@@ -70,19 +70,14 @@ class DrawBoxTest extends TestCase
             ->assertSessionHasErrors('email');
     }
 
-    public function test_dispatch_still_credits_crew_when_mail_fails(): void
+    public function test_new_draw_email_retries_when_mail_fails(): void
     {
-        $dispatcher = User::factory()->role('dispatcher')->create();
         $crew = User::factory()->create();
+        $credit = $this->credit($crew);
         Notification::shouldReceive('send')->andThrow(new \RuntimeException('SMTP down'));
 
-        $this->actingAs($dispatcher)->post('/dispatch', [
-            'occurred_at' => now()->subHour()->format('Y-m-d H:i'),
-            'location' => 'Sentara Leigh',
-            'crew' => [$crew->id],
-        ])->assertRedirect('/dispatch');
-
-        $this->assertSame(1, DrawCredit::count());
+        $this->assertSame(0, app(Credits::class)->sendNewDrawNotices());
+        $this->assertNull($credit->fresh()->notified_at);
     }
 
     public function test_unknown_or_inactive_email_gets_no_code(): void
@@ -124,7 +119,27 @@ class DrawBoxTest extends TestCase
 
         $this->assertSame(2, DrawCredit::count());
         $this->assertTrue(DrawCredit::first()->expires_at->isSameDay(now()->addDays(3)));
+        Notification::assertNothingSent();
+
+        $this->artisan('drawbox:notify')->assertSuccessful();
         Notification::assertSentTo([$a, $b], DrawCredited::class);
+    }
+
+    public function test_new_draw_emails_are_batched_per_team_member(): void
+    {
+        Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 5]);
+        $crew = User::factory()->create();
+        $this->credit($crew);
+        $this->credit($crew);
+        $alreadyDrawn = $this->credit($other = User::factory()->create());
+        $this->actingAs($other)->post("/credits/{$alreadyDrawn->id}/draw");
+
+        $this->assertSame(1, app(Credits::class)->sendNewDrawNotices());
+        Notification::assertSentToTimes($crew, DrawCredited::class, 1);
+        Notification::assertSentTo($crew, DrawCredited::class, fn ($n) => $n->credits->count() === 2);
+        Notification::assertNotSentTo($other, DrawCredited::class);
+
+        $this->assertSame(0, app(Credits::class)->sendNewDrawNotices());
     }
 
     public function test_dispatch_can_undo_a_call_until_someone_draws(): void
