@@ -24,11 +24,11 @@
                 @endif
                 @if ($u->hasRole('supervisor'))
                     <a href="{{ route('supervisor.dashboard') }}" @class(['active' => request()->routeIs('supervisor.dashboard')])>Dashboard</a>
+                @endif
+                @if ($u->hasRole('admin'))
                     <a href="{{ route('supervisor.reports') }}" @class(['active' => request()->routeIs('supervisor.reports')])>Reports</a>
                     <a href="{{ route('supervisor.inventory') }}" @class(['active' => request()->routeIs('supervisor.inventory*')])>Inventory</a>
                     <a href="{{ route('supervisor.settings') }}" @class(['active' => request()->routeIs('supervisor.settings')])>Settings</a>
-                @endif
-                @if ($u->hasRole('admin'))
                     <a href="{{ route('admin.lockers') }}" @class(['active' => request()->routeIs('admin.lockers')])>Lockers</a>
                     <a href="{{ route('admin.users') }}" @class(['active' => request()->routeIs('admin.users*', 'admin.draws.*')])>Team Members</a>
                 @endif

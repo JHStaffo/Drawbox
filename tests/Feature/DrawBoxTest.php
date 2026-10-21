@@ -163,6 +163,22 @@ class DrawBoxTest extends TestCase
         $this->actingAs($crew)->delete("/dispatch/calls/{$credit->call_id}")->assertForbidden();
     }
 
+    public function test_only_admins_reach_reports_inventory_and_settings(): void
+    {
+        $supervisor = User::factory()->role('supervisor')->create();
+        $admin = User::factory()->role('admin')->create();
+        foreach (['/supervisor/reports', '/supervisor/reports/won', '/supervisor/inventory', '/supervisor/inventory/log', '/supervisor/settings'] as $page) {
+            $this->actingAs($supervisor)->get($page)->assertForbidden();
+            $this->actingAs($admin)->get($page)->assertOk();
+        }
+        $this->actingAs($supervisor)->post('/supervisor/inventory/restock')->assertForbidden();
+        $this->actingAs($supervisor)->put('/supervisor/settings', ['draw_window_days' => 3])->assertForbidden();
+
+        $this->actingAs($supervisor)->get('/supervisor')->assertOk()
+            ->assertDontSee('>Reports<', false)->assertDontSee('>Inventory<', false)->assertDontSee('>Settings<', false);
+        $this->actingAs($admin)->get('/supervisor')->assertSee('>Reports<', false);
+    }
+
     public function test_employees_cannot_use_dispatch_or_supervisor_pages(): void
     {
         $employee = User::factory()->create();
@@ -255,8 +271,10 @@ class DrawBoxTest extends TestCase
         $this->assertSame('awarded', $draw->status);
         $this->assertSame($supervisor->id, $draw->awarded_by);
 
-        $this->actingAs($supervisor)->get('/supervisor/reports')->assertOk()->assertSee('Pat Medic')->assertSee('$120');
-        $csv = $this->actingAs($supervisor)->get('/supervisor/reports/employees.csv')->streamedContent();
+        $admin = User::factory()->role('admin')->create();
+        $this->actingAs($supervisor)->get('/supervisor/reports')->assertForbidden();
+        $this->actingAs($admin)->get('/supervisor/reports')->assertOk()->assertSee('Pat Medic')->assertSee('$120');
+        $csv = $this->actingAs($admin)->get('/supervisor/reports/employees.csv')->streamedContent();
         $this->assertStringContainsString('"Pat Medic",,'.$user->email.',1,120.00,0.00,0', $csv);
 
         $this->actingAs($supervisor)->get('/supervisor')->assertOk()->assertSee('$120');
@@ -264,18 +282,18 @@ class DrawBoxTest extends TestCase
 
     public function test_restock_tops_up_to_monthly_amounts(): void
     {
-        $supervisor = User::factory()->role('supervisor')->create();
+        $admin = User::factory()->role('admin')->create();
         $shears = Prize::create(['name' => 'Raptor shears', 'type' => 'item', 'quantity' => 1, 'monthly_quantity' => 4]);
         $plenty = Prize::create(['name' => 'Pen light', 'type' => 'item', 'quantity' => 9, 'monthly_quantity' => 4]);
         $card = Prize::create(['name' => '$10 gift card', 'type' => 'gift_card', 'value_cents' => 1000]);
         $stock = GiftCardStock::create(['prize_id' => $card->id, 'brand' => 'Wawa', 'quantity' => 0, 'monthly_quantity' => 5]);
 
-        $this->actingAs($supervisor)->post('/supervisor/inventory/restock')->assertRedirect();
+        $this->actingAs($admin)->post('/supervisor/inventory/restock')->assertRedirect();
 
         $this->assertSame(4, $shears->fresh()->quantity);
         $this->assertSame(9, $plenty->fresh()->quantity);
         $this->assertSame(5, $stock->fresh()->quantity);
-        $this->actingAs($supervisor)->get('/supervisor/inventory/log')->assertSee('Monthly restock');
+        $this->actingAs($admin)->get('/supervisor/inventory/log')->assertSee('Monthly restock');
     }
 
     public function test_expiry_and_one_reminder_email_per_employee(): void
@@ -336,12 +354,12 @@ class DrawBoxTest extends TestCase
         $this->actingAs($supervisor)->get('/supervisor')->assertSee('There is currently a value of', false)->assertSee('$50');
     }
 
-    public function test_supervisor_toggles_diminishing_on_a_prize(): void
+    public function test_admin_toggles_diminishing_on_a_prize(): void
     {
-        $supervisor = User::factory()->role('supervisor')->create();
+        $admin = User::factory()->role('admin')->create();
         $prize = Prize::create(['name' => 'Snack', 'type' => 'item', 'quantity' => 5]);
 
-        $this->actingAs($supervisor)->put("/supervisor/inventory/prizes/{$prize->id}", [
+        $this->actingAs($admin)->put("/supervisor/inventory/prizes/{$prize->id}", [
             'name' => 'Snack', 'type' => 'item', 'value' => 2, 'quantity' => 5,
             'diminishing' => '0', 'taxable' => '0', 'active' => '1',
         ])->assertRedirect();
@@ -354,27 +372,27 @@ class DrawBoxTest extends TestCase
 
     public function test_saving_quantities_from_the_inventory_page(): void
     {
-        $supervisor = User::factory()->role('supervisor')->create();
+        $admin = User::factory()->role('admin')->create();
         $candy = Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 5]);
         $card = Prize::create(['name' => '$10 gift card', 'type' => 'gift_card', 'value_cents' => 1000]);
         $stock = GiftCardStock::create(['prize_id' => $card->id, 'brand' => 'Wawa', 'quantity' => 1, 'monthly_quantity' => 2]);
 
         // Exactly the fields the inventory page posts for each row.
-        $this->actingAs($supervisor)->from('/supervisor/inventory')
+        $this->actingAs($admin)->from('/supervisor/inventory')
             ->put("/supervisor/inventory/brands/{$stock->id}", ['quantity' => 4, 'monthly_quantity' => 2])
             ->assertRedirect('/supervisor/inventory');
         $this->assertSame(4, $stock->fresh()->quantity);
 
-        $this->actingAs($supervisor)->from('/supervisor/inventory')
+        $this->actingAs($admin)->from('/supervisor/inventory')
             ->put("/supervisor/inventory/prizes/{$candy->id}", ['type' => 'item', 'name' => 'Candy', 'value' => 0, 'quantity' => 9, 'diminishing' => '0', 'cash_bonus_allowed' => '0', 'taxable' => '0'])
             ->assertRedirect('/supervisor/inventory');
         $this->assertSame(9, $candy->fresh()->quantity);
     }
 
-    public function test_supervisor_changes_draw_window(): void
+    public function test_admin_changes_draw_window(): void
     {
-        $supervisor = User::factory()->role('supervisor')->create();
-        $this->actingAs($supervisor)->put('/supervisor/settings', ['draw_window_days' => 21, 'locker_pickup_days' => 10, 'expiry_reminder_enabled' => '0'])->assertRedirect();
+        $admin = User::factory()->role('admin')->create();
+        $this->actingAs($admin)->put('/supervisor/settings', ['draw_window_days' => 21, 'locker_pickup_days' => 10, 'expiry_reminder_enabled' => '0'])->assertRedirect();
         $this->assertSame('21', Setting::get('draw_window_days'));
         $this->assertSame('10', Setting::get('locker_pickup_days'));
         $this->assertSame('0', Setting::get('expiry_reminder_enabled'));
@@ -556,7 +574,7 @@ class DrawBoxTest extends TestCase
 
     public function test_won_by_employee_report_separates_pto(): void
     {
-        $supervisor = User::factory()->role('supervisor')->create();
+        $supervisor = User::factory()->role('admin')->create();
         $user = User::factory()->create(['name' => 'Pat Medic']);
         $pto = Prize::create(['name' => 'PTO (2 hours)', 'type' => 'pto', 'pto_hours' => 2, 'value_cents' => 5000, 'quantity' => 1]);
         $machine = app(DrawMachine::class);
@@ -577,7 +595,7 @@ class DrawBoxTest extends TestCase
 
     public function test_hidden_and_deleted_prizes_leave_the_box_but_keep_history(): void
     {
-        $supervisor = User::factory()->role('supervisor')->create();
+        $admin = User::factory()->role('admin')->create();
         $shears = Prize::create(['name' => 'Raptor shears', 'type' => 'item', 'value_cents' => 6000, 'quantity' => 3]);
         $draw = app(DrawMachine::class)->draw($this->credit(User::factory()->create()));
         $card = Prize::create(['name' => '$10 gift card', 'type' => 'gift_card', 'value_cents' => 1000]);
@@ -586,22 +604,22 @@ class DrawBoxTest extends TestCase
         $inventory = app(Inventory::class);
         $this->assertSame(4, $inventory->envelopes()[$card->id]['count']);
 
-        $this->actingAs($supervisor)->post("/supervisor/inventory/brands/{$wawa->id}/toggle");
+        $this->actingAs($admin)->post("/supervisor/inventory/brands/{$wawa->id}/toggle");
         $this->assertSame(2, $inventory->envelopes()[$card->id]['count']);
-        $this->actingAs($supervisor)->get('/supervisor/inventory')->assertSee('Hidden prizes and gift cards (1)');
+        $this->actingAs($admin)->get('/supervisor/inventory')->assertSee('Hidden prizes and gift cards (1)');
 
-        $this->actingAs($supervisor)->post("/supervisor/inventory/prizes/{$shears->id}/toggle");
+        $this->actingAs($admin)->post("/supervisor/inventory/prizes/{$shears->id}/toggle");
         $this->assertArrayNotHasKey($shears->id, $inventory->envelopes()->all());
-        $this->actingAs($supervisor)->post("/supervisor/inventory/prizes/{$shears->id}/toggle");
+        $this->actingAs($admin)->post("/supervisor/inventory/prizes/{$shears->id}/toggle");
         $this->assertArrayHasKey($shears->id, $inventory->envelopes()->all());
 
-        $this->actingAs($supervisor)->delete("/supervisor/inventory/brands/{$amazon->id}");
+        $this->actingAs($admin)->delete("/supervisor/inventory/brands/{$amazon->id}");
         $this->assertNull($amazon->fresh());
-        $this->actingAs($supervisor)->delete("/supervisor/inventory/prizes/{$shears->id}");
+        $this->actingAs($admin)->delete("/supervisor/inventory/prizes/{$shears->id}");
         $this->assertSoftDeleted($shears);
-        $this->actingAs($supervisor)->get('/supervisor/inventory')->assertDontSee('value="Raptor shears"', false);
+        $this->actingAs($admin)->get('/supervisor/inventory')->assertDontSee('value="Raptor shears"', false);
         // The past draw still shows its prize.
-        $this->actingAs($supervisor)->get('/supervisor/reports')->assertOk()->assertSee($draw->fresh()->prize_name);
+        $this->actingAs($admin)->get('/supervisor/reports')->assertOk()->assertSee($draw->fresh()->prize_name);
     }
 
     public function test_lockers_are_laid_out_and_numbered_down_each_column(): void
