@@ -17,9 +17,9 @@
             @if (session('error'))<div class="flash flash-error" style="max-width:640px;margin:12px auto">{{ session('error') }}</div>@endif
             @if ($draw->user_id === auth()->id())
                 @if ($brands->isEmpty())
-                    <p>No brands are in stock for this value right now. A supervisor will sort it out with you.</p>
+                    <p>None are in stock right now. A supervisor will sort it out with you.</p>
                 @else
-                    <p>Pick the brand you'd like.</p>
+                    <p>Pick the {{ $draw->choiceNoun() }} you'd like.</p>
                     <form method="post" action="{{ route('draws.brand', $draw) }}" class="brand-grid">
                         @csrf
                         @foreach ($brands as $stock)
@@ -28,7 +28,7 @@
                     </form>
                 @endif
             @else
-                <p>Waiting for {{ $draw->user->name }} to pick a brand.</p>
+                <p>Waiting for {{ $draw->user->name }} to pick a {{ $draw->choiceNoun() }}.</p>
             @endif
         @elseif ($draw->status === 'awarded')
             <p>{{ $draw->cash_bonus ? 'Paid' : 'Received' }} on {{ $draw->awarded_at->format('M j, Y') }}.</p>

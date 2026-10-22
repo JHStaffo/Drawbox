@@ -3,18 +3,21 @@
 @section('band')
     <h1>Inventory and restocking</h1>
     <p>The odds are the envelopes left for each prize out of all envelopes in the box. Prizes that aren't diminishing (like candy and snack) never run out when drawn.</p>
+    <p>Any prize can have choices the winner picks from, like gift card brands. Each pick uses one of that choice.</p>
     <p>There is currently a value of <strong>{{ money($boxValue) }}</strong> in the draw box.</p>
 @endsection
 
 @section('content')
 @php($nonCards = $prizes->where('active', true)->reject->isGiftCard())
+@php($withChoices = $nonCards->filter->hasChoices())
+@php($withoutChoices = $nonCards->reject->hasChoices())
 @php($cards = $prizes->where('active', true)->filter->isGiftCard())
 @php($hiddenPrizes = $prizes->where('active', false))
 <div class="stack">
     <div class="card card-navy row-actions" style="justify-content:space-between">
         <div>
             <h2 style="margin:0">Monthly restock</h2>
-            <div style="color:#d5dde4">Tops every prize and gift card brand up to its monthly amount. Nothing above that amount is removed.</div>
+            <div style="color:#d5dde4">Tops every prize, gift card brand and prize choice up to its monthly amount. Nothing above that amount is removed.</div>
         </div>
         <div class="row-actions">
             <a class="btn btn-outline" style="color:#fff" href="{{ route('supervisor.inventory.log') }}">Change log</a>
@@ -35,14 +38,22 @@
                             <input type="hidden" name="type" value="{{ $prize->type }}">
                         </form>
                         <input form="p{{ $prize->id }}" type="text" name="name" value="{{ $prize->name }}" style="min-width:140px">
+                        @if ($prize->hasChoices())
+                            <div class="hint" style="margin-top:4px"><a href="#choices-{{ $prize->id }}">{{ $prize->stocks->where('active', true)->count() }} choices</a></div>
+                        @endif
                         @if ($prize->type === 'pto')
                             <div class="hint" style="margin-top:4px"><input form="p{{ $prize->id }}" type="number" step="0.25" name="pto_hours" value="{{ $prize->pto_hours + 0 }}" style="width:80px"> hours</div>
                         @endif
                     </td>
                     <td><span class="pill">{{ $types[$prize->type] }}</span></td>
                     <td class="num"><input form="p{{ $prize->id }}" type="number" step="0.01" min="0" name="value" value="{{ $prize->value_cents / 100 }}" style="width:90px"></td>
-                    <td class="num"><input form="p{{ $prize->id }}" type="number" min="0" name="quantity" value="{{ $prize->quantity }}" style="width:80px"></td>
-                    <td class="num"><input form="p{{ $prize->id }}" type="number" min="0" name="monthly_quantity" value="{{ $prize->monthly_quantity }}" style="width:80px" @disabled(! $prize->diminishing) title="{{ $prize->diminishing ? '' : 'Not restocked because drawing it never uses one up' }}"></td>
+                    @if ($prize->countsFromChoices())
+                        <td class="num" title="The total of its choices">{{ $prize->stocks->where('active', true)->sum('quantity') }}</td>
+                        <td class="num hint" title="Each choice has its own monthly amount">—</td>
+                    @else
+                        <td class="num"><input form="p{{ $prize->id }}" type="number" min="0" name="quantity" value="{{ $prize->quantity }}" style="width:80px"></td>
+                        <td class="num"><input form="p{{ $prize->id }}" type="number" min="0" name="monthly_quantity" value="{{ $prize->monthly_quantity }}" style="width:80px" @disabled(! $prize->diminishing) title="{{ $prize->diminishing ? '' : 'Not restocked because drawing it never uses one up' }}"></td>
+                    @endif
                     <td><input form="p{{ $prize->id }}" type="hidden" name="diminishing" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="diminishing" value="1" @checked($prize->diminishing)></td>
                     <td><input form="p{{ $prize->id }}" type="hidden" name="cash_bonus_allowed" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="cash_bonus_allowed" value="1" @checked($prize->cash_bonus_allowed)></td>
                     <td><input form="p{{ $prize->id }}" type="hidden" name="taxable" value="0"><input form="p{{ $prize->id }}" type="checkbox" name="taxable" value="1" @checked($prize->taxable)></td>
@@ -54,6 +65,33 @@
                 </tr>
             @endforeach
         </table></div>
+    </div>
+
+    <h2 class="mt">Prize choices</h2>
+    <div class="grid grid-2">
+        @foreach ($withChoices as $prize)
+            <div class="card" id="choices-{{ $prize->id }}">
+                <div class="row-actions" style="justify-content:space-between">
+                    <h3 style="margin:0">{{ $prize->name }}</h3>
+                    <span class="pill pill-teal">{{ $prize->stocks->where('active', true)->sum('quantity') }} in stock</span>
+                </div>
+                @include('supervisor.partials.stock-table', ['noun' => 'choice', 'placeholder' => 'e.g. Snickers'])
+            </div>
+        @endforeach
+        @if ($withoutChoices->isNotEmpty())
+            <div class="card">
+                <h3 style="margin:0">Add choices to a prize</h3>
+                <p class="hint">For a prize like Candy, list each kind you have so the winner can pick one and you can track how many of each are left.</p>
+                <form method="post" action="{{ route('supervisor.inventory.stocks.store', $withoutChoices->first()) }}" class="choice-prize-form">@csrf
+                    <div class="field"><label>Prize</label>
+                        <select class="choice-prize">
+                            @foreach ($withoutChoices as $prize)<option value="{{ route('supervisor.inventory.stocks.store', $prize) }}">{{ $prize->name }}</option>@endforeach
+                        </select>
+                    </div>
+                    @include('supervisor.partials.add-stocks', ['noun' => 'choice', 'placeholder' => 'e.g. Snickers'])
+                </form>
+            </div>
+        @endif
     </div>
 
     <h2 class="mt">Gift cards</h2>
@@ -68,35 +106,7 @@
                     <span class="hint">This whole gift card value:</span>
                     @include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.prizes.toggle', $prize), 'destroy' => route('supervisor.inventory.prizes.destroy', $prize), 'name' => $prize->name, 'hidden' => false])
                 </div>
-                <div class="table-wrap mt"><table>
-                    <tr><th>Brand</th><th class="num">In box</th><th class="num">Monthly</th><th></th></tr>
-                    @forelse ($prize->stocks->where('active', true) as $stock)
-                        <tr>
-                            <td>{{ $stock->brand }}
-                                <form id="s{{ $stock->id }}" method="post" action="{{ route('supervisor.inventory.stocks.update', $stock) }}">@csrf @method('put')</form>
-                            </td>
-                            <td class="num"><input form="s{{ $stock->id }}" type="number" min="0" name="quantity" value="{{ $stock->quantity }}" style="width:70px"></td>
-                            <td class="num"><input form="s{{ $stock->id }}" type="number" min="0" name="monthly_quantity" value="{{ $stock->monthly_quantity }}" style="width:70px"></td>
-                            <td><div class="row-actions" style="flex-wrap:nowrap">
-                                <button form="s{{ $stock->id }}" class="btn btn-small btn-teal" type="submit">Save</button>
-                                @include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.stocks.toggle', $stock), 'destroy' => route('supervisor.inventory.stocks.destroy', $stock), 'name' => $prize->name.' '.$stock->brand, 'hidden' => false])
-                            </div></td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="4" class="empty">No brands yet.</td></tr>
-                    @endforelse
-                </table></div>
-                <details class="mt">
-                    <summary>Add a brand</summary>
-                    <form method="post" action="{{ route('supervisor.inventory.stocks.store', $prize) }}" class="mt">@csrf
-                        <div class="field-row">
-                            <div class="field"><label>Brand</label><input type="text" name="brand" required placeholder="e.g. Amazon"></div>
-                            <div class="field"><label>In box</label><input type="number" min="0" name="quantity" value="0" required></div>
-                            <div class="field"><label>Monthly</label><input type="number" min="0" name="monthly_quantity" value="0" required></div>
-                        </div>
-                        <button class="btn btn-small" type="submit">Add brand</button>
-                    </form>
-                </details>
+                @include('supervisor.partials.stock-table', ['noun' => 'brand', 'placeholder' => 'e.g. Amazon'])
                 <details class="mt">
                     <summary>Edit this value</summary>
                     <form method="post" action="{{ route('supervisor.inventory.prizes.update', $prize) }}" class="mt">@csrf @method('put')
@@ -128,13 +138,13 @@
                     @foreach ($hiddenPrizes as $prize)
                         <tr>
                             <td>{{ $prize->name }} <span class="pill">{{ $types[$prize->type] }}</span></td>
-                            <td class="num">{{ $prize->isGiftCard() ? $prize->stocks->sum('quantity') : $prize->quantity }}</td>
+                            <td class="num">{{ $prize->countsFromChoices() ? $prize->stocks->sum('quantity') : $prize->quantity }}</td>
                             <td><div class="row-actions" style="justify-content:flex-end">@include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.prizes.toggle', $prize), 'destroy' => route('supervisor.inventory.prizes.destroy', $prize), 'name' => $prize->name, 'hidden' => true])</div></td>
                         </tr>
                     @endforeach
                     @foreach ($hiddenStocks as $stock)
                         <tr>
-                            <td>{{ $stock->prize->name }} · {{ $stock->brand }} <span class="pill">Gift card brand</span></td>
+                            <td>{{ $stock->prize->name }} · {{ $stock->brand }} <span class="pill">{{ $stock->prize->isGiftCard() ? 'Gift card brand' : 'Prize choice' }}</span></td>
                             <td class="num">{{ $stock->quantity }}</td>
                             <td><div class="row-actions" style="justify-content:flex-end">@include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.stocks.toggle', $stock), 'destroy' => route('supervisor.inventory.stocks.destroy', $stock), 'name' => $stock->prize->name.' '.$stock->brand, 'hidden' => true])</div></td>
                         </tr>
@@ -163,9 +173,40 @@
             <label class="check"><input type="checkbox" name="cash_bonus_allowed" value="1"> Allow taxable cash bonus instead</label>
             <input type="hidden" name="taxable" value="0">
             <label class="check"><input type="checkbox" name="taxable" value="1" checked> Taxable</label>
-            <p class="hint">For a new gift card value, choose "Gift card" and then add brands to it.</p>
+            <p class="hint">For a new gift card value, choose "Gift card" and then add brands to it. To let winners pick from several kinds of a prize, add it and then add choices to it under Prize choices.</p>
             <button class="btn" type="submit">Add prize</button>
         </form>
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    // "+ Another row" copies the last blank row with the next index.
+    document.querySelectorAll('.add-rows').forEach(function (box) {
+        const button = box.querySelector('.add-row-btn');
+        button.hidden = false;
+        button.addEventListener('click', function () {
+            const rows = box.querySelectorAll('.add-row');
+            const last = rows[rows.length - 1];
+            const copy = last.cloneNode(true);
+            copy.querySelectorAll('input').forEach(function (input) {
+                input.name = input.name.replace(/items\[\d+\]/, 'items[' + rows.length + ']');
+                input.value = input.type === 'number' ? '0' : '';
+                input.placeholder = '';
+            });
+            last.after(copy);
+            copy.querySelector('input').focus();
+        });
+    });
+
+    // The "Add choices to a prize" form posts to whichever prize is picked.
+    document.querySelectorAll('.choice-prize-form').forEach(function (form) {
+        const select = form.querySelector('.choice-prize');
+        select.addEventListener('change', function () { form.action = select.value; });
+        form.action = select.value;
+    });
+})();
+</script>
+@endpush

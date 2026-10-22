@@ -85,7 +85,7 @@
                         <td class="num">{{ money($d->value_cents) }}</td>
                         <td>
                             @if ($d->status === 'awarded')<span class="pill pill-green">{{ $d->cash_bonus ? 'Paid' : 'Received' }} {{ $d->awarded_at->format('M j') }}</span>
-                            @elseif ($d->status === 'pending_brand')<span class="pill pill-teal">Picking brand</span>
+                            @elseif ($d->status === 'pending_brand')<span class="pill pill-teal">Picking {{ $d->choiceNoun() }}</span>
                             @elseif ($d->status === 'in_locker')<span class="pill pill-teal">In locker</span>
                             @elseif ($d->status === 'forfeited')<span class="pill pill-red">Forfeited</span>
                             @else<span class="pill">Pending Dispensing</span>@endif

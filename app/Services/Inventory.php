@@ -17,10 +17,13 @@ class Inventory
      *
      * A gift card value's envelopes are its brand cards in stock, less the
      * ones already drawn but still waiting for the winner to pick a brand.
+     * Other prizes with choices work the same way when they're diminishing.
+     * A non-diminishing prize with choices (candy) keeps its own count for
+     * the odds, but can only be drawn while some choice is still in stock.
      */
     public function envelopes(): Collection
     {
-        $prizes = Prize::where('active', true)->orderBy('sort')->get();
+        $prizes = Prize::where('active', true)->with('stocks')->orderBy('sort')->get();
 
         $stock = GiftCardStock::where('active', true)->selectRaw('prize_id, sum(quantity) as total')
             ->groupBy('prize_id')->pluck('total', 'prize_id');
@@ -30,9 +33,12 @@ class Inventory
             ->groupBy('prize_id')->pluck('total', 'prize_id');
 
         return $prizes->mapWithKeys(function (Prize $prize) use ($stock, $reserved) {
-            $count = $prize->isGiftCard()
-                ? (int) ($stock[$prize->id] ?? 0) - (int) ($reserved[$prize->id] ?? 0)
-                : $prize->quantity;
+            if ($prize->hasChoices()) {
+                $available = (int) ($stock[$prize->id] ?? 0) - (int) ($reserved[$prize->id] ?? 0);
+                $count = $prize->diminishes() ? $available : ($available > 0 ? $prize->quantity : 0);
+            } else {
+                $count = $prize->quantity;
+            }
 
             return [$prize->id => ['prize' => $prize, 'count' => max(0, $count)]];
         });
@@ -82,13 +88,14 @@ class Inventory
         });
     }
 
-    /** Top every restocked prize and gift card brand up to its monthly amount. */
+    /** Top every restocked prize, gift card brand and prize choice up to its monthly amount. */
     public function restock(?User $by): int
     {
         $changed = 0;
 
-        foreach (Prize::where('active', true)->where('type', '!=', 'gift_card')->where('diminishing', true)->get() as $prize) {
-            if ($prize->quantity < $prize->monthly_quantity) {
+        foreach (Prize::where('active', true)->where('type', '!=', 'gift_card')->where('diminishing', true)->with('stocks')->get() as $prize) {
+            // A prize with choices is restocked through its choices below.
+            if (! $prize->hasChoices() && $prize->quantity < $prize->monthly_quantity) {
                 $this->setPrizeQuantity($prize, $prize->monthly_quantity, $by, 'Monthly restock');
                 $changed++;
             }
