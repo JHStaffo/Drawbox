@@ -29,6 +29,12 @@ class Draw extends Model
         return $this->brand ? "{$this->prize_name} ({$this->brand})" : $this->prize_name;
     }
 
+    /** What the winner picks: "brand" for gift cards, "choice" for other prizes. */
+    public function choiceNoun(): string
+    {
+        return $this->prize_type === 'gift_card' ? 'brand' : 'choice';
+    }
+
     /** The winner can swap the prize for a taxable cash bonus until it's handed out. */
     public function canTakeCashBonus(): bool
     {

@@ -179,6 +179,91 @@ class DrawBoxTest extends TestCase
         $this->actingAs($admin)->get('/supervisor')->assertSee('>Reports<', false);
     }
 
+    public function test_admin_adds_several_brands_at_once(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $card = Prize::create(['name' => '$10 gift card', 'type' => 'gift_card', 'value_cents' => 1000]);
+        GiftCardStock::create(['prize_id' => $card->id, 'brand' => 'Wawa', 'quantity' => 1]);
+
+        $this->actingAs($admin)->post("/supervisor/inventory/prizes/{$card->id}/brands", ['items' => [
+            ['brand' => 'Amazon', 'quantity' => 3, 'monthly_quantity' => 4],
+            ['brand' => '', 'quantity' => 0, 'monthly_quantity' => 0],
+            ['brand' => ' Target ', 'quantity' => 2, 'monthly_quantity' => 2],
+        ]])->assertSessionHas('status', 'Added Amazon and Target to $10 gift card.');
+        $this->assertSame([1, 3, 2], $card->stocks()->reorder('id')->pluck('quantity')->all());
+        $this->assertSame(4, GiftCardStock::where('brand', 'Amazon')->value('monthly_quantity'));
+
+        // A name already on the card, or entered twice, saves nothing.
+        $this->actingAs($admin)->post("/supervisor/inventory/prizes/{$card->id}/brands", ['items' => [
+            ['brand' => 'Visa', 'quantity' => 1], ['brand' => 'wawa', 'quantity' => 1],
+        ]])->assertSessionHasErrors('items.1.brand');
+        $this->actingAs($admin)->post("/supervisor/inventory/prizes/{$card->id}/brands", ['items' => [
+            ['brand' => 'Visa', 'quantity' => 1], ['brand' => 'VISA', 'quantity' => 1],
+        ]])->assertSessionHasErrors();
+        $this->actingAs($admin)->post("/supervisor/inventory/prizes/{$card->id}/brands", ['items' => [['brand' => '']]])->assertSessionHasErrors('items');
+        $this->assertSame(3, $card->stocks()->count());
+    }
+
+    public function test_candy_with_choices_keeps_its_odds_and_tracks_each_choice(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $candy = Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 10]);
+        $this->actingAs($admin)->post("/supervisor/inventory/prizes/{$candy->id}/brands", ['items' => [
+            ['brand' => 'Snickers', 'quantity' => 1, 'monthly_quantity' => 6],
+            ['brand' => 'Twix', 'quantity' => 0, 'monthly_quantity' => 6],
+        ]])->assertSessionHas('status');
+        $inventory = app(Inventory::class);
+        $this->assertSame(10, $inventory->envelopes()[$candy->id]['count']);
+        $this->actingAs($admin)->get('/supervisor/inventory')->assertOk()->assertSee('Prize choices')->assertSee('Snickers');
+
+        $user = User::factory()->create();
+        $credit = $this->credit($user);
+        $this->actingAs($user)->post("/credits/{$credit->id}/draw");
+        $draw = Draw::first();
+        $this->assertSame('pending_brand', $draw->status);
+        $this->actingAs($user)->get('/')->assertSee('Pick a choice');
+        $this->actingAs($user)->get("/draws/{$draw->id}")->assertSee('Pick the choice')->assertSee('Snickers')->assertDontSee('>Twix<', false);
+        // The last Snickers is held for this winner, so Candy can't be drawn again until restock.
+        $this->assertSame(0, $inventory->envelopes()[$candy->id]['count']);
+
+        $snickers = GiftCardStock::where('brand', 'Snickers')->first();
+        $this->actingAs($user)->post("/draws/{$draw->id}/brand", ['stock_id' => $snickers->id])->assertRedirect();
+        $this->assertSame('Candy (Snickers)', $draw->fresh()->label());
+        $this->assertSame(0, $snickers->fresh()->quantity);
+        $this->assertSame(10, $candy->fresh()->quantity);
+
+        app(Inventory::class)->restock($admin);
+        $this->assertSame(6, $snickers->fresh()->quantity);
+        $this->assertSame(10, $inventory->envelopes()[$candy->id]['count']);
+    }
+
+    public function test_diminishing_prize_with_choices_counts_its_choices(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $light = Prize::create(['name' => 'Pen light', 'type' => 'item', 'quantity' => 0, 'monthly_quantity' => 9]);
+        $red = GiftCardStock::create(['prize_id' => $light->id, 'brand' => 'Red', 'quantity' => 2, 'monthly_quantity' => 2]);
+        GiftCardStock::create(['prize_id' => $light->id, 'brand' => 'Blue', 'quantity' => 1, 'monthly_quantity' => 1]);
+        $inventory = app(Inventory::class);
+        $this->assertSame(3, $inventory->envelopes()[$light->id]['count']);
+
+        $draw = app(DrawMachine::class)->draw($this->credit(User::factory()->create()));
+        $this->assertSame('pending_brand', $draw->status);
+        $this->assertSame(2, $inventory->envelopes()[$light->id]['count']);
+        app(DrawMachine::class)->chooseBrand($draw, $red->id);
+        $this->assertSame(1, $red->fresh()->quantity);
+        $this->assertSame(0, $light->fresh()->quantity);
+
+        // Removing the prize puts the picked choice back, not the prize's own count.
+        app(DrawMachine::class)->removeDraw($draw->fresh(), $admin);
+        $this->assertSame(2, $red->fresh()->quantity);
+        $this->assertSame(0, $light->fresh()->quantity);
+
+        // Restock fills the choices and leaves the prize's own count alone.
+        $inventory->restock($admin);
+        $this->assertSame(0, $light->fresh()->quantity);
+        $this->actingAs($admin)->get('/supervisor/inventory')->assertOk()->assertSee('choices</a>', false);
+    }
+
     public function test_employees_cannot_use_dispatch_or_supervisor_pages(): void
     {
         $employee = User::factory()->create();

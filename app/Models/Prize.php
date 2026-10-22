@@ -34,6 +34,33 @@ class Prize extends Model
     }
 
     /**
+     * Whether the winner picks from a list after drawing: a gift card's
+     * brands, or the choices added to any other prize (candy bars, say).
+     * Each pick uses up one of that brand or choice.
+     */
+    public function hasChoices(): bool
+    {
+        if ($this->isGiftCard()) {
+            return true;
+        }
+        $stocks = $this->relationLoaded('stocks') ? $this->stocks : $this->stocks()->get();
+
+        return $stocks->contains('active', true);
+    }
+
+    /** What the winner picks: "brand" for gift cards, "choice" for everything else. */
+    public function choiceNoun(): string
+    {
+        return $this->isGiftCard() ? 'brand' : 'choice';
+    }
+
+    /** Whether the box count comes from the choices in stock instead of the prize's own count. */
+    public function countsFromChoices(): bool
+    {
+        return $this->hasChoices() && $this->diminishes();
+    }
+
+    /**
      * Whether drawing this prize uses up an envelope. Non-diminishing prizes
      * (candy, snack) stay at the same count, so they only set the odds.
      * Gift cards always diminish through their brand stock.

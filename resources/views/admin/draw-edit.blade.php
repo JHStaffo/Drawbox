@@ -24,7 +24,7 @@
         </select>
     </div>
     <div class="field" id="brand-field" @if ($draw->cash_bonus) data-cash-bonus @endif>
-        <label for="gift_card_stock_id">Gift card brand</label>
+        <label for="gift_card_stock_id" id="brand-label">Gift card brand</label>
         <select id="gift_card_stock_id" name="gift_card_stock_id"></select>
         <div class="hint" id="brand-hint"></div>
     </div>
@@ -58,11 +58,12 @@
         brandSelect.required = show && awarded;
         brandSelect.innerHTML = '';
         if (!show) return;
+        document.getElementById('brand-label').textContent = prize.type === 'gift_card' ? 'Gift card brand' : 'Choice';
         if (!awarded) brandSelect.add(new Option('Let the team member pick', ''));
         prize.brands.forEach(function (b) {
             brandSelect.add(new Option(b.brand + ' (' + b.left + ' left)', b.id, false, b.id === brand));
         });
-        brandHint.textContent = prize.brands.length ? '' : 'This gift card value has no brands yet. Add one on the Inventory page.';
+        brandHint.textContent = prize.brands.length ? '' : 'This prize has no ' + prize.noun + 's yet. Add one on the Inventory page.';
     }
 
     prizeSelect.addEventListener('change', function () {

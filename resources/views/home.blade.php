@@ -34,9 +34,9 @@
         <div class="card card-teal ticket">
             <div>
                 <h2 style="margin:0">You won a {{ $draw->prize_name }}</h2>
-                <div>Pick your gift card brand to finish.</div>
+                <div>{{ $draw->prize_type === 'gift_card' ? 'Pick your gift card brand to finish.' : 'Pick which one you want to finish.' }}</div>
             </div>
-            <a class="btn" href="{{ route('draws.show', $draw) }}">Pick a brand</a>
+            <a class="btn" href="{{ route('draws.show', $draw) }}">Pick a {{ $draw->choiceNoun() }}</a>
         </div>
     @endforeach
 

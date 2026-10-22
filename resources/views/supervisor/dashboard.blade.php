@@ -58,7 +58,7 @@ document.querySelectorAll('.check-all').forEach(function (all) {
                             <td>{{ $draw->drawn_at->format('M j') }}</td>
                             <td class="right"><div class="row-actions" style="justify-content:flex-end">
                                 @if ($draw->status === 'pending_brand')
-                                    <span class="pill pill-teal">Picking brand</span>
+                                    <span class="pill pill-teal">Picking {{ $draw->choiceNoun() }}</span>
                                 @elseif ($draw->cash_bonus || $draw->pto_hours !== null)
                                     <form method="post" action="{{ route('supervisor.award', $draw) }}">@csrf
                                         <button class="btn btn-small btn-teal" type="submit">{{ $draw->cash_bonus ? 'Mark paid' : 'Mark PTO given' }}</button>

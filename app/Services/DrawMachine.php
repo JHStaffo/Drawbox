@@ -46,7 +46,8 @@ class DrawMachine
             /** @var Prize $prize */
             $prize = $envelope['prize'];
 
-            if (! $prize->isGiftCard() && $prize->diminishing) {
+            $picks = $prize->hasChoices();
+            if (! $picks && $prize->diminishing) {
                 $prize->decrement('quantity');
                 $this->inventory->log($credit->user, $prize->name, -1, $prize->quantity, "Drawn by {$credit->user->name}");
             }
@@ -62,7 +63,7 @@ class DrawMachine
                 'value_cents' => $prize->value_cents,
                 'pto_hours' => $prize->pto_hours,
                 'taxable' => $prize->taxable,
-                'status' => $prize->isGiftCard() ? 'pending_brand' : 'won',
+                'status' => $picks ? 'pending_brand' : 'won',
                 'drawn_at' => now(),
             ]);
         });
@@ -85,7 +86,7 @@ class DrawMachine
                 $stock = GiftCardStock::lockForUpdate()->findOrFail($draw->gift_card_stock_id);
                 $stock->increment('quantity');
                 $this->inventory->log($draw->user, "{$draw->prize_name} {$stock->brand}", 1, $stock->quantity, $reason);
-            } elseif (! $draw->prize->isGiftCard() && $draw->prize->diminishing) {
+            } elseif ($this->tookPrizeCount($draw)) {
                 $prize = Prize::withTrashed()->lockForUpdate()->findOrFail($draw->prize_id);
                 $prize->increment('quantity');
                 $this->inventory->log($draw->user, $prize->name, 1, $prize->quantity, $reason);
@@ -134,7 +135,7 @@ class DrawMachine
     {
         return DB::transaction(function () use ($draw, $prize, $stock, $by, $details) {
             $draw = Draw::with('prize', 'user')->lockForUpdate()->findOrFail($draw->id);
-            $stock = $prize->isGiftCard() && ! $draw->cash_bonus ? $stock : null;
+            $stock = $prize->hasChoices() && ! $draw->cash_bonus ? $stock : null;
 
             $samePrize = $draw->prize_id === $prize->id && $draw->gift_card_stock_id === $stock?->id;
             if (! $samePrize && ! $draw->cash_bonus) {
@@ -144,7 +145,7 @@ class DrawMachine
             }
 
             $status = $draw->status;
-            if ($prize->isGiftCard() && ! $draw->cash_bonus && ! $stock) {
+            if ($prize->hasChoices() && ! $draw->cash_bonus && ! $stock) {
                 $status = 'pending_brand';
             } elseif ($status === 'pending_brand') {
                 $status = 'won';
@@ -179,11 +180,21 @@ class DrawMachine
                 $stock->increment('quantity');
                 $this->inventory->log($by, "{$draw->prize_name} {$stock->brand}", 1, $stock->quantity, $reason);
             }
-        } elseif (! $draw->prize->isGiftCard() && $draw->prize->diminishing) {
+        } elseif ($this->tookPrizeCount($draw)) {
             $prize = Prize::withTrashed()->lockForUpdate()->findOrFail($draw->prize_id);
             $prize->increment('quantity');
             $this->inventory->log($by, $prize->name, 1, $prize->quantity, $reason);
         }
+    }
+
+    /**
+     * Whether a draw used up one of its prize's own count. Prizes with
+     * choices use up the picked choice instead, and a draw still waiting
+     * on a pick hasn't used anything up yet.
+     */
+    private function tookPrizeCount(Draw $draw): bool
+    {
+        return $draw->status !== 'pending_brand' && ! $draw->prize->hasChoices() && $draw->prize->diminishing;
     }
 
     /** Take one envelope out of the box for a prize given by hand. Counts never go below zero. */
@@ -195,7 +206,7 @@ class DrawMachine
                 $stock->decrement('quantity');
                 $this->inventory->log($by, "{$prize->name} {$stock->brand}", -1, $stock->quantity, $reason);
             }
-        } elseif (! $prize->isGiftCard() && $prize->diminishing) {
+        } elseif (! $prize->hasChoices() && $prize->diminishing) {
             $prize = Prize::withTrashed()->lockForUpdate()->findOrFail($prize->id);
             if ($prize->quantity > 0) {
                 $prize->decrement('quantity');
@@ -204,7 +215,7 @@ class DrawMachine
         }
     }
 
-    /** Brands the winner can still pick for a gift card they drew. */
+    /** Brands or choices the winner can still pick for the prize they drew. */
     public function brandsFor(Draw $draw)
     {
         return GiftCardStock::where('prize_id', $draw->prize_id)->where('active', true)->where('quantity', '>', 0)->orderBy('brand')->get();
@@ -215,12 +226,12 @@ class DrawMachine
         return DB::transaction(function () use ($draw, $stockId) {
             $draw = Draw::lockForUpdate()->findOrFail($draw->id);
             if ($draw->status !== 'pending_brand') {
-                throw new RuntimeException('A brand was already chosen for this prize.');
+                throw new RuntimeException("A {$draw->choiceNoun()} was already chosen for this prize.");
             }
 
             $stock = GiftCardStock::lockForUpdate()->where('prize_id', $draw->prize_id)->where('active', true)->findOrFail($stockId);
             if ($stock->quantity < 1) {
-                throw new RuntimeException('That brand just ran out. Please pick another.');
+                throw new RuntimeException("That {$draw->choiceNoun()} just ran out. Please pick another.");
             }
 
             $stock->decrement('quantity');

@@ -8,6 +8,7 @@ use App\Models\InventoryLog;
 use App\Models\Prize;
 use App\Services\Inventory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class InventoryController extends Controller
@@ -47,25 +48,46 @@ class InventoryController extends Controller
     {
         $data = $this->validatePrize($request, $prize);
         $prize->update(collect($data)->except('quantity')->all());
-        if (! $prize->isGiftCard() && isset($data['quantity'])) {
+        if (! $prize->load('stocks')->countsFromChoices() && isset($data['quantity'])) {
             $this->inventory->setPrizeQuantity($prize, $data['quantity'], $request->user(), $request->input('reason') ?: 'Manual change');
         }
 
         return back()->with('status', "Saved {$prize->name}.");
     }
 
+    /**
+     * Add one or more gift card brands, or choices for any other prize, in
+     * one save. Rows left blank are ignored.
+     */
     public function storeStock(Request $request, Prize $prize)
     {
-        abort_unless($prize->isGiftCard(), 422);
-        $data = $request->validate([
-            'brand' => ['required', 'string', 'max:100', Rule::unique('gift_card_stocks')->where('prize_id', $prize->id)],
-            'quantity' => 'required|integer|min:0|max:10000',
-            'monthly_quantity' => 'required|integer|min:0|max:10000',
-        ]);
-        $stock = $prize->stocks()->create(['brand' => $data['brand'], 'monthly_quantity' => $data['monthly_quantity']]);
-        $this->inventory->setStockQuantity($stock, $data['quantity'], $request->user(), 'Added brand');
+        $noun = $prize->choiceNoun();
+        $rows = collect($request->input('items', []))
+            ->filter(fn ($row) => is_array($row) && trim((string) ($row['brand'] ?? '')) !== '')
+            ->map(fn ($row) => ['brand' => trim($row['brand'])] + $row)
+            ->values();
+        $request->merge(['items' => $rows->all()]);
 
-        return back()->with('status', "Added {$data['brand']} to {$prize->name}.");
+        $taken = $prize->stocks()->pluck('brand')->map(fn ($b) => mb_strtolower($b))->all();
+        $request->validate([
+            'items' => 'required|array|min:1|max:50',
+            'items.*.brand' => ['required', 'string', 'max:100', 'distinct:ignore_case', function ($attr, $value, $fail) use ($taken, $prize, $noun) {
+                if (in_array(mb_strtolower($value), $taken, true)) {
+                    $fail("{$prize->name} already has a {$noun} called {$value}.");
+                }
+            }],
+            'items.*.quantity' => 'nullable|integer|min:0|max:10000',
+            'items.*.monthly_quantity' => 'nullable|integer|min:0|max:10000',
+        ], ['items.required' => "Enter at least one {$noun}.", 'items.*.brand.distinct' => 'The same name is entered twice.']);
+
+        DB::transaction(function () use ($rows, $prize, $request, $noun) {
+            foreach ($rows as $row) {
+                $stock = $prize->stocks()->create(['brand' => $row['brand'], 'monthly_quantity' => (int) ($row['monthly_quantity'] ?? 0)]);
+                $this->inventory->setStockQuantity($stock, (int) ($row['quantity'] ?? 0), $request->user(), "Added {$noun}");
+            }
+        });
+
+        return back()->with('status', 'Added '.$rows->pluck('brand')->join(', ', ' and ')." to {$prize->name}.");
     }
 
     public function updateStock(Request $request, GiftCardStock $stock)

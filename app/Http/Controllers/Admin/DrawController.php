@@ -26,7 +26,8 @@ class DrawController extends Controller
                 'id' => $p->id,
                 'name' => $p->name,
                 'type' => $p->type,
-                'gift_card' => $p->isGiftCard(),
+                'gift_card' => $p->hasChoices(),
+                'noun' => $p->choiceNoun(),
                 'value' => $p->value_cents / 100,
                 'pto_hours' => $p->pto_hours === null ? '' : $p->pto_hours + 0,
                 'taxable' => $p->taxable,
@@ -59,10 +60,10 @@ class DrawController extends Controller
 
         $prize = Prize::withTrashed()->findOrFail($data['prize_id']);
         $stock = null;
-        if ($prize->isGiftCard() && ! $draw->cash_bonus) {
+        if ($prize->hasChoices() && ! $draw->cash_bonus) {
             $stock = GiftCardStock::where('prize_id', $prize->id)->find($data['gift_card_stock_id'] ?? 0);
             if (! $stock && $draw->status === 'awarded') {
-                throw ValidationException::withMessages(['gift_card_stock_id' => 'Pick the gift card brand that was handed out.']);
+                throw ValidationException::withMessages(['gift_card_stock_id' => "Pick the {$prize->choiceNoun()} that was handed out."]);
             }
         }
 
