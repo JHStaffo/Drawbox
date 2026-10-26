@@ -285,6 +285,17 @@ class DrawBoxTest extends TestCase
         $this->actingAs(User::factory()->role('supervisor')->create())->delete("/admin/users/{$winner->id}")->assertForbidden();
     }
 
+    public function test_pto_winner_is_told_hours_go_to_their_pto_bank(): void
+    {
+        Prize::create(['name' => 'PTO (2 hours)', 'type' => 'pto', 'pto_hours' => 2, 'value_cents' => 5000, 'quantity' => 1]);
+        $user = User::factory()->create();
+        $draw = app(DrawMachine::class)->draw($this->credit($user));
+
+        $this->actingAs($user)->get("/draws/{$draw->id}")
+            ->assertSee('2 Hours of PTO will be added to your PTO bank.')
+            ->assertDontSee('A supervisor will hand it to you');
+    }
+
     public function test_employees_cannot_use_dispatch_or_supervisor_pages(): void
     {
         $employee = User::factory()->create();

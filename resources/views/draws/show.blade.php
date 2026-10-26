@@ -31,9 +31,12 @@
                 <p>Waiting for {{ $draw->user->name }} to pick a {{ $draw->choiceNoun() }}.</p>
             @endif
         @elseif ($draw->status === 'awarded')
-            <p>{{ $draw->cash_bonus ? 'Paid' : 'Received' }} on {{ $draw->awarded_at->format('M j, Y') }}.</p>
+            <p>{{ $draw->cash_bonus ? 'Paid' : ($draw->pto_hours !== null ? 'Added to your PTO bank' : 'Received') }} on {{ $draw->awarded_at->format('M j, Y') }}.</p>
         @elseif ($draw->cash_bonus)
             <p>It will be added to your pay as a taxable bonus. A supervisor will mark it paid.</p>
+            <a class="btn mt" href="{{ route('home') }}">Back to my draws</a>
+        @elseif ($draw->pto_hours !== null)
+            <p>{{ $draw->pto_hours + 0 }} Hours of PTO will be added to your PTO bank.</p>
             <a class="btn mt" href="{{ route('home') }}">Back to my draws</a>
         @else
             <p>A supervisor will hand it to you and mark it received.</p>
