@@ -78,6 +78,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
         Route::post('/users/import', [UserController::class, 'import'])->name('users.import');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
         Route::get('/lockers', [LockerController::class, 'index'])->name('lockers');
         Route::get('/draws/{draw}/edit', [AdminDrawController::class, 'edit'])->name('draws.edit');
         Route::put('/draws/{draw}', [AdminDrawController::class, 'update'])->name('draws.update');

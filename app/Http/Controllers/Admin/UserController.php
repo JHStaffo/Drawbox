@@ -3,7 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Call;
+use App\Models\Draw;
+use App\Models\InventoryLog;
+use App\Models\LockerAssignment;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -93,6 +98,34 @@ class UserController extends Controller
         $user->update($data);
 
         return back()->with('status', "Saved {$user->name}.");
+    }
+
+    /**
+     * Delete someone added by mistake. Anyone with prize history, or who has
+     * credited calls or handed out prizes, is turned off instead so the
+     * records stay for taxes. Draws they were credited but never used go too.
+     */
+    public function destroy(Request $request, User $user)
+    {
+        if ($user->is($request->user())) {
+            return back()->with('error', "You can't delete yourself.");
+        }
+
+        $history = $user->draws()->exists()
+            || LockerAssignment::where('user_id', $user->id)->orWhere('dispensed_by', $user->id)->exists()
+            || Call::where('created_by', $user->id)->exists()
+            || Draw::where('awarded_by', $user->id)->exists();
+        if ($history) {
+            return back()->with('error', "{$user->name} has prize or dispatch history, so they can't be deleted. Uncheck Active and Save to turn them off instead.");
+        }
+
+        DB::transaction(function () use ($user) {
+            InventoryLog::where('user_id', $user->id)->update(['user_id' => null]);
+            $user->credits()->delete();
+            $user->delete();
+        });
+
+        return back()->with('status', "Deleted {$user->name}.");
     }
 
     private function validated(Request $request, ?User $user = null): array
