@@ -264,6 +264,27 @@ class DrawBoxTest extends TestCase
         $this->actingAs($admin)->get('/supervisor/inventory')->assertOk()->assertSee('choices</a>', false);
     }
 
+    public function test_admin_deletes_a_team_member_added_by_mistake_but_not_one_with_history(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $mistake = User::factory()->create(['name' => 'Wrong Person']);
+        $unused = $this->credit($mistake);
+        $unused->call->update(['created_by' => $admin->id]); // dispatch credited them by mistake
+        Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 5]);
+        $winner = User::factory()->create(['name' => 'Real Medic']);
+        $this->actingAs($winner)->post("/credits/{$this->credit($winner)->id}/draw");
+
+        $this->actingAs($admin)->get('/admin/users')->assertSee("/admin/users/{$mistake->id}\"", false);
+        $this->actingAs($admin)->delete("/admin/users/{$mistake->id}")->assertSessionHas('status', 'Deleted Wrong Person.');
+        $this->assertModelMissing($mistake);
+        $this->assertModelMissing($unused);
+
+        $this->actingAs($admin)->delete("/admin/users/{$winner->id}")->assertSessionHas('error');
+        $this->assertModelExists($winner);
+        $this->actingAs($admin)->delete("/admin/users/{$admin->id}")->assertSessionHas('error');
+        $this->actingAs(User::factory()->role('supervisor')->create())->delete("/admin/users/{$winner->id}")->assertForbidden();
+    }
+
     public function test_employees_cannot_use_dispatch_or_supervisor_pages(): void
     {
         $employee = User::factory()->create();
