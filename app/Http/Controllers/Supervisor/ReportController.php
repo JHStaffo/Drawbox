@@ -56,6 +56,38 @@ class ReportController extends Controller
         ], $lines);
     }
 
+    public function pto(Request $request, Reports $reports)
+    {
+        [$from, $to] = $this->range($request);
+
+        return view('supervisor.pto', [
+            'from' => $from,
+            'to' => $to,
+            'userId' => $request->integer('user_id') ?: null,
+            'employees' => User::byLastName(User::all()),
+            'rows' => $reports->ptoByEmployee($from, $to, $request->integer('user_id') ?: null),
+        ]);
+    }
+
+    public function ptoCsv(Request $request, Reports $reports)
+    {
+        [$from, $to] = $this->range($request);
+        $lines = collect();
+        foreach ($reports->ptoByEmployee($from, $to, $request->integer('user_id') ?: null) as $row) {
+            foreach ($row['draws'] as $d) {
+                $lines->push([
+                    $row['user']->name, $row['user']->employee_number, $d->drawn_at->format('Y-m-d'), $d->prize_name,
+                    $d->pto_hours + 0, $this->statusLabel($d), $d->awarded_at?->format('Y-m-d'),
+                ]);
+            }
+            $lines->push([$row['user']->name.' TOTAL', '', '', '', $row['hours'], $row['received_hours'].' received', '']);
+        }
+
+        return $this->csv("pto-earned-{$from->toDateString()}-to-{$to->toDateString()}.csv", [
+            'Team Member', 'Team Member #', 'Drawn', 'Prize', 'PTO hours', 'Status', 'Received',
+        ], $lines);
+    }
+
     private function statusLabel(Draw $d): string
     {
         return match ($d->status) {

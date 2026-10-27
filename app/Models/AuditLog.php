@@ -33,6 +33,7 @@ class AuditLog extends Model
         'supervisor.lockers.picked-up' => 'Locker checked: empty',
         'supervisor.lockers.forfeit' => 'Locker checked: forfeited',
         'supervisor.reports.won.csv' => 'Exported won prizes',
+        'supervisor.reports.pto.csv' => 'Exported PTO earned',
         'supervisor.reports.prizes' => 'Exported prize report',
         'supervisor.reports.employees' => 'Exported team member totals',
         'supervisor.inventory.reset' => 'Reset draws left',

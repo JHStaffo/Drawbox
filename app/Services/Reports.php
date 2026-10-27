@@ -63,6 +63,34 @@ class Reports
     }
 
     /**
+     * PTO prizes drawn in a range, grouped by team member. Forfeited PTO is
+     * left out because it went back in the box.
+     */
+    public function ptoByEmployee(CarbonImmutable $from, CarbonImmutable $to, ?int $userId = null): Collection
+    {
+        return Draw::with('user')
+            ->whereNotNull('pto_hours')
+            ->where('status', '!=', 'forfeited')
+            ->whereBetween('drawn_at', [$from, $to])
+            ->when($userId, fn ($q) => $q->where('user_id', $userId))
+            ->orderBy('drawn_at')
+            ->get()
+            ->groupBy('user_id')
+            ->map(function (Collection $draws) {
+                $received = $draws->where('status', 'awarded');
+
+                return [
+                    'user' => $draws->first()->user,
+                    'draws' => $draws,
+                    'hours' => $draws->sum(fn ($d) => (float) $d->pto_hours),
+                    'received_hours' => $received->sum(fn ($d) => (float) $d->pto_hours),
+                ];
+            })
+            ->sortBy(fn ($row) => $row['user']->sortName())
+            ->values();
+    }
+
+    /**
      * Per-employee totals of prizes received (awarded) in a range. Prizes are
      * counted when the employee physically received them.
      */
