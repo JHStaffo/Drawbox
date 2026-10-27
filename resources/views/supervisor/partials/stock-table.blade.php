@@ -13,7 +13,12 @@
         <tr><td colspan="3" class="empty">No {{ $noun }}s yet.</td></tr>
     @endforelse
 </table></div>
-<div class="row-actions mt"><button form="c{{ $prize->id }}" class="btn btn-small btn-teal" type="submit">Save</button></div>
+<div class="row-actions mt">
+    <button form="c{{ $prize->id }}" class="btn btn-small btn-teal" type="submit">Save</button>
+    @if ($prizeActions ?? false)
+        @include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.prizes.toggle', $prize), 'destroy' => route('supervisor.inventory.prizes.destroy', $prize), 'name' => $prize->name, 'hidden' => false, 'what' => 'prize'])
+    @endif
+</div>
 <details class="mt">
     <summary>Add {{ $noun }}s</summary>
     <form method="post" action="{{ route('supervisor.inventory.stocks.store', $prize) }}" class="mt">@csrf
