@@ -34,7 +34,7 @@ class AuditActions
         }
 
         // Sign-in and sign-out log themselves with more detail.
-        if ((! $isChange && ! $isExport) || ! $route && $request->is('login*') || $route === 'logout') {
+        if ((! $isChange && ! $isExport) || $request->is('login*') || $route === 'logout') {
             return $response;
         }
         if (! $request->user() && ! $request->attributes->has('audit')) {
