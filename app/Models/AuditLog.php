@@ -88,6 +88,11 @@ class AuditLog extends Model
 
     public function label(): string
     {
+        // Before PR #27, signing in on the cached live routes also logged an extra "generated::…" row.
+        if (str_starts_with($this->action, 'generated::')) {
+            return 'Sign-in step (duplicate)';
+        }
+
         return self::ACTIONS[$this->action] ?? $this->action;
     }
 }

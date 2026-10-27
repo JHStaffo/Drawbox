@@ -1099,4 +1099,20 @@ class DrawBoxTest extends TestCase
             ->assertSee('Back to Home')
             ->assertDontSee('A supervisor will hand it to you');
     }
+
+    public function test_signing_in_logs_only_the_sign_in_entries(): void
+    {
+        $user = User::factory()->create(['email' => 'medic@example.com']);
+        $code = null;
+        $this->post('/login', ['email' => 'medic@example.com']);
+        Notification::assertSentTo($user, LoginCodeNotification::class, function ($n) use (&$code) {
+            $code = $n->code;
+
+            return true;
+        });
+        $this->post('/login/code', ['code' => $code])->assertRedirect('/');
+
+        $this->assertSame(['login.code_sent', 'login'], \App\Models\AuditLog::orderBy('id')->pluck('action')->all());
+        $this->assertSame('Sign-in step (duplicate)', (new \App\Models\AuditLog(['action' => 'generated::rhOCSm0JgsPuz3op']))->label());
+    }
 }

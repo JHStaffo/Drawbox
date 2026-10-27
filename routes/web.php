@@ -19,9 +19,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showEmail'])->name('login');
-    Route::post('/login', [AuthController::class, 'sendCode'])->middleware('throttle:6,1');
+    Route::post('/login', [AuthController::class, 'sendCode'])->middleware('throttle:6,1')->name('login.send');
     Route::get('/login/code', [AuthController::class, 'showCode'])->name('login.code');
-    Route::post('/login/code', [AuthController::class, 'verifyCode'])->middleware('throttle:10,1');
+    Route::post('/login/code', [AuthController::class, 'verifyCode'])->middleware('throttle:10,1')->name('login.verify');
 });
 
 Route::middleware('auth')->group(function () {
