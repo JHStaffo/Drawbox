@@ -111,6 +111,36 @@ class InventoryController extends Controller
         return back()->with('status', "Saved {$stock->prize->name} {$stock->brand}.");
     }
 
+    /**
+     * Save a gift card value's (or a prize with choices') counts in one go:
+     * its draws left and monthly amount, and how many of each brand or
+     * choice are on hand.
+     */
+    public function updateCounts(Request $request, Prize $prize)
+    {
+        $data = $request->validate([
+            'available' => 'nullable|integer|min:0|max:10000',
+            'monthly_quantity' => 'nullable|integer|min:0|max:10000',
+            'stocks' => 'array',
+            'stocks.*' => 'required|integer|min:0|max:10000',
+        ], ['stocks.*.required' => 'Enter how many are on hand for every '.$prize->choiceNoun().'.']);
+
+        DB::transaction(function () use ($data, $prize, $request) {
+            if (isset($data['monthly_quantity'])) {
+                $prize->update(['monthly_quantity' => $data['monthly_quantity']]);
+            }
+            if (isset($data['available']) && $prize->diminishes()) {
+                $this->inventory->setAvailable($prize, $data['available'], $request->user(), 'Manual change');
+            }
+            $stocks = $prize->stocks()->whereIn('id', array_keys($data['stocks'] ?? []))->get();
+            foreach ($stocks as $stock) {
+                $this->inventory->setStockQuantity($stock, $data['stocks'][$stock->id], $request->user(), 'Manual change');
+            }
+        });
+
+        return back()->with('status', "Saved {$prize->name}.");
+    }
+
     public function togglePrize(Prize $prize)
     {
         $prize->update(['active' => ! $prize->active]);

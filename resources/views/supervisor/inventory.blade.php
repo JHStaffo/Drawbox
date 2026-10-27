@@ -83,6 +83,7 @@
                         <span class="pill pill-teal">{{ $prize->stocks->where('active', true)->sum('quantity') }} on hand</span>
                     @endif
                 </div>
+                <form id="c{{ $prize->id }}" method="post" action="{{ route('supervisor.inventory.counts.update', $prize) }}">@csrf @method('put')</form>
                 @include('supervisor.partials.stock-table', ['noun' => 'choice', 'placeholder' => 'e.g. Snickers'])
             </div>
         @endforeach
@@ -110,15 +111,12 @@
                     <h3 style="margin:0">{{ $prize->name }}</h3>
                     <span class="pill pill-teal">{{ $odds[$prize->id]['left'] ?? 0 }}/{{ $odds[$prize->id]['on_hand'] ?? 0 }} left · {{ isset($odds[$prize->id]) ? number_format($odds[$prize->id]['odds'] * 100, 1) : '0.0' }}%</span>
                 </div>
-                <form method="post" action="{{ route('supervisor.inventory.prizes.update', $prize) }}" class="row-actions mt">@csrf @method('put')
-                    @foreach (['name' => $prize->name, 'type' => 'gift_card', 'value' => $prize->value_cents / 100, 'cash_bonus_allowed' => (int) $prize->cash_bonus_allowed, 'taxable' => (int) $prize->taxable] as $field => $value)
-                        <input type="hidden" name="{{ $field }}" value="{{ $value }}">
-                    @endforeach
+                {{-- One Save covers these and every brand's count below. --}}
+                <form id="c{{ $prize->id }}" method="post" action="{{ route('supervisor.inventory.counts.update', $prize) }}" class="row-actions mt">@csrf @method('put')
                     <label class="hint" for="available-{{ $prize->id }}">Draws left:</label>
                     <input id="available-{{ $prize->id }}" type="number" min="0" name="available" value="{{ $prize->available }}" style="width:70px">
                     <label class="hint" for="monthly-{{ $prize->id }}">Monthly:</label>
                     <input id="monthly-{{ $prize->id }}" type="number" min="0" name="monthly_quantity" value="{{ $prize->monthly_quantity }}" style="width:70px" title="Reset sets draws left to this">
-                    <button class="btn btn-small btn-teal" type="submit">Save</button>
                 </form>
                 <div class="row-actions mt">
                     <span class="hint">This whole gift card value:</span>

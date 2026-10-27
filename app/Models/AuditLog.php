@@ -41,6 +41,7 @@ class AuditLog extends Model
         'supervisor.inventory.prizes.update' => 'Changed a prize',
         'supervisor.inventory.stocks.store' => 'Added brands or choices',
         'supervisor.inventory.stocks.update' => 'Changed a brand or choice',
+        'supervisor.inventory.counts.update' => 'Changed counts',
         'supervisor.inventory.prizes.toggle' => 'Hid or unhid a prize',
         'supervisor.inventory.prizes.destroy' => 'Deleted a prize',
         'supervisor.inventory.stocks.toggle' => 'Hid or unhid a brand or choice',
