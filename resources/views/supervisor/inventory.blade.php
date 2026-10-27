@@ -118,11 +118,7 @@
                     <label class="hint" for="monthly-{{ $prize->id }}">Monthly:</label>
                     <input id="monthly-{{ $prize->id }}" type="number" min="0" name="monthly_quantity" value="{{ $prize->monthly_quantity }}" style="width:70px" title="Reset sets draws left to this">
                 </form>
-                <div class="row-actions mt">
-                    <span class="hint">This whole gift card value:</span>
-                    @include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.prizes.toggle', $prize), 'destroy' => route('supervisor.inventory.prizes.destroy', $prize), 'name' => $prize->name, 'hidden' => false])
-                </div>
-                @include('supervisor.partials.stock-table', ['noun' => 'brand', 'placeholder' => 'e.g. Amazon'])
+                @include('supervisor.partials.stock-table', ['noun' => 'brand', 'placeholder' => 'e.g. Amazon', 'prizeActions' => true])
                 <details class="mt">
                     <summary>Edit this value</summary>
                     <form method="post" action="{{ route('supervisor.inventory.prizes.update', $prize) }}" class="mt">@csrf @method('put')
