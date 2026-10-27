@@ -1054,4 +1054,37 @@ class DrawBoxTest extends TestCase
             ->assertDontSee('Dee Dispatch')->assertDontSee('drew a Candy');
         $this->actingAs($tim)->get('/')->assertSee('>Home</a>', false)->assertDontSee('My draws');
     }
+
+    public function test_pto_earned_report_totals_hours_by_team_member_and_date(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $pat = User::factory()->create(['name' => 'Pat Medic']);
+        $sam = User::factory()->create(['name' => 'Sam Driver']);
+        $pto = Prize::create(['name' => 'PTO (2 hours)', 'type' => 'pto', 'value_cents' => 0, 'pto_hours' => 2]);
+        $draw = function (User $user, string $status, string $drawn, float $hours = 2) use ($pto) {
+            return Draw::create([
+                'draw_credit_id' => $this->credit($user)->id, 'user_id' => $user->id, 'prize_id' => $pto->id,
+                'prize_name' => "PTO ({$hours} hours)", 'prize_type' => 'pto', 'value_cents' => 0, 'pto_hours' => $hours, 'taxable' => true,
+                'status' => $status, 'drawn_at' => $drawn, 'awarded_at' => $status === 'awarded' ? $drawn : null,
+            ]);
+        };
+        $draw($pat, 'awarded', '2026-03-05');
+        $draw($pat, 'won', '2026-03-20', 4);
+        $draw($pat, 'forfeited', '2026-03-21');
+        $draw($pat, 'awarded', '2026-05-01');
+        $draw($sam, 'awarded', '2026-03-10');
+
+        $this->actingAs($admin)->get('/supervisor/reports/pto?from=2026-03-01&to=2026-03-31')->assertOk()
+            ->assertSeeInOrder(['Sam Driver', '1', '2', '2', '0', 'Pat Medic', '2', '6', '2', '4', 'Total', '3', '8', '4', '4'])
+            ->assertDontSee('May 1, 2026');
+
+        $this->actingAs($admin)->get("/supervisor/reports/pto?from=2026-03-01&to=2026-03-31&user_id={$sam->id}")
+            ->assertSee('Sam Driver</h2>', false)->assertDontSee('Pat Medic</h2>', false);
+
+        $csv = $this->actingAs($admin)->get('/supervisor/reports/pto.csv?from=2026-01-01&to=2026-12-31')->streamedContent();
+        $this->assertStringContainsString('"Pat Medic TOTAL",,,,8,"4 received",', $csv);
+        $this->assertSame('Exported PTO earned', \App\Models\AuditLog::latest('id')->first()->label());
+
+        $this->actingAs($pat)->get('/supervisor/reports/pto')->assertForbidden();
+    }
 }

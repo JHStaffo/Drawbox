@@ -54,6 +54,8 @@ Route::middleware('auth')->group(function () {
             Route::get('/reports', [ReportController::class, 'index'])->name('reports');
             Route::get('/reports/won', [ReportController::class, 'won'])->name('reports.won');
             Route::get('/reports/won.csv', [ReportController::class, 'wonCsv'])->name('reports.won.csv');
+            Route::get('/reports/pto', [ReportController::class, 'pto'])->name('reports.pto');
+            Route::get('/reports/pto.csv', [ReportController::class, 'ptoCsv'])->name('reports.pto.csv');
             Route::get('/reports/prizes.csv', [ReportController::class, 'prizesCsv'])->name('reports.prizes');
             Route::get('/reports/employees.csv', [ReportController::class, 'employeesCsv'])->name('reports.employees');
 
