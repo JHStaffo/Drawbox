@@ -209,3 +209,9 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .legend .l-open::before { background: #dfe6ec; }
 .legend .l-taken::before { background: #e8b5b8; }
 .legend .l-overdue::before { background: #f0cf93; }
+
+/* Recent Winners on Home */
+.winners { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow-y: auto; }
+.winners li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.winners li:last-child { border-bottom: 0; }
+.winners .when { color: var(--muted); font-size: .9rem; }

@@ -21,6 +21,19 @@
         <label class="check"><input type="checkbox" name="expiry_reminder_enabled" value="1" @checked($expiryReminderEnabled)> Email team members 24 hours before a draw expires</label>
         <div class="hint">Each team member gets one email listing all their draws that expire within 24 hours, not one email per draw.</div>
     </div>
+    <h2 class="mt">Prize News</h2>
+    <p class="hint">Choose which wins show in Recent Winners on everyone's Home page.</p>
+    <div class="field">
+        @foreach (['dispatcher' => 'Dispatcher', 'supervisor' => 'Supervisor', 'admin' => 'Admin'] as $role => $roleLabel)
+            <input type="hidden" name="news_hide_{{ $role }}" value="0">
+            <label class="check"><input type="checkbox" name="news_hide_{{ $role }}" value="1" @checked($newsHide[$role])> Don't display {{ $roleLabel }} winners</label>
+        @endforeach
+    </div>
+    <div class="field">
+        <label for="news_min_dollars">Don't display prizes under ($)</label>
+        <input id="news_min_dollars" type="number" min="0" step="0.01" name="news_min_dollars" value="{{ $newsMinDollars ?: '' }}" placeholder="0" style="max-width:140px">
+        <div class="hint">Keeps candy, snacks and other small wins out of the feed. Leave blank or 0 to show every prize.</div>
+    </div>
     <button class="btn" type="submit">Save settings</button>
 </form>
 @endsection

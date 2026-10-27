@@ -46,7 +46,7 @@
                     <input id="combo-{{ $i + 1 }}" type="number" inputmode="numeric" min="0" max="999" name="combination[]" value="{{ old('combination.'.$i) }}" aria-label="Number {{ $i + 1 }}">
                 @endforeach
             </div>
-            <div class="hint">{{ explode(' ', $employee->name)[0] }} gets this in an email and on their My draws page.</div>
+            <div class="hint">{{ explode(' ', $employee->name)[0] }} gets this in an email and on their Home page.</div>
         </div>
     </div>
 

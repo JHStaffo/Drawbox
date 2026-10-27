@@ -1016,4 +1016,42 @@ class DrawBoxTest extends TestCase
         $this->assertStringContainsString('Settings: Draw window (days) from 7 to 10.', $logs[3]);
         $this->assertStringNotContainsString('Locker pickup', $logs[3]);
     }
+
+    public function test_home_shows_recent_winners_filtered_by_prize_news_settings(): void
+    {
+        $admin = User::factory()->role('admin')->create(['name' => 'Ada Admin']);
+        $dispatcher = User::factory()->role('dispatcher')->create(['name' => 'Dee Dispatch']);
+        $tim = User::factory()->create(['name' => 'Tim Bamberger']);
+        $john = User::factory()->create(['name' => 'John Coffey']);
+        $card = Prize::create(['name' => '$200 gift card', 'type' => 'gift_card', 'value_cents' => 20000]);
+        $win = function (User $user, array $attrs, int $hoursAgo) use ($card) {
+            return Draw::create($attrs + [
+                'draw_credit_id' => $this->credit($user)->id, 'user_id' => $user->id, 'prize_id' => $card->id,
+                'prize_name' => '$200 gift card', 'prize_type' => 'gift_card', 'value_cents' => 20000, 'taxable' => true,
+                'status' => 'won', 'drawn_at' => now()->subHours($hoursAgo),
+            ]);
+        };
+        $win($tim, ['brand' => 'SeaWorld'], 4);
+        $win($john, ['prize_name' => '$50 gift card', 'value_cents' => 5000, 'cash_bonus' => true], 3);
+        $win($dispatcher, ['brand' => 'Amazon'], 2);
+        $win($admin, ['prize_name' => 'Candy', 'prize_type' => 'item', 'value_cents' => 0], 1);
+
+        $this->actingAs($tim)->get('/')->assertOk()->assertSee('Recent Winners')->assertSeeInOrder([
+            'Ada Admin</strong> drew a Candy!',
+            'Dee Dispatch</strong> drew a $200 Amazon gift card!',
+            '3 hours ago:</span> <strong>John Coffey</strong> drew a $50 cash bonus!',
+            '4 hours ago:</span> <strong>Tim Bamberger</strong> drew a $200 SeaWorld gift card!',
+        ], false);
+
+        $this->actingAs($admin)->put('/supervisor/settings', [
+            'draw_window_days' => 7, 'locker_pickup_days' => 7, 'expiry_reminder_enabled' => '1',
+            'news_hide_dispatcher' => '1', 'news_hide_supervisor' => '0', 'news_hide_admin' => '0', 'news_min_dollars' => '5',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('500', Setting::get('news_min_cents'));
+        $this->assertStringContainsString('Hide prizes under from $0 to $5', \App\Models\AuditLog::latest('id')->value('description'));
+
+        $this->actingAs($tim)->get('/')->assertSee('Tim Bamberger</strong> drew', false)->assertSee('John Coffey</strong> drew', false)
+            ->assertDontSee('Dee Dispatch')->assertDontSee('drew a Candy');
+        $this->actingAs($tim)->get('/')->assertSee('>Home</a>', false)->assertDontSee('My draws');
+    }
 }

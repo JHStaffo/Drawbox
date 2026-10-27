@@ -29,6 +29,21 @@ class Draw extends Model
         return $this->brand ? "{$this->prize_name} ({$this->brand})" : $this->prize_name;
     }
 
+    /** The Recent Winners wording, e.g. "a $200 SeaWorld gift card" or "a $50 cash bonus". */
+    public function headline(): string
+    {
+        $what = match (true) {
+            (bool) $this->cash_bonus => money($this->value_cents).' cash bonus',
+            $this->prize_type === 'gift_card' && $this->brand => money($this->value_cents)." {$this->brand} gift card",
+            default => $this->prize_name,
+        };
+
+        // "an" when the first sound is a vowel: "an Amazon", "an $80", "an $11".
+        $an = preg_match('/^([aeiou]|\$(8|1[18](\D|$)))/i', $what);
+
+        return ($an ? 'an ' : 'a ').$what;
+    }
+
     /** What the winner picks: "brand" for gift cards, "choice" for other prizes. */
     public function choiceNoun(): string
     {
