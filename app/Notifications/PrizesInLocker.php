@@ -29,7 +29,7 @@ class PrizesInLocker extends Notification
 
         return $mail
             ->line('Please pick them up by '.$a->due_at->format('l, M j').'. After that, prizes still in the locker are forfeited.')
-            ->line('When you have them, press Picked Up on your My draws page.')
-            ->action('Open My draws', route('home'));
+            ->line('When you have them, press Picked Up on your Draw Box Home page.')
+            ->action('Open Draw Box', route('home'));
     }
 }

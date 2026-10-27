@@ -18,7 +18,7 @@
             <a href="{{ route('home') }}"><img src="{{ asset('images/logo.png') }}" alt="Fast Track EMS"></a>
             <span class="app-name">Draw Box</span>
             <nav class="nav">
-                <a href="{{ route('home') }}" @class(['active' => request()->routeIs('home', 'draws.*')])>My draws</a>
+                <a href="{{ route('home') }}" @class(['active' => request()->routeIs('home', 'draws.*')])>Home</a>
                 @if ($u->hasRole('dispatcher'))
                     <a href="{{ route('dispatch.create') }}" @class(['active' => request()->routeIs('dispatch.*')])>Credit a call</a>
                 @endif

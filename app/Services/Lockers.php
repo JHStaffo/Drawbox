@@ -66,7 +66,7 @@ class Lockers
             try {
                 $employee->notify(new PrizesInLocker($assignment->load('locker', 'draws')));
             } catch (Throwable $e) {
-                report($e); // The prizes are in the locker either way; the message on My draws still shows.
+                report($e); // The prizes are in the locker either way; the message on Home still shows.
             }
         }
 

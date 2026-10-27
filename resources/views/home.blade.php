@@ -1,4 +1,4 @@
-@extends('layouts.app', ['title' => 'My draws'])
+@extends('layouts.app', ['title' => 'Home'])
 
 @section('band')
     <h1>Hi, {{ explode(' ', auth()->user()->name)[0] }}</h1>
@@ -56,6 +56,19 @@
             </form>
         </div>
     @endforeach
+
+    <div class="card">
+        <h2>Recent Winners</h2>
+        @if ($winners->isEmpty())
+            <p class="empty">No winners yet.</p>
+        @else
+            <ul class="winners">
+                @foreach ($winners as $win)
+                    <li><span class="when">{{ $win->drawn_at->diffForHumans() }}:</span> <strong>{{ $win->user->name }}</strong> drew {{ $win->headline() }}!</li>
+                @endforeach
+            </ul>
+        @endif
+    </div>
 
     <div class="card">
         <h2>My prizes</h2>

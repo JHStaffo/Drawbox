@@ -34,6 +34,10 @@ class AuditChanges
         'draw_window_days' => 'Draw window (days)',
         'locker_pickup_days' => 'Locker pickup window (days)',
         'expiry_reminder_enabled' => 'Expiry reminder emails',
+        'news_hide_dispatcher' => 'Hide dispatcher winners',
+        'news_hide_supervisor' => 'Hide supervisor winners',
+        'news_hide_admin' => 'Hide admin winners',
+        'news_min_cents' => 'Hide prizes under',
     ];
 
     private bool $recording = false;
@@ -99,7 +103,11 @@ class AuditChanges
     private function setting(Setting $setting, ?string $old): void
     {
         $label = self::SETTINGS[$setting->key] ?? $setting->key;
-        $show = fn ($v) => $setting->key === 'expiry_reminder_enabled' ? ($v ? 'on' : 'off') : (string) $v;
+        $show = fn ($v) => match (true) {
+            $setting->key === 'expiry_reminder_enabled', str_starts_with($setting->key, 'news_hide_') => $v ? 'on' : 'off',
+            $setting->key === 'news_min_cents' => money((int) $v),
+            default => (string) $v,
+        };
         if ($show($old) !== $show($setting->value)) {
             $this->add('Settings', $label, $show($old), $show($setting->value));
         }
