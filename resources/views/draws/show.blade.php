@@ -45,8 +45,7 @@
             <p>This prize was forfeited and went back in the draw box.</p>
             <a class="btn mt" href="{{ route('home') }}">Back to Home</a>
         @else
-            <p><span class="pill">Pending Dispensing</span></p>
-            <p>When a manager processes prizes, it will be handed to you or placed in a locker. If it goes in a locker, you'll get an email, and your Home page will show the locker and combination.</p>
+            <p>Prize added to Dispensing Queue.</p>
             <a class="btn mt" href="{{ route('home') }}">Back to Home</a>
         @endif
 

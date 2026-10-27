@@ -291,7 +291,7 @@ class DrawBoxTest extends TestCase
 
         $this->actingAs($user)->get("/draws/{$draw->id}")
             ->assertSee('2 Hours of PTO will be added to your PTO bank.')
-            ->assertDontSee('When a manager processes prizes');
+            ->assertDontSee('Dispensing Queue');
     }
 
     public function test_employees_cannot_use_dispatch_or_supervisor_pages(): void
@@ -1095,8 +1095,7 @@ class DrawBoxTest extends TestCase
         $draw = app(DrawMachine::class)->draw($this->credit($user));
 
         $this->actingAs($user)->get("/draws/{$draw->id}")
-            ->assertSee('Pending Dispensing')
-            ->assertSee('When a manager processes prizes, it will be handed to you or placed in a locker.')
+            ->assertSee('Prize added to Dispensing Queue.')
             ->assertSee('Back to Home')
             ->assertDontSee('A supervisor will hand it to you');
     }
