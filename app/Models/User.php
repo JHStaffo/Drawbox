@@ -23,7 +23,7 @@ class User extends Authenticatable
 
     protected function casts(): array
     {
-        return ['active' => 'boolean'];
+        return ['active' => 'boolean', 'last_login_at' => 'datetime'];
     }
 
     /** Roles rank in order, so a supervisor can do everything a dispatcher can. */
