@@ -58,7 +58,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/reports/employees.csv', [ReportController::class, 'employeesCsv'])->name('reports.employees');
 
             Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory');
-            Route::post('/inventory/restock', [InventoryController::class, 'restock'])->name('inventory.restock');
+            Route::post('/inventory/reset', [InventoryController::class, 'resetAvailable'])->name('inventory.reset');
             Route::post('/inventory/prizes', [InventoryController::class, 'storePrize'])->name('inventory.prizes.store');
             Route::put('/inventory/prizes/{prize}', [InventoryController::class, 'updatePrize'])->name('inventory.prizes.update');
             Route::post('/inventory/prizes/{prize}/brands', [InventoryController::class, 'storeStock'])->name('inventory.stocks.store');

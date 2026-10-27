@@ -1,17 +1,18 @@
 # Draw Box
 
-Fast Track EMS's draw box, online. Dispatch credits a crew for a solicited call, each crew member signs in with an emailed code and draws a prize, and supervisors hand prizes out, restock the box, and run reports. The reports include per-employee prize value for taxes.
+Fast Track EMS's draw box, online. Dispatch credits a crew for a solicited call, each crew member signs in with an emailed code and draws a prize, and supervisors hand prizes out, manage the box, and run reports. The reports include per-employee prize value for taxes.
 
 ## How the draw works
 
-- Each prize has a number of envelopes in the box. The chance of drawing a prize is its envelopes divided by all envelopes left. As valuable prizes run out during the month, candy and snack become more likely.
-- Each prize has a **Diminishing** checkbox. Drawing a diminishing prize uses up one envelope. Non-diminishing prizes (candy, snack) keep the same count, so the count only sets their odds, and restock skips them.
+- Each diminishing prize has two numbers, shown as **draws left / on hand** (for example 2/3 left). Every draw lowers draws left by one, even when the winner takes a cash bonus. On hand goes down only when the prize itself is taken. A prize's envelopes are its draws left, capped at what's on hand, so a prize at 0 of either is out of the drawing. The chance of drawing a prize is its envelopes divided by all envelopes left, so as valuable prizes run out during the month, candy and snack become more likely.
+- On hand is the whole inventory in the safe (for gift cards, the brand counts). Each prize also has a **monthly** amount, and **Reset available** on the Inventory page sets every prize's draws left back to it. For example, 32 $10 cards on hand with a monthly amount of 8 resets to 8/32 left. Draws left and the monthly amount can be edited on each prize.
+- Each prize has a **Diminishing** checkbox. Non-diminishing prizes (candy, snack) never run out, so their count only sets their odds and reset skips them.
 - The home page, dashboard and inventory page all show the current dollar value of the box: every envelope left times its prize value. Prizes already won are not included.
-- Prizes with **Cash bonus OK** checked let the winner choose "Issue as taxable cash bonus" instead, any time before the prize is handed out. The bonus equals the prize's value and is always taxable. Whatever the prize took out of the box (an item or a gift card) goes back in. Supervisors mark it paid, and the tax report shows cash bonuses in their own column.
+- Prizes with **Cash bonus OK** checked let the winner choose "Issue as taxable cash bonus" instead, any time before the prize is handed out. The bonus equals the prize's value and is always taxable. The item or gift card goes back on hand, but the draw still counts against the prize's draws left. Supervisors mark it paid, and the tax report shows cash bonuses in their own column.
 - Crew members aren't emailed the moment dispatch credits them. Every 2 hours, each team member with new draws gets one email listing them, so a credit undone in the meantime never sends anything.
 - When the setting is on, each employee gets one email listing all of their draws that expire within the next 24 hours (checked hourly).
 - Any other prize can optionally have **choices** (for example the kinds of candy bar in the Candy prize). The winner picks one after drawing, and that choice's count goes down by one. A diminishing prize with choices counts its choices as its envelopes. A non-diminishing prize with choices keeps its own count for the odds, but can't be drawn once every choice is out.
-- Each gift card value (for example $50) gets as many envelopes as there are brand cards in stock at that value. After winning a value, the employee picks a brand. Their card is held for them until they choose, so nobody else can take it.
+- Each gift card value (for example $50) is on hand as many times as there are brand cards in stock at that value. After winning a value, the employee picks a brand. Their card is held for them until they choose, so nobody else can take it.
 - Draws happen on the server, are final, and are logged in the inventory change log.
 - A prize moves from **won** to **received** when a supervisor marks it handed out. Tax totals count prizes by the date they were received, at the value they had when drawn.
 
@@ -22,7 +23,7 @@ Fast Track EMS's draw box, online. Dispatch credits a crew for a solicited call,
 | employee | Draw, pick a gift card brand, see their own prizes |
 | dispatcher | Everything an employee can, plus the call credit form |
 | supervisor | Everything a dispatcher can, plus the dashboard: marking prizes received, dispensing to lockers and checking overdue lockers |
-| admin | Everything a supervisor can, plus reports, inventory, restock, settings, the locker map, managing the team member roster and the audit log of every sign-in and change |
+| admin | Everything a supervisor can, plus reports, inventory, settings, the locker map, managing the team member roster and the audit log of every sign-in and change |
 
 ## Run locally
 
@@ -104,7 +105,7 @@ php artisan config:cache && php artisan route:cache && php artisan view:cache
 ## Where things are
 
 - `app/Services/DrawMachine.php`: the draw and the brand pick
-- `app/Services/Inventory.php`: envelope counts, odds, manual changes and restock
+- `app/Services/Inventory.php`: envelope counts, odds, manual changes and reset
 - `app/Services/Credits.php`: crediting a call, expiry and reminders
 - `app/Services/Reports.php`: dashboard periods and per-employee totals
 - `routes/console.php`: scheduled jobs and the `drawbox:make-admin` command

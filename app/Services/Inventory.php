@@ -15,16 +15,46 @@ class Inventory
     /**
      * Envelopes currently in the box, keyed by prize id.
      *
-     * A gift card value's envelopes are its brand cards in stock, less the
-     * ones already drawn but still waiting for the winner to pick a brand.
-     * Other prizes with choices work the same way when they're diminishing.
-     * A non-diminishing prize with choices (candy) keeps its own count for
-     * the odds, but can only be drawn while some choice is still in stock.
+     * A diminishing prize has two numbers: draws left this month, which is
+     * lowered by every draw (a cash bonus included), and how many are on
+     * hand, which is lowered only when the prize itself is taken. Its odds
+     * come from the draws left, but never more than are on hand, so a
+     * prize at 0 of either drops out of the drawing.
+     *
+     * On hand for a prize with choices (gift cards) is the choices in stock,
+     * less the ones already drawn but still waiting on a pick.
+     * A non-diminishing prize (candy) never runs out: its own count only
+     * sets the odds, and with choices it needs some choice in stock.
      */
     public function envelopes(): Collection
     {
         $prizes = Prize::where('active', true)->with('stocks')->orderBy('sort')->get();
+        $onHand = $this->onHand($prizes);
 
+        return $prizes->mapWithKeys(function (Prize $prize) use ($onHand) {
+            $have = $onHand[$prize->id];
+            if ($prize->diminishes()) {
+                $count = min($prize->available, $have);
+            } else {
+                $count = ! $prize->hasChoices() || $have > 0 ? $prize->quantity : 0;
+            }
+
+            return [$prize->id => [
+                'prize' => $prize,
+                'count' => max(0, $count),
+                'left' => $prize->diminishes() ? $prize->available : null,
+                'on_hand' => $have,
+            ]];
+        });
+    }
+
+    /**
+     * How many of each prize are on hand and not yet promised to a winner,
+     * keyed by prize id. For a prize with choices it is the choices in
+     * stock less draws still waiting on a pick; otherwise its own count.
+     */
+    public function onHand(Collection $prizes): Collection
+    {
         $stock = GiftCardStock::where('active', true)->selectRaw('prize_id, sum(quantity) as total')
             ->groupBy('prize_id')->pluck('total', 'prize_id');
 
@@ -32,16 +62,9 @@ class Inventory
             ->selectRaw('prize_id, count(*) as total')
             ->groupBy('prize_id')->pluck('total', 'prize_id');
 
-        return $prizes->mapWithKeys(function (Prize $prize) use ($stock, $reserved) {
-            if ($prize->hasChoices()) {
-                $available = (int) ($stock[$prize->id] ?? 0) - (int) ($reserved[$prize->id] ?? 0);
-                $count = $prize->diminishes() ? $available : ($available > 0 ? $prize->quantity : 0);
-            } else {
-                $count = $prize->quantity;
-            }
-
-            return [$prize->id => ['prize' => $prize, 'count' => max(0, $count)]];
-        });
+        return $prizes->mapWithKeys(fn (Prize $prize) => [$prize->id => $prize->hasChoices()
+            ? max(0, (int) ($stock[$prize->id] ?? 0) - (int) ($reserved[$prize->id] ?? 0))
+            : (int) $prize->quantity]);
     }
 
     /**
@@ -62,6 +85,7 @@ class Inventory
         return $envelopes->map(fn ($e) => $e + ['odds' => $total ? $e['count'] / $total : 0]);
     }
 
+    /** Set how many of a prize are on hand. */
     public function setPrizeQuantity(Prize $prize, int $quantity, ?User $by, string $reason): void
     {
         DB::transaction(function () use ($prize, $quantity, $by, $reason) {
@@ -75,6 +99,7 @@ class Inventory
         });
     }
 
+    /** Set how many of a brand or choice are on hand. */
     public function setStockQuantity(GiftCardStock $stock, int $quantity, ?User $by, string $reason): void
     {
         DB::transaction(function () use ($stock, $quantity, $by, $reason) {
@@ -88,22 +113,33 @@ class Inventory
         });
     }
 
-    /** Top every restocked prize, gift card brand and prize choice up to its monthly amount. */
-    public function restock(?User $by): int
+    /** Set a prize's draws left. */
+    public function setAvailable(Prize $prize, int $available, ?User $by, string $reason): void
+    {
+        DB::transaction(function () use ($prize, $available, $by, $reason) {
+            $prize = Prize::withTrashed()->lockForUpdate()->findOrFail($prize->id);
+            $available = max(0, $available);
+            $change = $available - $prize->available;
+            if ($change === 0) {
+                return;
+            }
+            $prize->update(['available' => $available]);
+            $this->log($by, "{$prize->name} (draws left)", $change, $available, $reason);
+        });
+    }
+
+    /**
+     * Set every prize's draws left back to its monthly amount. What's on
+     * hand doesn't change: a prize with fewer on hand than its monthly
+     * amount can still only be drawn as many times as there are on hand.
+     */
+    public function resetAvailable(?User $by): int
     {
         $changed = 0;
 
-        foreach (Prize::where('active', true)->where('type', '!=', 'gift_card')->where('diminishing', true)->with('stocks')->get() as $prize) {
-            // A prize with choices is restocked through its choices below.
-            if (! $prize->hasChoices() && $prize->quantity < $prize->monthly_quantity) {
-                $this->setPrizeQuantity($prize, $prize->monthly_quantity, $by, 'Monthly restock');
-                $changed++;
-            }
-        }
-
-        foreach (GiftCardStock::where('active', true)->whereHas('prize', fn ($q) => $q->where('active', true))->get() as $stock) {
-            if ($stock->quantity < $stock->monthly_quantity) {
-                $this->setStockQuantity($stock, $stock->monthly_quantity, $by, 'Monthly restock');
+        foreach (Prize::where('active', true)->get()->filter->diminishes() as $prize) {
+            if ($prize->available !== $prize->monthly_quantity) {
+                $this->setAvailable($prize, $prize->monthly_quantity, $by, 'Monthly reset');
                 $changed++;
             }
         }

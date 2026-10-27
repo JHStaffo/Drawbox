@@ -35,6 +35,7 @@ class AuditLog extends Model
         'supervisor.reports.won.csv' => 'Exported won prizes',
         'supervisor.reports.prizes' => 'Exported prize report',
         'supervisor.reports.employees' => 'Exported team member totals',
+        'supervisor.inventory.reset' => 'Reset draws left',
         'supervisor.inventory.restock' => 'Restocked the box',
         'supervisor.inventory.prizes.store' => 'Added a prize',
         'supervisor.inventory.prizes.update' => 'Changed a prize',

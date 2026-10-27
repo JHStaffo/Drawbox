@@ -47,9 +47,13 @@ class DrawMachine
             $prize = $envelope['prize'];
 
             $picks = $prize->hasChoices();
-            if (! $picks && $prize->diminishing) {
-                $prize->decrement('quantity');
-                $this->inventory->log($credit->user, $prize->name, -1, $prize->quantity, "Drawn by {$credit->user->name}");
+            if ($prize->diminishes()) {
+                // Every draw uses up one of the draws left, even if it becomes a cash bonus.
+                $prize->decrement('available');
+                if (! $picks) {
+                    $prize->decrement('quantity');
+                    $this->inventory->log($credit->user, $prize->name, -1, $prize->quantity, "Drawn by {$credit->user->name}");
+                }
             }
 
             $credit->update(['status' => 'drawn']);
@@ -70,8 +74,9 @@ class DrawMachine
     }
 
     /**
-     * Swap a won prize for a taxable cash bonus of the same value. Whatever
-     * the prize took out of the box goes back in.
+     * Swap a won prize for a taxable cash bonus of the same value. The prize
+     * itself goes back on hand, but the draw still counts against the
+     * prize's draws left.
      */
     public function takeCashBonus(Draw $draw): Draw
     {
@@ -167,9 +172,12 @@ class DrawMachine
         });
     }
 
-    /** Put back whatever a draw took out of the box. */
+    /** Put back whatever a draw took out of the box, its draw left included. */
     public function returnToBox(Draw $draw, ?User $by, string $reason): void
     {
+        if ($draw->prize->diminishes()) {
+            $this->inventory->setAvailable($draw->prize, $draw->prize->fresh()->available + 1, $by, $reason);
+        }
         if ($draw->cash_bonus) {
             return;
         }
@@ -200,6 +208,9 @@ class DrawMachine
     /** Take one envelope out of the box for a prize given by hand. Counts never go below zero. */
     private function takeFromBox(Prize $prize, ?GiftCardStock $stock, User $by, string $reason): void
     {
+        if ($prize->diminishes()) {
+            $this->inventory->setAvailable($prize, $prize->fresh()->available - 1, $by, $reason);
+        }
         if ($stock) {
             $stock = GiftCardStock::lockForUpdate()->findOrFail($stock->id);
             if ($stock->quantity > 0) {

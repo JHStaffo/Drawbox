@@ -26,13 +26,17 @@ class DemoSeeder extends Seeder
 
         $amounts = ['Candy' => [40, 150], 'Snack' => [40, 200], 'PTO (2 hours)' => [3, 5000], 'Stethoscope' => [2, 9000], 'Raptor shears' => [2, 6000]];
         foreach ($amounts as $name => [$qty, $cents]) {
-            Prize::where('name', $name)->update(['quantity' => $qty, 'monthly_quantity' => $qty, 'value_cents' => $cents]);
+            Prize::where('name', $name)->update(['quantity' => $qty, 'available' => $qty, 'monthly_quantity' => $qty, 'value_cents' => $cents]);
         }
         $perBrand = [500 => 4, 1000 => 3, 2000 => 2, 5000 => 1, 10000 => 1, 25000 => 0, 50000 => 0];
         foreach (Prize::where('type', 'gift_card')->get() as $prize) {
             foreach (['Amazon', 'Wawa', 'Visa'] as $brand) {
-                GiftCardStock::create(['prize_id' => $prize->id, 'brand' => $brand, 'quantity' => $perBrand[$prize->value_cents], 'monthly_quantity' => max(1, $perBrand[$prize->value_cents])]);
+                GiftCardStock::create(['prize_id' => $prize->id, 'brand' => $brand, 'quantity' => $perBrand[$prize->value_cents]]);
             }
+        }
+
+        foreach (Prize::where('type', 'gift_card')->get() as $prize) {
+            $prize->update(['available' => $prize->stocks()->sum('quantity'), 'monthly_quantity' => $prize->stocks()->sum('quantity')]);
         }
 
         $locations = ['Sentara Leigh', 'Chesapeake Regional', 'Bon Secours DePaul', 'Riverside Nursing', 'Lake Taylor'];

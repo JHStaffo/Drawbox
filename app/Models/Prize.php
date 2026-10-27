@@ -18,9 +18,17 @@ class Prize extends Model
         'gift_card' => 'Gift card',
     ];
 
+    protected static function booted(): void
+    {
+        // A new prize starts with its monthly amount of draws left, or what's on hand without one.
+        static::creating(function (Prize $prize) {
+            $prize->available ??= $prize->monthly_quantity ?: ($prize->quantity ?? 0);
+        });
+    }
+
     protected function casts(): array
     {
-        return ['diminishing' => 'boolean', 'taxable' => 'boolean', 'cash_bonus_allowed' => 'boolean', 'active' => 'boolean', 'pto_hours' => 'decimal:2'];
+        return ['available' => 'integer', 'quantity' => 'integer', 'monthly_quantity' => 'integer', 'diminishing' => 'boolean', 'taxable' => 'boolean', 'cash_bonus_allowed' => 'boolean', 'active' => 'boolean', 'pto_hours' => 'decimal:2'];
     }
 
     public function stocks(): HasMany
