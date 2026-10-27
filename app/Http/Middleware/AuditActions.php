@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\AuditLog;
+use App\Services\AuditChanges;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -10,13 +11,17 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Logs every change someone makes, plus report downloads. The description
  * is the message the page showed them (or the error), unless the
- * controller left a more specific note with audit_note().
+ * controller left a more specific note with audit_note(), followed by
+ * what was changed from what (see AuditChanges).
  */
 class AuditActions
 {
     public function handle(Request $request, Closure $next): Response
     {
+        $changes = app(AuditChanges::class);
+        $changes->start();
         $response = $next($request);
+        $changed = $changes->stop();
 
         $route = $request->route()?->getName();
         $isChange = ! in_array($request->method(), ['GET', 'HEAD', 'OPTIONS']);
@@ -44,6 +49,11 @@ class AuditActions
             ?? ($errors ? 'Refused: '.implode(' ', $errors) : null)
             ?? ($response->getStatusCode() >= 400 ? 'Refused (error '.$response->getStatusCode().').' : null)
             ?? ($isExport ? 'Downloaded '.$request->path().($request->getQueryString() ? '?'.urldecode($request->getQueryString()) : '').'.' : 'Done.');
+
+        // Spell out what was changed from what, when the action saved anything worth listing.
+        if ($changed && ! str_starts_with($description, 'Refused')) {
+            $description .= ' Changed '.$changed;
+        }
 
         AuditLog::record($route ?? $request->method().' '.$request->path(), $description, $request->user());
 
