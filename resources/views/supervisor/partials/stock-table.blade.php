@@ -1,5 +1,5 @@
 {{-- A prize's gift card brands or choices, with one Save for all their counts and a form to add several at once. --}}
-<div class="table-wrap mt"><table class="stock-table">
+<div class="table-wrap stock-scroll mt"><table class="stock-table">
     <tr><th>{{ ucfirst($noun) }}</th><th class="num">On hand</th><th></th></tr>
     @forelse ($prize->stocks->where('active', true) as $stock)
         <tr>
