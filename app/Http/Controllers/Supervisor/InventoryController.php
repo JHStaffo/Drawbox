@@ -26,19 +26,26 @@ class InventoryController extends Controller
         ]);
     }
 
-    public function restock(Request $request)
+    public function resetAvailable(Request $request)
     {
-        $changed = $this->inventory->restock($request->user());
+        $changed = $this->inventory->resetAvailable($request->user());
 
-        return back()->with('status', $changed ? "Restocked {$changed} prize(s) to their monthly amounts." : 'Everything is already at or above its monthly amount.');
+        return back()->with('status', $changed ? "Reset draws left on {$changed} prize(s) to their monthly amounts." : "Every prize's draws left already match its monthly amount.");
     }
 
     public function storePrize(Request $request)
     {
         $data = $this->validatePrize($request);
-        $prize = Prize::create(collect($data)->except('quantity')->all() + ['sort' => Prize::max('sort') + 1]);
+        // Without a monthly amount, a new prize gives out what's on hand each month.
+        if (! $request->filled('monthly_quantity') && ! empty($data['quantity'])) {
+            $data['monthly_quantity'] = $data['quantity'];
+        }
+        $prize = Prize::create(collect($data)->except('quantity', 'available')->all() + ['sort' => Prize::max('sort') + 1]);
         if (! $prize->isGiftCard()) {
             $this->inventory->setPrizeQuantity($prize, $data['quantity'] ?? 0, $request->user(), 'Added prize');
+        }
+        if ($prize->diminishes()) {
+            $this->inventory->setAvailable($prize, $data['available'] ?? $prize->monthly_quantity, $request->user(), 'Added prize');
         }
 
         return back()->with('status', "Added {$prize->name}.");
@@ -47,9 +54,13 @@ class InventoryController extends Controller
     public function updatePrize(Request $request, Prize $prize)
     {
         $data = $this->validatePrize($request, $prize);
-        $prize->update(collect($data)->except('quantity')->all());
+        $reason = $request->input('reason') ?: 'Manual change';
+        $prize->update(collect($data)->except('quantity', 'available')->all());
         if (! $prize->load('stocks')->countsFromChoices() && isset($data['quantity'])) {
-            $this->inventory->setPrizeQuantity($prize, $data['quantity'], $request->user(), $request->input('reason') ?: 'Manual change');
+            $this->inventory->setPrizeQuantity($prize, $data['quantity'], $request->user(), $reason);
+        }
+        if ($prize->diminishes() && isset($data['available'])) {
+            $this->inventory->setAvailable($prize, $data['available'], $request->user(), $reason);
         }
 
         return back()->with('status', "Saved {$prize->name}.");
@@ -77,12 +88,11 @@ class InventoryController extends Controller
                 }
             }],
             'items.*.quantity' => 'nullable|integer|min:0|max:10000',
-            'items.*.monthly_quantity' => 'nullable|integer|min:0|max:10000',
         ], ['items.required' => "Enter at least one {$noun}.", 'items.*.brand.distinct' => 'The same name is entered twice.']);
 
         DB::transaction(function () use ($rows, $prize, $request, $noun) {
             foreach ($rows as $row) {
-                $stock = $prize->stocks()->create(['brand' => $row['brand'], 'monthly_quantity' => (int) ($row['monthly_quantity'] ?? 0)]);
+                $stock = $prize->stocks()->create(['brand' => $row['brand']]);
                 $this->inventory->setStockQuantity($stock, (int) ($row['quantity'] ?? 0), $request->user(), "Added {$noun}");
             }
         });
@@ -94,10 +104,8 @@ class InventoryController extends Controller
     {
         $data = $request->validate([
             'quantity' => 'required|integer|min:0|max:10000',
-            'monthly_quantity' => 'required|integer|min:0|max:10000',
             'reason' => 'nullable|string|max:255',
         ]);
-        $stock->update(['monthly_quantity' => $data['monthly_quantity']]);
         $this->inventory->setStockQuantity($stock, $data['quantity'], $request->user(), ($data['reason'] ?? null) ?: 'Manual change');
 
         return back()->with('status', "Saved {$stock->prize->name} {$stock->brand}.");
@@ -152,6 +160,7 @@ class InventoryController extends Controller
             'diminishing' => 'boolean',
             'cash_bonus_allowed' => 'boolean',
             'quantity' => 'nullable|integer|min:0|max:10000',
+            'available' => 'nullable|integer|min:0|max:10000',
             'monthly_quantity' => 'nullable|integer|min:0|max:10000',
         ]);
 
@@ -163,8 +172,9 @@ class InventoryController extends Controller
             'taxable' => $request->boolean('taxable'),
             'diminishing' => $data['type'] === 'gift_card' || $request->boolean('diminishing'),
             'cash_bonus_allowed' => $request->boolean('cash_bonus_allowed'),
-            'monthly_quantity' => $data['monthly_quantity'] ?? 0,
+            'monthly_quantity' => (int) ($data['monthly_quantity'] ?? $prize?->monthly_quantity ?? 0),
             'active' => $prize ? $prize->active : true,
-        ] + (isset($data['quantity']) ? ['quantity' => (int) $data['quantity']] : []);
+        ] + (isset($data['quantity']) ? ['quantity' => (int) $data['quantity']] : [])
+          + (isset($data['available']) ? ['available' => (int) $data['available']] : []);
     }
 }

@@ -2,7 +2,7 @@
 
 @section('band')
     <h1>Inventory change log</h1>
-    <p>Every change to the box: draws, restocks and manual edits.</p>
+    <p>Every change to the box: draws, resets and manual edits.</p>
 @endsection
 
 @section('content')
