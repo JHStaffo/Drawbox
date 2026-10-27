@@ -291,7 +291,7 @@ class DrawBoxTest extends TestCase
 
         $this->actingAs($user)->get("/draws/{$draw->id}")
             ->assertSee('2 Hours of PTO will be added to your PTO bank.')
-            ->assertDontSee('A supervisor will hand it to you');
+            ->assertDontSee('Dispensing Queue');
     }
 
     public function test_employees_cannot_use_dispatch_or_supervisor_pages(): void
@@ -1086,5 +1086,17 @@ class DrawBoxTest extends TestCase
         $this->assertSame('Exported PTO earned', \App\Models\AuditLog::latest('id')->first()->label());
 
         $this->actingAs($pat)->get('/supervisor/reports/pto')->assertForbidden();
+    }
+
+    public function test_item_winner_is_told_how_prizes_are_dispensed(): void
+    {
+        Prize::create(['name' => 'Stethoscope', 'type' => 'item', 'value_cents' => 5000, 'quantity' => 1]);
+        $user = User::factory()->create();
+        $draw = app(DrawMachine::class)->draw($this->credit($user));
+
+        $this->actingAs($user)->get("/draws/{$draw->id}")
+            ->assertSee('Prize added to Dispensing Queue.')
+            ->assertSee('Back to Home')
+            ->assertDontSee('A supervisor will hand it to you');
     }
 }

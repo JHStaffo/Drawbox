@@ -34,13 +34,19 @@
             <p>{{ $draw->cash_bonus ? 'Paid' : ($draw->pto_hours !== null ? 'Added to your PTO bank' : 'Received') }} on {{ $draw->awarded_at->format('M j, Y') }}.</p>
         @elseif ($draw->cash_bonus)
             <p>It will be added to your pay as a taxable bonus. A supervisor will mark it paid.</p>
-            <a class="btn mt" href="{{ route('home') }}">Back to my draws</a>
+            <a class="btn mt" href="{{ route('home') }}">Back to Home</a>
         @elseif ($draw->pto_hours !== null)
             <p>{{ $draw->pto_hours + 0 }} Hours of PTO will be added to your PTO bank.</p>
-            <a class="btn mt" href="{{ route('home') }}">Back to my draws</a>
+            <a class="btn mt" href="{{ route('home') }}">Back to Home</a>
+        @elseif ($draw->status === 'in_locker')
+            <p>It's waiting for you in locker {{ $draw->lockerAssignment?->locker->number }}. Your Home page has the combination.</p>
+            <a class="btn mt" href="{{ route('home') }}">Back to Home</a>
+        @elseif ($draw->status === 'forfeited')
+            <p>This prize was forfeited and went back in the draw box.</p>
+            <a class="btn mt" href="{{ route('home') }}">Back to Home</a>
         @else
-            <p>A supervisor will hand it to you and mark it received.</p>
-            <a class="btn mt" href="{{ route('home') }}">Back to my draws</a>
+            <p>Prize added to Dispensing Queue.</p>
+            <a class="btn mt" href="{{ route('home') }}">Back to Home</a>
         @endif
 
         @if ($draw->user_id === auth()->id() && $draw->canTakeCashBonus())
