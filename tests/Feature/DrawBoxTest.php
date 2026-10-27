@@ -890,4 +890,53 @@ class DrawBoxTest extends TestCase
         $this->get('/login')->assertOk()->assertSee('Send my code');
         $this->get('/')->assertRedirect('/login');
     }
+
+    public function test_sign_ins_and_failed_sign_ins_are_audited(): void
+    {
+        $user = User::factory()->create(['email' => 'medic@example.com']);
+
+        $this->post('/login', ['email' => 'nobody@example.com']);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'login.unknown_email', 'email' => 'nobody@example.com']);
+
+        $this->post('/login', ['email' => $user->email]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'login.code_sent', 'user_id' => $user->id]);
+        LoginCode::first()->update(['code_hash' => bcrypt('123456')]);
+
+        $this->post('/login/code', ['code' => '654321']);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'login.failed', 'user_id' => $user->id]);
+        $this->assertNull($user->fresh()->last_login_at);
+
+        $this->post('/login/code', ['code' => '123456'])->assertRedirect('/');
+        $this->assertDatabaseHas('audit_logs', ['action' => 'login', 'user_id' => $user->id]);
+        $this->assertNotNull($user->fresh()->last_login_at);
+
+        // The code itself never lands in the log.
+        $this->assertSame(0, \App\Models\AuditLog::where('description', 'like', '%123456%')->count());
+
+        $this->post('/logout');
+        $this->assertDatabaseHas('audit_logs', ['action' => 'logout', 'user_id' => $user->id]);
+    }
+
+    public function test_actions_are_audited_and_only_admins_see_the_log(): void
+    {
+        Prize::create(['name' => 'Stethoscope', 'type' => 'item', 'value_cents' => 12000, 'quantity' => 1]);
+        $supervisor = User::factory()->role('supervisor')->create();
+        $admin = User::factory()->role('admin')->create();
+        $crew = User::factory()->create(['name' => 'Pat Medic']);
+
+        $credit = $this->credit($crew);
+        $this->actingAs($crew)->post("/credits/{$credit->id}/draw");
+        $this->assertDatabaseHas('audit_logs', ['action' => 'draws.store', 'user_id' => $crew->id, 'description' => 'Drew Stethoscope ($120) from the call at Sentara Leigh.']);
+
+        $draw = Draw::first();
+        $this->actingAs($supervisor)->post("/supervisor/draws/{$draw->id}/award");
+        $this->assertDatabaseHas('audit_logs', ['action' => 'supervisor.award', 'user_id' => $supervisor->id]);
+
+        $this->actingAs($supervisor)->get('/admin/audit')->assertForbidden();
+        $this->actingAs($admin)->get('/admin/audit')->assertOk()->assertSee('Drew Stethoscope')->assertSee('Marked a prize received');
+        $this->actingAs($admin)->get('/admin/audit?user='.$supervisor->id)->assertOk()
+            ->assertSee('Marked a prize received')->assertDontSee('Drew Stethoscope');
+
+        $this->actingAs($admin)->get('/admin/users')->assertSee('Last login: never');
+    }
 }

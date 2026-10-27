@@ -37,6 +37,9 @@ class DispatchController extends Controller
             $request->user(),
         );
 
+        $call->load('credits.user');
+        audit_note('Credited '.$call->credits->pluck('user.name')->join(', ').' for the call at '.$call->location.($call->unit ? " ({$call->unit})" : '').', '.$call->occurred_at->format('M j g:i A').'.');
+
         return redirect()->route('dispatch.create')
             ->with('status', 'Credited '.$call->credits()->count().' crew member(s) for the call at '.$call->location.'. They\'ll get an email with the next batch, sent every 2 hours.');
     }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\DrawController as AdminDrawController;
 use App\Http\Controllers\Admin\LockerController;
 use App\Http\Controllers\Admin\UserController;
@@ -80,6 +81,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
         Route::get('/lockers', [LockerController::class, 'index'])->name('lockers');
+        Route::get('/audit', [AuditLogController::class, 'index'])->name('audit');
         Route::get('/draws/{draw}/edit', [AdminDrawController::class, 'edit'])->name('draws.edit');
         Route::put('/draws/{draw}', [AdminDrawController::class, 'update'])->name('draws.update');
         Route::delete('/draws/{draw}', [AdminDrawController::class, 'destroy'])->name('draws.destroy');

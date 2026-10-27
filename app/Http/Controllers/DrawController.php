@@ -22,6 +22,8 @@ class DrawController extends Controller
             return redirect()->route('home')->with('error', $e->getMessage());
         }
 
+        audit_note("Drew {$draw->prize_name} (".money($draw->value_cents).') from the call at '.$credit->call->location.'.');
+
         return redirect()->route('draws.show', [$draw, 'reveal' => 1]);
     }
 
@@ -45,6 +47,7 @@ class DrawController extends Controller
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
+        audit_note('Took a '.money($draw->value_cents)." cash bonus instead of {$draw->prize_name}.");
 
         return redirect()->route('draws.show', $draw);
     }
@@ -55,10 +58,11 @@ class DrawController extends Controller
         $data = $request->validate(['stock_id' => 'required|integer']);
 
         try {
-            $this->machine->chooseBrand($draw, $data['stock_id']);
+            $draw = $this->machine->chooseBrand($draw, $data['stock_id']);
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
+        audit_note("Picked {$draw->label()}.");
 
         return redirect()->route('draws.show', $draw);
     }
