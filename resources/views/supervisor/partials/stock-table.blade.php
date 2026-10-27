@@ -1,10 +1,10 @@
 {{-- A prize's gift card brands or choices, with one Save for all their counts and a form to add several at once. --}}
-<div class="table-wrap mt"><table>
+<div class="table-wrap mt"><table class="stock-table">
     <tr><th>{{ ucfirst($noun) }}</th><th class="num">On hand</th><th></th></tr>
     @forelse ($prize->stocks->where('active', true) as $stock)
         <tr>
             <td>{{ $stock->brand }}</td>
-            <td class="num"><input form="c{{ $prize->id }}" type="number" min="0" name="stocks[{{ $stock->id }}]" value="{{ $stock->quantity }}" style="width:70px" aria-label="{{ $stock->brand }} on hand" required></td>
+            <td class="num"><input form="c{{ $prize->id }}" type="number" min="0" name="stocks[{{ $stock->id }}]" value="{{ $stock->quantity }}" style="width:56px" aria-label="{{ $stock->brand }} on hand" required></td>
             <td><div class="row-actions" style="flex-wrap:nowrap;justify-content:flex-end">
                 @include('supervisor.partials.hide-delete', ['toggle' => route('supervisor.inventory.stocks.toggle', $stock), 'destroy' => route('supervisor.inventory.stocks.destroy', $stock), 'name' => $prize->name.' '.$stock->brand, 'hidden' => false])
             </div></td>

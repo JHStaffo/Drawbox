@@ -114,9 +114,9 @@
                 {{-- One Save covers these and every brand's count below. --}}
                 <form id="c{{ $prize->id }}" method="post" action="{{ route('supervisor.inventory.counts.update', $prize) }}" class="row-actions mt">@csrf @method('put')
                     <label class="hint" for="available-{{ $prize->id }}">Draws left:</label>
-                    <input id="available-{{ $prize->id }}" type="number" min="0" name="available" value="{{ $prize->available }}" style="width:70px">
+                    <input id="available-{{ $prize->id }}" type="number" min="0" name="available" value="{{ $prize->available }}" style="width:56px">
                     <label class="hint" for="monthly-{{ $prize->id }}">Monthly:</label>
-                    <input id="monthly-{{ $prize->id }}" type="number" min="0" name="monthly_quantity" value="{{ $prize->monthly_quantity }}" style="width:70px" title="Reset sets draws left to this">
+                    <input id="monthly-{{ $prize->id }}" type="number" min="0" name="monthly_quantity" value="{{ $prize->monthly_quantity }}" style="width:56px" title="Reset sets draws left to this">
                 </form>
                 @include('supervisor.partials.stock-table', ['noun' => 'brand', 'placeholder' => 'e.g. Amazon', 'prizeActions' => true])
                 <details class="mt">
