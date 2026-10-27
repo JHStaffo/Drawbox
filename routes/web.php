@@ -63,6 +63,7 @@ Route::middleware('auth')->group(function () {
             Route::put('/inventory/prizes/{prize}', [InventoryController::class, 'updatePrize'])->name('inventory.prizes.update');
             Route::post('/inventory/prizes/{prize}/brands', [InventoryController::class, 'storeStock'])->name('inventory.stocks.store');
             Route::put('/inventory/brands/{stock}', [InventoryController::class, 'updateStock'])->name('inventory.stocks.update');
+            Route::put('/inventory/prizes/{prize}/counts', [InventoryController::class, 'updateCounts'])->name('inventory.counts.update');
             Route::post('/inventory/prizes/{prize}/toggle', [InventoryController::class, 'togglePrize'])->name('inventory.prizes.toggle');
             Route::delete('/inventory/prizes/{prize}', [InventoryController::class, 'destroyPrize'])->name('inventory.prizes.destroy');
             Route::post('/inventory/brands/{stock}/toggle', [InventoryController::class, 'toggleStock'])->name('inventory.stocks.toggle');

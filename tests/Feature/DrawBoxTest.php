@@ -972,4 +972,26 @@ class DrawBoxTest extends TestCase
 
         $this->actingAs($admin)->get('/admin/users')->assertSee('Last login: never');
     }
+
+    public function test_one_save_updates_a_gift_cards_draws_left_monthly_and_brands(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $card = Prize::create(['name' => '$5 gift card', 'type' => 'gift_card', 'value_cents' => 500, 'available' => 9, 'monthly_quantity' => 9]);
+        $kroger = GiftCardStock::create(['prize_id' => $card->id, 'brand' => 'Kroger', 'quantity' => 3]);
+        $walmart = GiftCardStock::create(['prize_id' => $card->id, 'brand' => 'Walmart', 'quantity' => 2]);
+        $other = GiftCardStock::create(['prize_id' => Prize::create(['name' => '$10 gift card', 'type' => 'gift_card', 'value_cents' => 1000])->id, 'brand' => 'Wawa', 'quantity' => 1]);
+
+        $this->actingAs($admin)->get('/supervisor/inventory')->assertSee("name=\"stocks[{$kroger->id}]\"", false);
+        $this->actingAs($admin)->from('/supervisor/inventory')->put("/supervisor/inventory/prizes/{$card->id}/counts", [
+            'available' => 6, 'monthly_quantity' => 8, 'stocks' => [$kroger->id => 5, $walmart->id => 0, $other->id => 9],
+        ])->assertRedirect('/supervisor/inventory')->assertSessionHas('status', 'Saved $5 gift card.');
+
+        $card->refresh();
+        $this->assertSame([6, 8], [$card->available, $card->monthly_quantity]);
+        $this->assertSame([5, 0], [$kroger->fresh()->quantity, $walmart->fresh()->quantity]);
+        // A brand from another card can't be changed through this one.
+        $this->assertSame(1, $other->fresh()->quantity);
+
+        $this->actingAs(User::factory()->role('supervisor')->create())->put("/supervisor/inventory/prizes/{$card->id}/counts", ['available' => 1])->assertForbidden();
+    }
 }
