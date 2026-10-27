@@ -959,7 +959,7 @@ class DrawBoxTest extends TestCase
 
         $credit = $this->credit($crew);
         $this->actingAs($crew)->post("/credits/{$credit->id}/draw");
-        $this->assertDatabaseHas('audit_logs', ['action' => 'draws.store', 'user_id' => $crew->id, 'description' => 'Drew Stethoscope ($120) from the call at Sentara Leigh.']);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'draws.store', 'user_id' => $crew->id, 'description' => 'Drew Stethoscope ($120) from the call at Sentara Leigh. Changed Stethoscope: draws left from 1 to 0, on hand from 1 to 0.']);
 
         $draw = Draw::first();
         $this->actingAs($supervisor)->post("/supervisor/draws/{$draw->id}/award");
@@ -971,5 +971,27 @@ class DrawBoxTest extends TestCase
             ->assertSee('Marked a prize received')->assertDontSee('Drew Stethoscope');
 
         $this->actingAs($admin)->get('/admin/users')->assertSee('Last login: never');
+    }
+
+    public function test_audit_log_says_what_changed_from_and_to(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $card = Prize::create(['name' => '$5 gift card', 'type' => 'gift_card', 'value_cents' => 500, 'available' => 12, 'monthly_quantity' => 12]);
+        $wawa = GiftCardStock::create(['prize_id' => $card->id, 'brand' => 'Wawa', 'quantity' => 4]);
+        $medic = User::factory()->create(['name' => 'Pat Medic']);
+
+        $this->actingAs($admin)->put("/supervisor/inventory/prizes/{$card->id}", [
+            'name' => '$5 gift card', 'type' => 'gift_card', 'value' => 5, 'cash_bonus_allowed' => '0', 'taxable' => '1', 'available' => 8, 'monthly_quantity' => 10,
+        ]);
+        $this->actingAs($admin)->put("/supervisor/inventory/brands/{$wawa->id}", ['quantity' => 6]);
+        $this->actingAs($admin)->put("/admin/users/{$medic->id}", ['name' => 'Pat Medic', 'email' => $medic->email, 'role' => 'dispatcher', 'active' => '1']);
+        $this->actingAs($admin)->put('/supervisor/settings', ['draw_window_days' => 10, 'locker_pickup_days' => 7, 'expiry_reminder_enabled' => '1']);
+
+        $logs = \App\Models\AuditLog::orderBy('id')->pluck('description');
+        $this->assertSame('Saved $5 gift card. Changed $5 gift card: monthly from 12 to 10, draws left from 12 to 8.', $logs[0]);
+        $this->assertStringContainsString('$5 gift card Wawa: on hand from 4 to 6.', $logs[1]);
+        $this->assertStringContainsString('Pat Medic: role from employee to dispatcher.', $logs[2]);
+        $this->assertStringContainsString('Settings: Draw window (days) from 7 to 10.', $logs[3]);
+        $this->assertStringNotContainsString('Locker pickup', $logs[3]);
     }
 }
