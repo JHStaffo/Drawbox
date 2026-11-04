@@ -5,6 +5,9 @@
     <p>
         @if ($credits->count())
             You have {{ $credits->count() }} {{ Str::plural('draw', $credits->count()) }} waiting.
+            @if ($waiting->count()){{ $waiting->count() }} more {{ $waiting->count() === 1 ? 'is' : 'are' }} on the way.@endif
+        @elseif ($waiting->count())
+            You have {{ $waiting->count() }} {{ Str::plural('draw', $waiting->count()) }} on the way.
         @else
             No draws waiting right now. Bring in a call and your crew earns one each.
         @endif
@@ -54,6 +57,19 @@
                 @csrf
                 <button class="btn btn-big" type="submit">Draw</button>
             </form>
+        </div>
+    @endforeach
+
+    @foreach ($waiting as $credit)
+        <div class="card ticket ticket-waiting">
+            <div>
+                <h2 style="margin:0">{{ $credit->call->location }}</h2>
+                <div class="when">
+                    Call on {{ $credit->call->occurred_at->format('M j, g:i A') }}
+                    · Draw by {{ $credit->expires_at->format('M j') }}
+                </div>
+            </div>
+            <span class="pill">Available {{ $credit->available_at->isToday() ? $credit->available_at->format('g:i A') : $credit->available_at->format('M j, g:i A') }}</span>
         </div>
     @endforeach
 

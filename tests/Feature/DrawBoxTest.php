@@ -121,6 +121,11 @@ class DrawBoxTest extends TestCase
         $this->assertTrue(DrawCredit::first()->expires_at->isSameDay(now()->addDays(3)));
         Notification::assertNothingSent();
 
+        // The email waits until the draw can actually be drawn.
+        $this->artisan('drawbox:notify')->assertSuccessful();
+        Notification::assertNothingSent();
+
+        $this->travel(2)->hours();
         $this->artisan('drawbox:notify')->assertSuccessful();
         Notification::assertSentTo([$a, $b], DrawCredited::class);
     }
@@ -1114,5 +1119,39 @@ class DrawBoxTest extends TestCase
 
         $this->assertSame(['login.code_sent', 'login'], \App\Models\AuditLog::orderBy('id')->pluck('action')->all());
         $this->assertSame('Sign-in step (duplicate)', (new \App\Models\AuditLog(['action' => 'generated::rhOCSm0JgsPuz3op']))->label());
+    }
+
+    public function test_credited_draws_wait_before_they_can_be_drawn(): void
+    {
+        Prize::create(['name' => 'Candy', 'type' => 'item', 'diminishing' => false, 'quantity' => 5]);
+        $dispatcher = User::factory()->role('dispatcher')->create();
+        $crew = User::factory()->create();
+        $this->travelTo(now()->setTime(9, 0));
+
+        $this->actingAs($dispatcher)->post('/dispatch', [
+            'occurred_at' => now()->subHour()->format('Y-m-d H:i'), 'location' => 'Sentara Leigh', 'unit' => 'Medic 4', 'crew' => [$crew->id],
+        ]);
+        $credit = DrawCredit::first();
+        $this->assertTrue($credit->available_at->equalTo(now()->addHours(2)));
+
+        $this->actingAs($crew)->get('/')->assertSee('You have 1 draw on the way.')->assertSee('Available 11:00 AM')->assertDontSee('btn-big');
+        $this->actingAs($crew)->post("/credits/{$credit->id}/draw");
+        $this->assertSame(0, Draw::count());
+        $this->actingAs(User::factory()->role('supervisor')->create())->get('/supervisor')->assertSee('Drawable 11:00 AM');
+
+        $this->travel(2)->hours();
+        $this->actingAs($crew)->get('/')->assertSee('btn-big')->assertDontSee('on the way');
+        $this->actingAs($crew)->post("/credits/{$credit->id}/draw");
+        $this->assertSame(1, Draw::count());
+
+        // An admin can change the wait; 0 means right away.
+        $this->actingAs(User::factory()->role('admin')->create())->put('/supervisor/settings', [
+            'draw_window_days' => 7, 'draw_delay_hours' => 0, 'locker_pickup_days' => 7, 'expiry_reminder_enabled' => '1',
+        ])->assertSessionHasNoErrors();
+        $this->assertStringContainsString('Wait before drawing (hours) from 2 to 0', \App\Models\AuditLog::latest('id')->value('description'));
+        $this->actingAs($dispatcher)->post('/dispatch', [
+            'occurred_at' => now()->subHour()->format('Y-m-d H:i'), 'location' => 'Lake Taylor', 'unit' => 'Medic 4', 'crew' => [$crew->id],
+        ]);
+        $this->assertTrue(DrawCredit::latest('id')->first()->isAvailable());
     }
 }

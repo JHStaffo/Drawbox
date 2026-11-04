@@ -143,6 +143,8 @@ tr:last-child td { border-bottom: 0; }
 /* Draw tickets on the home page */
 .ticket { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-left: 6px solid var(--red); }
 .ticket .when { color: var(--muted); font-size: .9rem; }
+.ticket-waiting { border-left-color: var(--gray); }
+.ticket-waiting h2 { color: var(--muted); }
 
 /* The draw reveal */
 .reveal { text-align: center; padding: 110px 16px 40px; }

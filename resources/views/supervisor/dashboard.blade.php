@@ -122,7 +122,7 @@ document.querySelectorAll('.check-all').forEach(function (all) {
                         <tr>
                             <td>{{ $credit->user->name }}</td>
                             <td>{{ $credit->call->location }}<div class="hint">{{ $credit->call->occurred_at->format('M j') }}</div></td>
-                            <td>{{ $credit->expires_at->format('M j') }}</td>
+                            <td>{{ $credit->expires_at->format('M j') }}@if ($credit->isWaiting())<div class="hint">Drawable {{ $credit->available_at->format('g:i A') }}</div>@endif</td>
                             <td class="right">
                                 <form method="post" action="{{ route('supervisor.credits.void', $credit) }}" onsubmit="return confirm('Remove this draw for {{ $credit->user->name }}?')">@csrf
                                     <button class="btn btn-small btn-outline" type="submit">Remove</button>

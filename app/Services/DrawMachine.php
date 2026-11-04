@@ -22,6 +22,9 @@ class DrawMachine
     {
         return DB::transaction(function () use ($credit) {
             $credit = DrawCredit::lockForUpdate()->findOrFail($credit->id);
+            if ($credit->status === 'open' && $credit->isWaiting()) {
+                throw new RuntimeException('This draw opens at '.$credit->available_at->format('g:i A').'.');
+            }
             if (! $credit->isAvailable()) {
                 throw new RuntimeException('This draw is no longer available.');
             }
