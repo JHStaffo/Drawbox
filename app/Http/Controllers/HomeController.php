@@ -16,6 +16,7 @@ class HomeController extends Controller
 
         return view('home', [
             'credits' => $user->credits()->available()->with('call')->orderBy('expires_at')->get(),
+            'waiting' => $user->credits()->waiting()->with('call')->orderBy('available_at')->get(),
             'lockers' => LockerAssignment::waiting()->where('user_id', $user->id)->with('locker', 'draws')->orderBy('due_at')->get(),
             'pending' => $user->draws()->where('status', 'pending_brand')->get(),
             'history' => $user->draws()->whereIn('status', ['won', 'in_locker', 'awarded', 'forfeited'])->with('lockerAssignment.locker')->latest('drawn_at')->limit(25)->get(),

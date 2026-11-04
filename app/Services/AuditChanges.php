@@ -32,6 +32,7 @@ class AuditChanges
 
     private const SETTINGS = [
         'draw_window_days' => 'Draw window (days)',
+        'draw_delay_hours' => 'Wait before drawing (hours)',
         'locker_pickup_days' => 'Locker pickup window (days)',
         'expiry_reminder_enabled' => 'Expiry reminder emails',
         'news_hide_dispatcher' => 'Hide dispatcher winners',

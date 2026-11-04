@@ -16,6 +16,7 @@ class Setting extends Model
 
     public const DEFAULTS = [
         'draw_window_days' => '7',
+        'draw_delay_hours' => '2',
         'expiry_reminder_enabled' => '1',
         'locker_pickup_days' => '7',
         'news_hide_dispatcher' => '0',

@@ -19,9 +19,10 @@ class Credits
         return DB::transaction(function () use ($call, $crewIds, $by) {
             $call = Call::create($call + ['created_by' => $by->id]);
             $expires = now()->addDays((int) Setting::get('draw_window_days'))->endOfDay();
+            $availableAt = now()->addMinutes((int) round((float) Setting::get('draw_delay_hours') * 60));
 
             foreach (array_unique($crewIds) as $userId) {
-                $call->credits()->create(['user_id' => $userId, 'expires_at' => $expires]);
+                $call->credits()->create(['user_id' => $userId, 'available_at' => $availableAt, 'expires_at' => $expires]);
             }
 
             return $call;

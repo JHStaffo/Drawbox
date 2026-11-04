@@ -14,7 +14,7 @@ class DashboardController extends Controller
     public function index(Reports $reports, Inventory $inventory)
     {
         return view('supervisor.dashboard', [
-            'undrawn' => DrawCredit::available()->with('user', 'call')->orderBy('expires_at')->get(),
+            'undrawn' => DrawCredit::open()->with('user', 'call')->orderBy('expires_at')->get(),
             'unawarded' => Draw::whereIn('status', ['won', 'pending_brand'])->with('user')->orderBy('drawn_at')->get()
                 ->sortBy(fn ($draw) => $draw->user->sortName())->values(),
             'lockerAssignments' => LockerAssignment::with('locker', 'user', 'draws')->whereNull('picked_up_at')->whereNull('cleared_at')->orderBy('due_at')->get(),

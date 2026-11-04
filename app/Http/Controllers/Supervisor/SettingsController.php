@@ -12,6 +12,7 @@ class SettingsController extends Controller
     {
         return view('supervisor.settings', [
             'drawWindowDays' => Setting::get('draw_window_days'),
+            'drawDelayHours' => Setting::get('draw_delay_hours') + 0,
             'lockerPickupDays' => Setting::get('locker_pickup_days'),
             'expiryReminderEnabled' => (bool) Setting::get('expiry_reminder_enabled'),
             'newsHide' => collect(['dispatcher', 'supervisor', 'admin'])->mapWithKeys(fn ($r) => [$r => (bool) Setting::get("news_hide_{$r}")]),
@@ -23,6 +24,7 @@ class SettingsController extends Controller
     {
         $data = $request->validate([
             'draw_window_days' => 'required|integer|min:1|max:365',
+            'draw_delay_hours' => 'nullable|numeric|min:0|max:72',
             'expiry_reminder_enabled' => 'boolean',
             'locker_pickup_days' => 'required|integer|min:1|max:90',
             'news_hide_dispatcher' => 'boolean',
@@ -32,6 +34,9 @@ class SettingsController extends Controller
         ]);
 
         Setting::put('draw_window_days', (string) $data['draw_window_days']);
+        if (isset($data['draw_delay_hours'])) {
+            Setting::put('draw_delay_hours', (string) ($data['draw_delay_hours'] + 0));
+        }
         Setting::put('locker_pickup_days', (string) $data['locker_pickup_days']);
         Setting::put('expiry_reminder_enabled', $request->boolean('expiry_reminder_enabled') ? '1' : '0');
         foreach (['dispatcher', 'supervisor', 'admin'] as $role) {
