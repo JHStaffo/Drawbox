@@ -2,7 +2,7 @@
 
 @section('band')
     <h1>Scope Check</h1>
-    <p>Check the level of care a call needs from the equipment and meds requested, and how many crew members and trucks it needs to lift the patient. This is a guide: when something doesn't fit, ask a supervisor.</p>
+    <p>Check the level of care a call needs from the equipment and meds requested, and the ideal number of crew members to lift the patient. This is a guide: when something doesn't fit, ask a supervisor.</p>
 @endsection
 
 @section('content')
@@ -26,12 +26,12 @@
                 </div>
                 <div>
                     <div class="hint">Lift assist</div>
-                    <div class="scope-big">{{ $result['crew'] }} crew · {{ $result['trucks'] }} {{ Str::plural('truck', $result['trucks']) }}</div>
+                    <div class="scope-big">Ideal crew members: {{ $result['crew'] }}</div>
                     <div class="hint">
                         @if ($result['rules']->isEmpty())
                             No lift assist rule applies.
                         @else
-                            @foreach ($result['rules'] as $rule){{ $rule->conditions() }}: {{ $rule->crew }} crew, {{ $rule->trucks }} {{ Str::plural('truck', $rule->trucks) }}@if ($rule->note) ({{ $rule->note }})@endif<br>@endforeach
+                            @foreach ($result['rules'] as $rule){{ $rule->conditions() }}: {{ $rule->crew }} ideal crew members @if ($rule->note)({{ $rule->note }})@endif<br>@endforeach
                         @endif
                     </div>
                 </div>

@@ -75,10 +75,10 @@
 
     <div class="card" id="lift">
         <h2>Scope Check: lift assist rules ({{ $rules->count() }})</h2>
-        <p class="hint">A rule applies when a call meets every condition it sets, and the call needs the most crew and trucks of any rule that applies. Leave a condition blank to ignore it. A rule needs at least one condition.</p>
+        <p class="hint">A rule applies when a call meets every condition it sets, and the call's ideal crew is the most of any rule that applies. Leave a condition blank to ignore it. A rule needs at least one condition.</p>
         @if ($rules->isNotEmpty())
             <div class="table-wrap"><table>
-                <tr><th>#</th><th>Scene</th><th>Destination</th><th class="num">Weight (lbs) at least</th><th class="num">Steps at least</th><th class="num">Crew</th><th class="num">Trucks</th><th>Note</th><th></th></tr>
+                <tr><th>#</th><th>Scene</th><th>Destination</th><th class="num">Weight (lbs) at least</th><th class="num">Steps at least</th><th class="num">Ideal crew</th><th>Note</th><th></th></tr>
                 @foreach ($rules as $rule)
                     <tr>
                         <td>{{ $rule->id }}</td>
@@ -87,7 +87,6 @@
                         <td class="num"><input form="r{{ $rule->id }}" type="number" min="1" name="min_weight_lbs" value="{{ $rule->min_weight_lbs }}" style="width:80px" aria-label="Weight"></td>
                         <td class="num"><input form="r{{ $rule->id }}" type="number" min="1" name="min_steps" value="{{ $rule->min_steps }}" style="width:70px" aria-label="Steps"></td>
                         <td class="num"><input form="r{{ $rule->id }}" type="number" min="1" name="crew" value="{{ $rule->crew }}" style="width:60px" required aria-label="Crew"></td>
-                        <td class="num"><input form="r{{ $rule->id }}" type="number" min="1" name="trucks" value="{{ $rule->trucks }}" style="width:60px" required aria-label="Trucks"></td>
                         <td><input form="r{{ $rule->id }}" type="text" name="note" value="{{ $rule->note }}" aria-label="Note"></td>
                         <td class="right" style="white-space:nowrap">
                             <form id="r{{ $rule->id }}" method="post" action="{{ route('admin.scope.rules.update', $rule) }}" style="display:inline">@csrf @method('put')<button class="btn btn-small" type="submit">Save</button></form>
@@ -106,8 +105,7 @@
                 <div class="field"><label>Steps at least</label><input type="number" min="1" name="min_steps"></div>
             </div>
             <div class="field-row">
-                <div class="field"><label>Crew members</label><input type="number" min="1" name="crew" value="3" required></div>
-                <div class="field"><label>Trucks</label><input type="number" min="1" name="trucks" value="1" required></div>
+                <div class="field"><label>Ideal crew members</label><input type="number" min="1" name="crew" value="3" required></div>
                 <div class="field"><label>Note</label><input type="text" name="note"></div>
             </div>
             <button class="btn" type="submit">Add rule</button>
@@ -119,8 +117,7 @@
     <form class="card" method="post" action="{{ route('admin.scope.options') }}" style="max-width:640px">@csrf @method('put')
         <h2>Scope Check: options</h2>
         <div class="field-row">
-            <div class="field"><label for="scope_base_crew">Usual crew per call</label><input id="scope_base_crew" type="number" min="1" name="scope_base_crew" value="{{ $baseCrew }}" required></div>
-            <div class="field"><label for="scope_base_trucks">Usual trucks per call</label><input id="scope_base_trucks" type="number" min="1" name="scope_base_trucks" value="{{ $baseTrucks }}" required></div>
+            <div class="field"><label for="scope_base_crew">Usual ideal crew per call</label><input id="scope_base_crew" type="number" min="1" name="scope_base_crew" value="{{ $baseCrew }}" required></div>
         </div>
         <p class="hint">What a call needs when no lift assist rule applies.</p>
         <div class="field-row">

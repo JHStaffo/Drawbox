@@ -14,7 +14,6 @@ class SettingsController extends Controller
             'drawWindowDays' => Setting::get('draw_window_days'),
             'rules' => \App\Models\LiftRule::orderBy('id')->get(),
             'baseCrew' => Setting::get('scope_base_crew'),
-            'baseTrucks' => Setting::get('scope_base_trucks'),
             'sceneTypes' => Setting::get('scope_scene_types'),
             'destinationTypes' => Setting::get('scope_destination_types'),
             'scopeItems' => \App\Models\ScopeItem::orderBy('name')->get()->sortByDesc(fn ($i) => $i->rank())->values(),

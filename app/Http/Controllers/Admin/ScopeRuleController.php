@@ -57,7 +57,6 @@ class ScopeRuleController extends Controller
     {
         $data = $request->validate([
             'scope_base_crew' => 'required|integer|min:1|max:20',
-            'scope_base_trucks' => 'required|integer|min:1|max:10',
             'scope_scene_types' => 'nullable|string|max:2000',
             'scope_destination_types' => 'nullable|string|max:2000',
         ]);
@@ -87,7 +86,6 @@ class ScopeRuleController extends Controller
             'min_weight_lbs' => 'nullable|integer|min:1|max:2000',
             'min_steps' => 'nullable|integer|min:1|max:500',
             'crew' => 'required|integer|min:1|max:20',
-            'trucks' => 'required|integer|min:1|max:10',
             'note' => 'nullable|string|max:255',
         ]);
         $data = array_merge(['scene_type' => null, 'destination_type' => null, 'min_weight_lbs' => null, 'min_steps' => null, 'note' => null], $data);

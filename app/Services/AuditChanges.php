@@ -33,7 +33,7 @@ class AuditChanges
         ScopeItem::class => ['name' => 'name', 'level' => 'level of care', 'note' => 'message'],
         LiftRule::class => [
             'scene_type' => 'scene', 'destination_type' => 'destination', 'min_weight_lbs' => 'min weight',
-            'min_steps' => 'min steps', 'crew' => 'crew', 'trucks' => 'trucks', 'note' => 'note',
+            'min_steps' => 'min steps', 'crew' => 'crew', 'note' => 'note',
         ],
     ];
 
@@ -46,8 +46,7 @@ class AuditChanges
         'news_hide_supervisor' => 'Hide supervisor winners',
         'news_hide_admin' => 'Hide admin winners',
         'news_min_cents' => 'Hide prizes under',
-        'scope_base_crew' => 'Scope check: usual crew',
-        'scope_base_trucks' => 'Scope check: usual trucks',
+        'scope_base_crew' => 'Scope check: usual ideal crew',
         'scope_scene_types' => 'Scope check: scene types',
         'scope_destination_types' => 'Scope check: destination types',
     ];
