@@ -1166,7 +1166,7 @@ class DrawBoxTest extends TestCase
         // The starting list from the migration.
         $this->assertSame('rn', \App\Models\ScopeItem::where('name', 'ECMO')->value('level'));
         // Levels stay hidden until Check is pressed.
-        $this->actingAs($dispatcher)->get('/scope')->assertOk()->assertSee('ECMO')->assertSee('Chest tube')->assertDontSee('RN Required');
+        $this->actingAs($dispatcher)->get('/scope')->assertOk()->assertSee('ECMO')->assertSee('<select id="scene"', false)->assertSee('<select id="destination"', false)->assertSee('Apartment without elevator')->assertSee('Chest tube')->assertDontSee('RN Required');
         $this->actingAs($admin)->get('/supervisor/settings')->assertSee('Scope Check: equipment and meds (13)')->assertSee('REBOA', false);
 
         $this->actingAs($admin)->post('/admin/scope/items', ['name' => 'Oxygen', 'level' => 'bls'])->assertSessionHasNoErrors();

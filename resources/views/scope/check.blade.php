@@ -64,16 +64,12 @@
 
         <h3 class="mt">Lift assist</h3>
         <div class="field-row">
-            @if ($scenes)
-                <div class="field"><label for="scene">Scene type</label>
-                    <select id="scene" name="scene"><option value="">Not specified</option>@foreach ($scenes as $s)<option @selected(($input['scene'] ?? '') === $s)>{{ $s }}</option>@endforeach</select>
-                </div>
-            @endif
-            @if ($destinations)
-                <div class="field"><label for="destination">Destination type</label>
-                    <select id="destination" name="destination"><option value="">Not specified</option>@foreach ($destinations as $d)<option @selected(($input['destination'] ?? '') === $d)>{{ $d }}</option>@endforeach</select>
-                </div>
-            @endif
+            <div class="field"><label for="scene">Scene type</label>
+                <select id="scene" name="scene"><option value="">Not specified</option>@foreach ($scenes as $s)<option @selected(($input['scene'] ?? '') === $s)>{{ $s }}</option>@endforeach</select>
+            </div>
+            <div class="field"><label for="destination">Destination type</label>
+                <select id="destination" name="destination"><option value="">Not specified</option>@foreach ($destinations as $d)<option @selected(($input['destination'] ?? '') === $d)>{{ $d }}</option>@endforeach</select>
+            </div>
             <div class="field"><label for="steps">Number of steps</label><input id="steps" type="number" min="0" max="500" name="steps" value="{{ $input['steps'] ?? '' }}"></div>
             <div class="field"><label for="weight">Patient weight (lbs)</label><input id="weight" type="number" min="0" max="2000" name="weight" value="{{ $input['weight'] ?? '' }}"></div>
         </div>
