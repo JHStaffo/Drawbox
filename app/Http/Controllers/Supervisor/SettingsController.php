@@ -12,6 +12,11 @@ class SettingsController extends Controller
     {
         return view('supervisor.settings', [
             'drawWindowDays' => Setting::get('draw_window_days'),
+            'rules' => \App\Models\LiftRule::orderBy('id')->get(),
+            'baseCrew' => Setting::get('scope_base_crew'),
+            'baseTrucks' => Setting::get('scope_base_trucks'),
+            'sceneTypes' => Setting::get('scope_scene_types'),
+            'destinationTypes' => Setting::get('scope_destination_types'),
             'scopeItems' => \App\Models\ScopeItem::orderBy('name')->get()->sortByDesc(fn ($i) => $i->rank())->values(),
             'drawDelayHours' => Setting::get('draw_delay_hours') + 0,
             'lockerPickupDays' => Setting::get('locker_pickup_days'),

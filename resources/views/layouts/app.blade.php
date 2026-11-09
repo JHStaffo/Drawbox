@@ -21,7 +21,7 @@
                 <a href="{{ route('home') }}" @class(['active' => request()->routeIs('home', 'draws.*')])>Home</a>
                 @if ($u->hasRole('dispatcher'))
                     <a href="{{ route('dispatch.create') }}" @class(['active' => request()->routeIs('dispatch.*')])>Credit a call</a>
-                    <a href="{{ route('scope') }}" @class(['active' => request()->routeIs('scope', 'admin.scope')])>Scope Check</a>
+                    <a href="{{ route('scope') }}" @class(['active' => request()->routeIs('scope')])>Scope Check</a>
                 @endif
                 @if ($u->hasRole('supervisor'))
                     <a href="{{ route('supervisor.dashboard') }}" @class(['active' => request()->routeIs('supervisor.dashboard')])>Dashboard</a>

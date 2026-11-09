@@ -88,7 +88,6 @@ Route::middleware('auth')->group(function () {
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
         Route::get('/lockers', [LockerController::class, 'index'])->name('lockers');
         Route::get('/audit', [AuditLogController::class, 'index'])->name('audit');
-        Route::get('/scope', [ScopeRuleController::class, 'index'])->name('scope');
         Route::post('/scope/items', [ScopeRuleController::class, 'storeItem'])->name('scope.items.store');
         Route::put('/scope/items/{item}', [ScopeRuleController::class, 'updateItem'])->name('scope.items.update');
         Route::delete('/scope/items/{item}', [ScopeRuleController::class, 'destroyItem'])->name('scope.items.destroy');

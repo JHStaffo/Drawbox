@@ -55,7 +55,7 @@
             @forelse ($items as $item)
                 <label class="check scope-item" data-name="{{ Str::lower($item->name) }}">
                     <input type="checkbox" name="items[]" value="{{ $item->id }}" @checked($picked->contains($item->id))>
-                    {{ $item->name }} <span class="pill scope-{{ $item->level }}">{{ $item->levelLabel() }}</span>
+                    {{ $item->name }}@if ($result) <span class="pill scope-{{ $item->level }}">{{ $item->levelLabel() }}</span>@endif
                 </label>
             @empty
                 <p class="hint">None listed yet.</p>
@@ -80,7 +80,7 @@
         <div class="row-actions">
             <button class="btn" type="submit">Check</button>
             <a class="btn btn-outline" href="{{ route('scope') }}">Clear</a>
-            @if (auth()->user()->hasRole('admin'))<a class="btn btn-outline" href="{{ route('supervisor.settings') }}#scope">Edit list</a><a class="btn btn-outline" href="{{ route('admin.scope') }}">Lift assist rules</a>@endif
+            @if (auth()->user()->hasRole('admin'))<a class="btn btn-outline" href="{{ route('supervisor.settings') }}#scope">Edit rules</a>@endif
         </div>
     </form>
 </div>

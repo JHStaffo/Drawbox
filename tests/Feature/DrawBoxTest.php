@@ -1160,11 +1160,13 @@ class DrawBoxTest extends TestCase
         $dispatcher = User::factory()->role('dispatcher')->create();
         $admin = User::factory()->role('admin')->create();
         $this->actingAs(User::factory()->create())->get('/scope')->assertForbidden();
-        $this->actingAs($dispatcher)->get('/admin/scope')->assertForbidden();
+        $this->actingAs($dispatcher)->get('/supervisor/settings')->assertForbidden();
+        $this->actingAs($dispatcher)->post('/admin/scope/rules', ['min_weight_lbs' => 350, 'crew' => 3, 'trucks' => 1])->assertForbidden();
 
         // The starting list from the migration.
         $this->assertSame('rn', \App\Models\ScopeItem::where('name', 'ECMO')->value('level'));
-        $this->actingAs($dispatcher)->get('/scope')->assertOk()->assertSee('ECMO')->assertSee('RN Required')->assertSee('Chest tube');
+        // Levels stay hidden until Check is pressed.
+        $this->actingAs($dispatcher)->get('/scope')->assertOk()->assertSee('ECMO')->assertSee('Chest tube')->assertDontSee('RN Required');
         $this->actingAs($admin)->get('/supervisor/settings')->assertSee('Scope Check: equipment and meds (13)')->assertSee('REBOA', false);
 
         $this->actingAs($admin)->post('/admin/scope/items', ['name' => 'Oxygen', 'level' => 'bls'])->assertSessionHasNoErrors();
@@ -1179,7 +1181,7 @@ class DrawBoxTest extends TestCase
         $id = fn ($name) => \App\Models\ScopeItem::where('name', $name)->value('id');
 
         $check = fn (array $q) => $this->actingAs($dispatcher)->get('/scope?'.http_build_query(['check' => 1] + $q))->assertOk();
-        $check(['items' => [$id('Oxygen')]])->assertSee('scope-big scope-bls', false)->assertSee('2 crew · 1 truck');
+        $check(['items' => [$id('Oxygen')]])->assertSee('scope-big scope-bls', false)->assertSee('2 crew · 1 truck')->assertSee('RN Required');
         $check(['items' => [$id('Oxygen'), $id('Chest tube')]])->assertSee('scope-big scope-als', false)->assertSee('Because of: Chest tube');
         $check(['items' => [$id('Chest tube'), $id('ICP monitoring')]])->assertSee('scope-big scope-sct', false)->assertSee('Preferred SCT/ALS');
         $check(['items' => [$id('ICP monitoring'), $id('Impella')], 'weight' => 360])
