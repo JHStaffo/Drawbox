@@ -8,9 +8,10 @@ use App\Models\Setting;
 use Illuminate\Support\Collection;
 
 /**
- * Works out the level of service a call needs from the equipment and drugs
+ * Works out the level of care a call needs from the equipment and meds
  * requested, and the crew and trucks it needs from the lift assist rules.
- * The rules themselves are set by admins on the Scope rules page.
+ * Admins keep the equipment and meds list in Settings and the lift assist
+ * rules on their own page.
  */
 class ScopeCheck
 {

@@ -96,7 +96,6 @@ Route::middleware('auth')->group(function () {
         Route::put('/scope/rules/{rule}', [ScopeRuleController::class, 'updateRule'])->name('scope.rules.update');
         Route::delete('/scope/rules/{rule}', [ScopeRuleController::class, 'destroyRule'])->name('scope.rules.destroy');
         Route::put('/scope/options', [ScopeRuleController::class, 'updateOptions'])->name('scope.options');
-        Route::post('/scope/examples', [ScopeRuleController::class, 'loadExamples'])->name('scope.examples');
         Route::get('/draws/{draw}/edit', [AdminDrawController::class, 'edit'])->name('draws.edit');
         Route::put('/draws/{draw}', [AdminDrawController::class, 'update'])->name('draws.update');
         Route::delete('/draws/{draw}', [AdminDrawController::class, 'destroy'])->name('draws.destroy');

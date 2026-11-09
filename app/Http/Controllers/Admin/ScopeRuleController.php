@@ -14,7 +14,6 @@ class ScopeRuleController extends Controller
     public function index()
     {
         return view('admin.scope', [
-            'items' => ScopeItem::orderBy('kind')->orderBy('name')->get(),
             'rules' => LiftRule::orderBy('id')->get(),
             'baseCrew' => Setting::get('scope_base_crew'),
             'baseTrucks' => Setting::get('scope_base_trucks'),
@@ -80,55 +79,10 @@ class ScopeRuleController extends Controller
         return back()->with('status', 'Scope check options saved.');
     }
 
-    /**
-     * Fill an empty rule set with examples so admins can see how it works.
-     * They are marked as examples and are meant to be replaced with the
-     * company's own policy.
-     */
-    public function loadExamples()
-    {
-        if (ScopeItem::exists() || LiftRule::exists()) {
-            return back()->with('error', 'Examples can only be loaded when there are no items or lift rules yet.');
-        }
-
-        $note = 'Example: replace with your policy';
-        foreach ([
-            ['Oxygen (nasal cannula or mask)', 'equipment', 'bls'],
-            ['Saline lock', 'equipment', 'bls'],
-            ['Cardiac monitor', 'equipment', 'als'],
-            ['IV fluids running (no medications)', 'equipment', 'als'],
-            ['CPAP', 'equipment', 'als'],
-            ['IV pump', 'equipment', 'cct'],
-            ['Ventilator', 'equipment', 'cct'],
-            ['Pain medication as needed', 'drug', 'als'],
-            ['Heparin drip', 'drug', 'cct'],
-            ['Nitroglycerin drip', 'drug', 'cct'],
-            ['Diltiazem (Cardizem) drip', 'drug', 'cct'],
-            ['Blood products', 'drug', 'cct'],
-        ] as [$name, $kind, $level]) {
-            ScopeItem::create(['name' => $name, 'kind' => $kind, 'level' => $level, 'note' => $note]);
-        }
-
-        LiftRule::create(['min_weight_lbs' => 350, 'crew' => 3, 'trucks' => 1, 'note' => $note]);
-        LiftRule::create(['min_weight_lbs' => 500, 'crew' => 4, 'trucks' => 2, 'note' => $note]);
-        LiftRule::create(['min_steps' => 10, 'crew' => 3, 'trucks' => 1, 'note' => $note]);
-        LiftRule::create(['scene_type' => 'Apartment, no elevator', 'min_weight_lbs' => 250, 'crew' => 4, 'trucks' => 2, 'note' => $note]);
-
-        if (Setting::get('scope_scene_types') === '') {
-            Setting::put('scope_scene_types', "Residence\nApartment, no elevator\nApartment with elevator\nNursing home\nHospital\nDialysis center\nDoctor's office");
-        }
-        if (Setting::get('scope_destination_types') === '') {
-            Setting::put('scope_destination_types', "Residence\nApartment, no elevator\nApartment with elevator\nNursing home\nHospital\nDialysis center\nDoctor's office");
-        }
-
-        return back()->with('status', 'Example rules loaded. Each one is marked as an example: change or delete them to match your policy.');
-    }
-
     private function itemData(Request $request): array
     {
         $data = $request->validate([
             'name' => 'required|string|max:120',
-            'kind' => ['required', Rule::in(array_keys(ScopeItem::KINDS))],
             'level' => ['required', Rule::in(array_keys(ScopeItem::LEVELS))],
             'note' => 'nullable|string|max:255',
         ]);

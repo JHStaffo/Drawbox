@@ -8,10 +8,8 @@ class ScopeItem extends Model
 {
     protected $guarded = [];
 
-    /** Levels of service, lowest first. */
-    public const LEVELS = ['bls' => 'BLS', 'als' => 'ALS', 'cct' => 'Critical Care (CCT)'];
-
-    public const KINDS = ['equipment' => 'Equipment', 'drug' => 'Drug'];
+    /** Levels of care, lowest first. */
+    public const LEVELS = ['bls' => 'BLS', 'als' => 'ALS', 'sct' => 'Preferred SCT/ALS', 'rn' => 'RN Required'];
 
     public function levelLabel(): string
     {

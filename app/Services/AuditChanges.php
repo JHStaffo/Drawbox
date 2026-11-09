@@ -30,7 +30,7 @@ class AuditChanges
             'prize_name' => 'prize', 'brand' => 'brand', 'value_cents' => 'value', 'pto_hours' => 'PTO hours',
             'taxable' => 'taxable', 'cash_bonus' => 'cash bonus',
         ],
-        ScopeItem::class => ['name' => 'name', 'kind' => 'type', 'level' => 'level', 'note' => 'note'],
+        ScopeItem::class => ['name' => 'name', 'level' => 'level of care', 'note' => 'message'],
         LiftRule::class => [
             'scene_type' => 'scene', 'destination_type' => 'destination', 'min_weight_lbs' => 'min weight',
             'min_steps' => 'min steps', 'crew' => 'crew', 'trucks' => 'trucks', 'note' => 'note',
@@ -150,6 +150,7 @@ class AuditChanges
             $field === 'value_cents' => money((int) $value),
             is_bool($value) || in_array($field, ['active', 'taxable', 'diminishing', 'cash_bonus_allowed', 'cash_bonus'], true) => $value ? 'yes' : 'no',
             $field === 'pto_hours' => (string) ($value + 0),
+            $field === 'level' => ScopeItem::LEVELS[$value] ?? (string) $value,
             default => (string) $value,
         };
     }

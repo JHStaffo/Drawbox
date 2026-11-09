@@ -1,52 +1,12 @@
-@extends('layouts.app', ['title' => 'Scope rules'])
+@extends('layouts.app', ['title' => 'Lift assist rules'])
 
 @section('band')
-    <h1>Scope rules</h1>
-    <p>What the Scope Check tab uses. Each piece of equipment or drug sets the lowest level of service that can take it, and the call needs the highest level of anything requested. Lift assist rules apply when a call meets every condition the rule sets, and the call needs the most crew and trucks of any rule that applies.</p>
+    <h1>Lift assist rules</h1>
+    <p>Used by the Scope Check tab. A rule applies when a call meets every condition it sets, and the call needs the most crew and trucks of any rule that applies. The equipment and meds list is in <a href="{{ route('supervisor.settings') }}#scope" style="color:#fff">Settings</a>.</p>
 @endsection
 
 @section('content')
-@php($levels = \App\Models\ScopeItem::LEVELS)
-@php($kinds = \App\Models\ScopeItem::KINDS)
 <div class="stack">
-    @if ($items->isEmpty() && $rules->isEmpty())
-        <div class="card">
-            <p style="margin-top:0">There are no rules yet. You can add your own below, or load a set of examples to see how it works and then edit them to match your policy.</p>
-            <form method="post" action="{{ route('admin.scope.examples') }}">@csrf<button class="btn btn-teal" type="submit">Load examples</button></form>
-        </div>
-    @endif
-
-    <div class="card">
-        <h2>Equipment and drugs ({{ $items->count() }})</h2>
-        @if ($items->isNotEmpty())
-            <div class="table-wrap"><table>
-                <tr><th>Name</th><th>Type</th><th>Level needed</th><th>Note for dispatchers</th><th></th></tr>
-                @foreach ($items as $item)
-                    <tr>
-                        <td><input form="i{{ $item->id }}" type="text" name="name" value="{{ $item->name }}" required aria-label="Name"></td>
-                        <td><select form="i{{ $item->id }}" name="kind" aria-label="Type">@foreach ($kinds as $k => $l)<option value="{{ $k }}" @selected($item->kind === $k)>{{ $l }}</option>@endforeach</select></td>
-                        <td><select form="i{{ $item->id }}" name="level" aria-label="Level">@foreach ($levels as $k => $l)<option value="{{ $k }}" @selected($item->level === $k)>{{ $l }}</option>@endforeach</select></td>
-                        <td><input form="i{{ $item->id }}" type="text" name="note" value="{{ $item->note }}" aria-label="Note"></td>
-                        <td class="right" style="white-space:nowrap">
-                            <form id="i{{ $item->id }}" method="post" action="{{ route('admin.scope.items.update', $item) }}" style="display:inline">@csrf @method('put')<button class="btn btn-small" type="submit">Save</button></form>
-                            <form method="post" action="{{ route('admin.scope.items.destroy', $item) }}" style="display:inline" onsubmit="return confirm('Delete {{ addslashes($item->name) }}?')">@csrf @method('delete')<button class="btn btn-small btn-outline" type="submit">Delete</button></form>
-                        </td>
-                    </tr>
-                @endforeach
-            </table></div>
-        @endif
-        <h3 class="mt">Add equipment or a drug</h3>
-        <form method="post" action="{{ route('admin.scope.items.store') }}">@csrf
-            <div class="field-row">
-                <div class="field"><label>Name</label><input type="text" name="name" required></div>
-                <div class="field"><label>Type</label><select name="kind">@foreach ($kinds as $k => $l)<option value="{{ $k }}">{{ $l }}</option>@endforeach</select></div>
-                <div class="field"><label>Level needed</label><select name="level">@foreach ($levels as $k => $l)<option value="{{ $k }}">{{ $l }}</option>@endforeach</select></div>
-                <div class="field"><label>Note for dispatchers</label><input type="text" name="note"></div>
-            </div>
-            <button class="btn" type="submit">Add</button>
-        </form>
-    </div>
-
     <div class="card">
         <h2>Lift assist rules ({{ $rules->count() }})</h2>
         <p class="hint">Leave a condition blank to ignore it. A rule needs at least one condition.</p>

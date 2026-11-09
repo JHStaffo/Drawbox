@@ -23,7 +23,7 @@ class ScopeController extends Controller
         $checked = $request->has('check');
 
         return view('scope.check', [
-            'items' => ScopeItem::orderBy('name')->get()->groupBy('kind'),
+            'items' => ScopeItem::orderBy('name')->get(),
             'hasRules' => ScopeItem::exists() || LiftRule::exists(),
             'scenes' => ScopeCheck::options('scope_scene_types'),
             'destinations' => ScopeCheck::options('scope_destination_types'),

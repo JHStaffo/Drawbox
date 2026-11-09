@@ -12,6 +12,7 @@ class SettingsController extends Controller
     {
         return view('supervisor.settings', [
             'drawWindowDays' => Setting::get('draw_window_days'),
+            'scopeItems' => \App\Models\ScopeItem::orderBy('name')->get()->sortByDesc(fn ($i) => $i->rank())->values(),
             'drawDelayHours' => Setting::get('draw_delay_hours') + 0,
             'lockerPickupDays' => Setting::get('locker_pickup_days'),
             'expiryReminderEnabled' => (bool) Setting::get('expiry_reminder_enabled'),

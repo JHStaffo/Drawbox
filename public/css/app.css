@@ -224,8 +224,12 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .scope-big { font-family: 'Oswald', sans-serif; font-size: 2rem; line-height: 1.2; margin: 4px 0; }
 .scope-big.scope-bls { color: var(--green); }
 .scope-big.scope-als { color: var(--blue); }
-.scope-big.scope-cct { color: var(--red); }
+.scope-big.scope-sct { color: #a35200; }
+.scope-big.scope-rn { color: var(--red); }
 .pill.scope-bls { background: #e3f3ea; color: var(--green); }
 .pill.scope-als { background: #e2ecf8; color: var(--blue); }
-.pill.scope-cct { background: #fde4e5; color: var(--red-dark); }
+.pill.scope-sct { background: #fdefdc; color: #8a4500; }
+.pill.scope-rn { background: #fde4e5; color: var(--red-dark); }
+.scope-list { columns: 2 280px; column-gap: 24px; }
+.scope-list .scope-item { break-inside: avoid; }
 .scope-item { padding: 4px 0; }
