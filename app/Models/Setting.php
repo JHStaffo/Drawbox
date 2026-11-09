@@ -23,6 +23,10 @@ class Setting extends Model
         'news_hide_supervisor' => '0',
         'news_hide_admin' => '0',
         'news_min_cents' => '0',
+        'scope_base_crew' => '2',
+        'scope_base_trucks' => '1',
+        'scope_scene_types' => '',
+        'scope_destination_types' => '',
     ];
 
     public static function get(string $key): string

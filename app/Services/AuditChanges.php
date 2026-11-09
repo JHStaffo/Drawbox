@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\Draw;
 use App\Models\GiftCardStock;
+use App\Models\LiftRule;
 use App\Models\Prize;
+use App\Models\ScopeItem;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +30,11 @@ class AuditChanges
             'prize_name' => 'prize', 'brand' => 'brand', 'value_cents' => 'value', 'pto_hours' => 'PTO hours',
             'taxable' => 'taxable', 'cash_bonus' => 'cash bonus',
         ],
+        ScopeItem::class => ['name' => 'name', 'kind' => 'type', 'level' => 'level', 'note' => 'note'],
+        LiftRule::class => [
+            'scene_type' => 'scene', 'destination_type' => 'destination', 'min_weight_lbs' => 'min weight',
+            'min_steps' => 'min steps', 'crew' => 'crew', 'trucks' => 'trucks', 'note' => 'note',
+        ],
     ];
 
     private const SETTINGS = [
@@ -39,6 +46,10 @@ class AuditChanges
         'news_hide_supervisor' => 'Hide supervisor winners',
         'news_hide_admin' => 'Hide admin winners',
         'news_min_cents' => 'Hide prizes under',
+        'scope_base_crew' => 'Scope check: usual crew',
+        'scope_base_trucks' => 'Scope check: usual trucks',
+        'scope_scene_types' => 'Scope check: scene types',
+        'scope_destination_types' => 'Scope check: destination types',
     ];
 
     private bool $recording = false;
@@ -127,6 +138,8 @@ class AuditChanges
             $model instanceof GiftCardStock => trim(($model->prize?->name ?? '').' '.($model->getOriginal('brand') ?? $model->brand)),
             $model instanceof User => $model->getOriginal('name') ?? $model->name,
             $model instanceof Draw => ($model->user?->name ?? 'Team Member')."'s prize #{$model->id}",
+            $model instanceof ScopeItem => $model->getOriginal('name') ?? $model->name,
+            $model instanceof LiftRule => "Lift rule #{$model->id}",
         };
     }
 

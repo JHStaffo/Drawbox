@@ -1154,4 +1154,50 @@ class DrawBoxTest extends TestCase
         ]);
         $this->assertTrue(DrawCredit::latest('id')->first()->isAvailable());
     }
+
+    public function test_scope_check_gives_level_of_service_and_lift_assist(): void
+    {
+        $dispatcher = User::factory()->role('dispatcher')->create();
+        $admin = User::factory()->role('admin')->create();
+        $this->actingAs(User::factory()->create())->get('/scope')->assertForbidden();
+        $this->actingAs($dispatcher)->get('/scope')->assertOk()->assertSee('No scope rules have been set up yet');
+        $this->actingAs($dispatcher)->get('/admin/scope')->assertForbidden();
+
+        $this->actingAs($admin)->post('/admin/scope/items', ['name' => 'Cardiac monitor', 'kind' => 'equipment', 'level' => 'als'])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/admin/scope/items', ['name' => 'Heparin drip', 'kind' => 'drug', 'level' => 'cct', 'note' => 'Needs a pump'])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/admin/scope/items', ['name' => 'Oxygen', 'kind' => 'equipment', 'level' => 'bls']);
+        $this->actingAs($admin)->post('/admin/scope/rules', ['min_weight_lbs' => 350, 'crew' => 3, 'trucks' => 1])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/admin/scope/rules', ['scene_type' => 'Apartment, no elevator', 'min_steps' => 10, 'crew' => 4, 'trucks' => 2]);
+        $this->actingAs($admin)->post('/admin/scope/rules', ['crew' => 5, 'trucks' => 2])->assertSessionHasErrors('crew');
+        $this->actingAs($admin)->put('/admin/scope/options', [
+            'scope_base_crew' => 2, 'scope_base_trucks' => 1, 'scope_scene_types' => "Residence\nApartment, no elevator", 'scope_destination_types' => 'Hospital',
+        ])->assertSessionHasNoErrors();
+        [$monitor, $heparin, $oxygen] = \App\Models\ScopeItem::orderBy('id')->get();
+
+        $check = fn (array $q) => $this->actingAs($dispatcher)->get('/scope?'.http_build_query(['check' => 1] + $q))->assertOk();
+        $check(['items' => [$oxygen->id]])->assertSee('scope-big scope-bls', false)->assertSee('2 crew · 1 truck');
+        $check(['items' => [$oxygen->id, $monitor->id]])->assertSee('scope-big scope-als', false)->assertSee('Because of: Cardiac monitor');
+        $check(['items' => [$monitor->id, $heparin->id], 'weight' => 360])
+            ->assertSee('scope-big scope-cct', false)->assertSee('Because of: Heparin drip')->assertSee('Needs a pump')
+            ->assertSee('3 crew · 1 truck')->assertSee('Weight 350+ lbs');
+        $check(['scene' => 'Apartment, no elevator', 'steps' => 12, 'weight' => 400])->assertSee('4 crew · 2 trucks');
+        $check(['scene' => 'Residence', 'steps' => 12])->assertSee('2 crew · 1 truck')->assertSee('No lift assist rule applies.');
+
+        $this->actingAs($admin)->put("/admin/scope/items/{$monitor->id}", ['name' => 'Cardiac monitor', 'kind' => 'equipment', 'level' => 'bls']);
+        $this->assertStringContainsString('Cardiac monitor: level from als to bls', \App\Models\AuditLog::latest('id')->value('description'));
+        $this->actingAs($admin)->delete("/admin/scope/items/{$oxygen->id}");
+        $this->assertModelMissing($oxygen);
+    }
+
+    public function test_scope_examples_load_only_into_an_empty_rule_set(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $this->actingAs($admin)->post('/admin/scope/examples')->assertSessionHas('status');
+        $this->assertGreaterThan(0, \App\Models\ScopeItem::count());
+        $this->assertTrue(\App\Models\ScopeItem::all()->every(fn ($i) => str_starts_with($i->note, 'Example')));
+        $count = \App\Models\LiftRule::count();
+        $this->actingAs($admin)->post('/admin/scope/examples')->assertSessionHas('error');
+        $this->assertSame($count, \App\Models\LiftRule::count());
+        $this->actingAs($admin)->get('/scope')->assertSee('Apartment, no elevator');
+    }
 }

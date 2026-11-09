@@ -217,3 +217,15 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .winners li { padding: 8px 0; border-bottom: 1px solid var(--line); }
 .winners li:last-child { border-bottom: 0; }
 .winners .when { color: var(--muted); font-size: .9rem; }
+
+/* Scope Check */
+.scope-answer { display: flex; gap: 32px; flex-wrap: wrap; }
+.scope-answer > div { flex: 1 1 240px; }
+.scope-big { font-family: 'Oswald', sans-serif; font-size: 2rem; line-height: 1.2; margin: 4px 0; }
+.scope-big.scope-bls { color: var(--green); }
+.scope-big.scope-als { color: var(--blue); }
+.scope-big.scope-cct { color: var(--red); }
+.pill.scope-bls { background: #e3f3ea; color: var(--green); }
+.pill.scope-als { background: #e2ecf8; color: var(--blue); }
+.pill.scope-cct { background: #fde4e5; color: var(--red-dark); }
+.scope-item { padding: 4px 0; }
