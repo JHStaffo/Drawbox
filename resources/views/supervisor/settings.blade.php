@@ -5,6 +5,7 @@
 @endsection
 
 @section('content')
+<div class="stack">
 <form class="card" method="post" action="{{ route('supervisor.settings.update') }}" style="max-width:520px">@csrf @method('put')
     <div class="field">
         <label for="draw_window_days">Draw window (days)</label>
@@ -41,4 +42,35 @@
     </div>
     <button class="btn" type="submit">Save settings</button>
 </form>
+
+@php($levels = \App\Models\ScopeItem::LEVELS)
+<div class="card" id="scope">
+    <h2>Scope Check: equipment and meds ({{ $scopeItems->count() }})</h2>
+    <p class="hint">What dispatchers can tick on the Scope Check tab. A call needs the highest level of care of anything ticked, and the message shows with the result. Lift assist rules are on their <a href="{{ route('admin.scope') }}">own page</a>.</p>
+    @if ($scopeItems->isNotEmpty())
+        <div class="table-wrap"><table>
+            <tr><th>Equipment or med</th><th>Level of care</th><th>Message to display (optional)</th><th></th></tr>
+            @foreach ($scopeItems as $item)
+                <tr>
+                    <td><input form="si{{ $item->id }}" type="text" name="name" value="{{ $item->name }}" required aria-label="Equipment or med"></td>
+                    <td><select form="si{{ $item->id }}" name="level" aria-label="Level of care">@foreach ($levels as $k => $l)<option value="{{ $k }}" @selected($item->level === $k)>{{ $l }}</option>@endforeach</select></td>
+                    <td><input form="si{{ $item->id }}" type="text" name="note" value="{{ $item->note }}" aria-label="Message"></td>
+                    <td class="right" style="white-space:nowrap">
+                        <form id="si{{ $item->id }}" method="post" action="{{ route('admin.scope.items.update', $item) }}" style="display:inline">@csrf @method('put')<button class="btn btn-small" type="submit">Save</button></form>
+                        <form method="post" action="{{ route('admin.scope.items.destroy', $item) }}" style="display:inline" onsubmit="return confirm('Delete {{ addslashes($item->name) }}?')">@csrf @method('delete')<button class="btn btn-small btn-outline" type="submit">Delete</button></form>
+                    </td>
+                </tr>
+            @endforeach
+        </table></div>
+    @endif
+    <form method="post" action="{{ route('admin.scope.items.store') }}" class="mt">@csrf
+        <div class="field-row">
+            <div class="field"><label for="new-scope-name">Equipment or med</label><input id="new-scope-name" type="text" name="name" required></div>
+            <div class="field"><label for="new-scope-level">Level of care</label><select id="new-scope-level" name="level">@foreach ($levels as $k => $l)<option value="{{ $k }}" @selected($k === 'als')>{{ $l }}</option>@endforeach</select></div>
+            <div class="field"><label for="new-scope-note">Message to display (optional)</label><input id="new-scope-note" type="text" name="note"></div>
+        </div>
+        <button class="btn" type="submit">Add</button>
+    </form>
+</div>
+</div>
 @endsection

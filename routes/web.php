@@ -3,12 +3,14 @@
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\DrawController as AdminDrawController;
 use App\Http\Controllers\Admin\LockerController;
+use App\Http\Controllers\Admin\ScopeRuleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DispatchController;
 use App\Http\Controllers\DrawController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PickUpController;
+use App\Http\Controllers\ScopeController;
 use App\Http\Controllers\Supervisor\AwardController;
 use App\Http\Controllers\Supervisor\DashboardController;
 use App\Http\Controllers\Supervisor\DispenseController;
@@ -38,6 +40,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/dispatch', [DispatchController::class, 'create'])->name('dispatch.create');
         Route::post('/dispatch', [DispatchController::class, 'store'])->name('dispatch.store');
         Route::delete('/dispatch/calls/{call}', [DispatchController::class, 'destroy'])->name('dispatch.destroy');
+        Route::get('/scope', [ScopeController::class, 'index'])->name('scope');
     });
 
     Route::middleware('role:supervisor')->prefix('supervisor')->name('supervisor.')->group(function () {
@@ -85,6 +88,14 @@ Route::middleware('auth')->group(function () {
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
         Route::get('/lockers', [LockerController::class, 'index'])->name('lockers');
         Route::get('/audit', [AuditLogController::class, 'index'])->name('audit');
+        Route::get('/scope', [ScopeRuleController::class, 'index'])->name('scope');
+        Route::post('/scope/items', [ScopeRuleController::class, 'storeItem'])->name('scope.items.store');
+        Route::put('/scope/items/{item}', [ScopeRuleController::class, 'updateItem'])->name('scope.items.update');
+        Route::delete('/scope/items/{item}', [ScopeRuleController::class, 'destroyItem'])->name('scope.items.destroy');
+        Route::post('/scope/rules', [ScopeRuleController::class, 'storeRule'])->name('scope.rules.store');
+        Route::put('/scope/rules/{rule}', [ScopeRuleController::class, 'updateRule'])->name('scope.rules.update');
+        Route::delete('/scope/rules/{rule}', [ScopeRuleController::class, 'destroyRule'])->name('scope.rules.destroy');
+        Route::put('/scope/options', [ScopeRuleController::class, 'updateOptions'])->name('scope.options');
         Route::get('/draws/{draw}/edit', [AdminDrawController::class, 'edit'])->name('draws.edit');
         Route::put('/draws/{draw}', [AdminDrawController::class, 'update'])->name('draws.update');
         Route::delete('/draws/{draw}', [AdminDrawController::class, 'destroy'])->name('draws.destroy');
