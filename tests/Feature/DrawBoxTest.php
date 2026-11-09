@@ -1181,7 +1181,7 @@ class DrawBoxTest extends TestCase
         $id = fn ($name) => \App\Models\ScopeItem::where('name', $name)->value('id');
 
         $check = fn (array $q) => $this->actingAs($dispatcher)->get('/scope?'.http_build_query(['check' => 1] + $q))->assertOk();
-        $check(['items' => [$id('Oxygen')]])->assertSee('scope-big scope-bls', false)->assertSee('Ideal crew members: 2')->assertSee('RN Required');
+        $check(['items' => [$id('Oxygen')]])->assertSee('scope-big scope-bls', false)->assertSee('Ideal crew members: 2')->assertDontSee('RN Required')->assertDontSee('pill scope-', false);
         $this->actingAs($admin)->post('/admin/scope/items', ['name' => 'Saline lock', 'level' => 'aemt'])->assertSessionHasNoErrors();
         $check(['items' => [$id('Oxygen'), $id('Saline lock')]])->assertSee('scope-big scope-aemt', false)->assertSee('Because of: Saline lock');
         $check(['items' => [$id('Saline lock'), $id('Chest tube')]])->assertSee('scope-big scope-als', false);

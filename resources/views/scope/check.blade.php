@@ -55,7 +55,7 @@
             @forelse ($items as $item)
                 <label class="check scope-item" data-name="{{ Str::lower($item->name) }}">
                     <input type="checkbox" name="items[]" value="{{ $item->id }}" @checked($picked->contains($item->id))>
-                    {{ $item->name }}@if ($result) <span class="pill scope-{{ $item->level }}">{{ $item->levelLabel() }}</span>@endif
+                    {{ $item->name }}
                 </label>
             @empty
                 <p class="hint">None listed yet.</p>
