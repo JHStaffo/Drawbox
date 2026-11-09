@@ -2,7 +2,7 @@
 
 @section('band')
     <h1>Scope Check</h1>
-    <p>Check the level of care a call needs from the equipment and meds requested, and how many crew members and trucks it needs to lift the patient. This is a guide: when something doesn't fit, ask a supervisor.</p>
+    <p>Check the level of care a call needs from the equipment and meds requested, and the ideal number of crew members to lift the patient. This is a guide: when something doesn't fit, ask a supervisor.</p>
 @endsection
 
 @section('content')
@@ -26,12 +26,12 @@
                 </div>
                 <div>
                     <div class="hint">Lift assist</div>
-                    <div class="scope-big">{{ $result['crew'] }} crew · {{ $result['trucks'] }} {{ Str::plural('truck', $result['trucks']) }}</div>
+                    <div class="scope-big">Ideal crew members: {{ $result['crew'] }}</div>
                     <div class="hint">
                         @if ($result['rules']->isEmpty())
                             No lift assist rule applies.
                         @else
-                            @foreach ($result['rules'] as $rule){{ $rule->conditions() }}: {{ $rule->crew }} crew, {{ $rule->trucks }} {{ Str::plural('truck', $rule->trucks) }}@if ($rule->note) ({{ $rule->note }})@endif<br>@endforeach
+                            @foreach ($result['rules'] as $rule){{ $rule->conditions() }}: {{ $rule->crew }} ideal crew members @if ($rule->note)({{ $rule->note }})@endif<br>@endforeach
                         @endif
                     </div>
                 </div>
@@ -55,7 +55,7 @@
             @forelse ($items as $item)
                 <label class="check scope-item" data-name="{{ Str::lower($item->name) }}">
                     <input type="checkbox" name="items[]" value="{{ $item->id }}" @checked($picked->contains($item->id))>
-                    {{ $item->name }}@if ($result) <span class="pill scope-{{ $item->level }}">{{ $item->levelLabel() }}</span>@endif
+                    {{ $item->name }}
                 </label>
             @empty
                 <p class="hint">None listed yet.</p>
@@ -64,16 +64,12 @@
 
         <h3 class="mt">Lift assist</h3>
         <div class="field-row">
-            @if ($scenes)
-                <div class="field"><label for="scene">Scene type</label>
-                    <select id="scene" name="scene"><option value="">Not specified</option>@foreach ($scenes as $s)<option @selected(($input['scene'] ?? '') === $s)>{{ $s }}</option>@endforeach</select>
-                </div>
-            @endif
-            @if ($destinations)
-                <div class="field"><label for="destination">Destination type</label>
-                    <select id="destination" name="destination"><option value="">Not specified</option>@foreach ($destinations as $d)<option @selected(($input['destination'] ?? '') === $d)>{{ $d }}</option>@endforeach</select>
-                </div>
-            @endif
+            <div class="field"><label for="scene">Scene type</label>
+                <select id="scene" name="scene"><option value="">Not specified</option>@foreach ($scenes as $s)<option @selected(($input['scene'] ?? '') === $s)>{{ $s }}</option>@endforeach</select>
+            </div>
+            <div class="field"><label for="destination">Destination type</label>
+                <select id="destination" name="destination"><option value="">Not specified</option>@foreach ($destinations as $d)<option @selected(($input['destination'] ?? '') === $d)>{{ $d }}</option>@endforeach</select>
+            </div>
             <div class="field"><label for="steps">Number of steps</label><input id="steps" type="number" min="0" max="500" name="steps" value="{{ $input['steps'] ?? '' }}"></div>
             <div class="field"><label for="weight">Patient weight (lbs)</label><input id="weight" type="number" min="0" max="2000" name="weight" value="{{ $input['weight'] ?? '' }}"></div>
         </div>

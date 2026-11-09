@@ -10,7 +10,7 @@ class LiftRule extends Model
 
     protected function casts(): array
     {
-        return ['min_weight_lbs' => 'integer', 'min_steps' => 'integer', 'crew' => 'integer', 'trucks' => 'integer'];
+        return ['min_weight_lbs' => 'integer', 'min_steps' => 'integer', 'crew' => 'integer'];
     }
 
     /** True when the call meets every condition this rule sets. A condition the dispatcher left blank is not met. */

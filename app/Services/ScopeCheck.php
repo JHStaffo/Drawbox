@@ -9,13 +9,13 @@ use Illuminate\Support\Collection;
 
 /**
  * Works out the level of care a call needs from the equipment and meds
- * requested, and the crew and trucks it needs from the lift assist rules.
+ * requested, and the crew it needs from the lift assist rules.
  * Admins keep the equipment and meds list in Settings and the lift assist
- * rules on their own page.
+ * rules in Settings too.
  */
 class ScopeCheck
 {
-    /** @return array{level: ?string, drivers: Collection, items: Collection, crew: int, trucks: int, rules: Collection} */
+    /** @return array{level: ?string, drivers: Collection, items: Collection, crew: int, rules: Collection} */
     public function check(array $itemIds, ?string $scene, ?string $destination, ?int $steps, ?int $weight): array
     {
         $items = ScopeItem::whereIn('id', $itemIds)->get();
@@ -29,7 +29,6 @@ class ScopeCheck
             'drivers' => $items->where('level', $level)->sortBy('name')->values(),
             'items' => $items,
             'crew' => max((int) Setting::get('scope_base_crew'), (int) $rules->max('crew')),
-            'trucks' => max((int) Setting::get('scope_base_trucks'), (int) $rules->max('trucks')),
             'rules' => $rules,
         ];
     }
