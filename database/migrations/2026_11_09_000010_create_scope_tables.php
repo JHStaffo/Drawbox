@@ -13,7 +13,7 @@ return new class extends Migration
         Schema::create('scope_items', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('level'); // bls, als, sct, rn
+            $table->string('level'); // bls, aemt, als, sct, rn
             $table->string('note')->nullable();
             $table->timestamps();
         });

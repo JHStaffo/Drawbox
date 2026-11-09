@@ -1182,6 +1182,9 @@ class DrawBoxTest extends TestCase
 
         $check = fn (array $q) => $this->actingAs($dispatcher)->get('/scope?'.http_build_query(['check' => 1] + $q))->assertOk();
         $check(['items' => [$id('Oxygen')]])->assertSee('scope-big scope-bls', false)->assertSee('2 crew · 1 truck')->assertSee('RN Required');
+        $this->actingAs($admin)->post('/admin/scope/items', ['name' => 'Saline lock', 'level' => 'aemt'])->assertSessionHasNoErrors();
+        $check(['items' => [$id('Oxygen'), $id('Saline lock')]])->assertSee('scope-big scope-aemt', false)->assertSee('Because of: Saline lock');
+        $check(['items' => [$id('Saline lock'), $id('Chest tube')]])->assertSee('scope-big scope-als', false);
         $check(['items' => [$id('Oxygen'), $id('Chest tube')]])->assertSee('scope-big scope-als', false)->assertSee('Because of: Chest tube');
         $check(['items' => [$id('Chest tube'), $id('ICP monitoring')]])->assertSee('scope-big scope-sct', false)->assertSee('Preferred SCT/ALS');
         $check(['items' => [$id('ICP monitoring'), $id('Impella')], 'weight' => 360])
