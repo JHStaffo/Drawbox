@@ -1193,6 +1193,13 @@ class DrawBoxTest extends TestCase
         $check(['scene' => 'Apartment, no elevator', 'steps' => 12, 'weight' => 400])->assertSee('Ideal crew members: 4')->assertDontSee('truck');
         $check(['scene' => 'Residence', 'steps' => 12])->assertSee('Ideal crew members: 2')->assertSee('No lift assist rule applies.');
 
+        // Scene and destination match either way round.
+        $this->actingAs($admin)->post('/admin/scope/rules', ['scene_type' => 'Residence', 'destination_type' => 'Hospital', 'crew' => 5])->assertSessionHasNoErrors();
+        $check(['scene' => 'Residence', 'destination' => 'Hospital'])->assertSee('Ideal crew members: 5')->assertSee('Residence and Hospital (either way)');
+        $check(['scene' => 'Hospital', 'destination' => 'Residence'])->assertSee('Ideal crew members: 5');
+        $check(['scene' => 'Hospital', 'destination' => 'Hospital'])->assertSee('Ideal crew members: 2');
+        $check(['destination' => 'Apartment, no elevator', 'steps' => 12])->assertSee('Ideal crew members: 4')->assertSee('Apartment, no elevator (scene or destination)');
+
         $this->actingAs($admin)->put('/admin/scope/items/'.$id('Chest tube'), ['name' => 'Chest tube', 'level' => 'sct']);
         $this->assertStringContainsString('Chest tube: level of care from ALS to Preferred SCT/ALS', \App\Models\AuditLog::latest('id')->value('description'));
         $this->actingAs($admin)->delete('/admin/scope/items/'.$id('Oxygen'));
