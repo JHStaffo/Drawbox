@@ -75,7 +75,7 @@
 
     <div class="card" id="lift">
         <h2>Scope Check: lift assist rules ({{ $rules->count() }})</h2>
-        <p class="hint">A rule applies when a call meets every condition it sets, and the call's ideal crew is the most of any rule that applies. Leave a condition blank to ignore it. A rule needs at least one condition.</p>
+        <p class="hint">A rule applies when a call meets every condition it sets, and the call's ideal crew is the most of any rule that applies. Scene and destination work either way round, so a House and Hospital rule covers House to Hospital and Hospital to House. Leave a condition blank to ignore it. A rule needs at least one condition.</p>
         @if ($rules->isNotEmpty())
             <div class="table-wrap"><table>
                 <tr><th>#</th><th>Scene</th><th>Destination</th><th class="num">Weight (lbs) at least</th><th class="num">Steps at least</th><th class="num">Ideal crew</th><th>Note</th><th></th></tr>
