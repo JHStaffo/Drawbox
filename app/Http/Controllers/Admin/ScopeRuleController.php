@@ -11,17 +11,6 @@ use Illuminate\Validation\Rule;
 
 class ScopeRuleController extends Controller
 {
-    public function index()
-    {
-        return view('admin.scope', [
-            'rules' => LiftRule::orderBy('id')->get(),
-            'baseCrew' => Setting::get('scope_base_crew'),
-            'baseTrucks' => Setting::get('scope_base_trucks'),
-            'sceneTypes' => Setting::get('scope_scene_types'),
-            'destinationTypes' => Setting::get('scope_destination_types'),
-        ]);
-    }
-
     public function storeItem(Request $request)
     {
         $item = ScopeItem::create($this->itemData($request));
