@@ -9,7 +9,7 @@ class ScopeItem extends Model
     protected $guarded = [];
 
     /** Levels of care, lowest first. */
-    public const LEVELS = ['bls' => 'BLS', 'als' => 'ALS', 'sct' => 'Preferred SCT/ALS', 'rn' => 'RN Required'];
+    public const LEVELS = ['bls' => 'BLS', 'aemt' => 'AEMT', 'als' => 'ALS', 'sct' => 'Preferred SCT/ALS', 'rn' => 'RN Required'];
 
     public function levelLabel(): string
     {
