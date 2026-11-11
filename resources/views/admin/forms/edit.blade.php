@@ -68,10 +68,10 @@ document.querySelectorAll('.token').forEach(function (b) {
 
     <div class="card">
         <h2>Questions ({{ $form->fields->count() }})</h2>
-        <p class="hint">Choices go one per line, for dropdown, multiple choice and checkbox questions. Changing or removing a question doesn't change past submissions.</p>
+        <p class="hint">Choices go one per line, for dropdown, multiple choice and checkbox questions. Tick Other: to add an "Other:" choice with a box to type in. Changing or removing a question doesn't change past submissions.</p>
         @if ($form->fields->isNotEmpty())
             <div class="table-wrap"><table class="field-table">
-                <tr><th></th><th>#</th><th>Question</th><th>Type</th><th>Choices</th><th>Help text</th><th>Required</th><th></th></tr>
+                <tr><th></th><th>#</th><th>Question</th><th>Type</th><th>Choices</th><th>Help text</th><th>Required</th><th>Other:</th><th></th></tr>
                 @foreach ($form->fields as $field)
                     <tr>
                         <td style="white-space:nowrap">
@@ -84,6 +84,7 @@ document.querySelectorAll('.token').forEach(function (b) {
                         <td><textarea form="ff{{ $field->id }}" name="options" rows="{{ max(1, min(5, count($field->choices()))) }}" aria-label="Choices" placeholder="{{ in_array($field->type, $choiceTypes, true) ? 'One per line' : 'Not needed' }}">{{ $field->options }}</textarea></td>
                         <td><input form="ff{{ $field->id }}" type="text" name="help" value="{{ $field->help }}" aria-label="Help text"></td>
                         <td><input form="ff{{ $field->id }}" type="hidden" name="required" value="0"><input form="ff{{ $field->id }}" type="checkbox" name="required" value="1" @checked($field->required) aria-label="Required"></td>
+                        <td><input form="ff{{ $field->id }}" type="hidden" name="allow_other" value="0"><input form="ff{{ $field->id }}" type="checkbox" name="allow_other" value="1" @checked($field->allow_other) aria-label="Allow Other with a box to type in" title="Add an Other: choice with a box to type in (dropdown, multiple choice and checkboxes)"></td>
                         <td class="right" style="white-space:nowrap">
                             <form id="ff{{ $field->id }}" method="post" action="{{ route('admin.forms.fields.update', $field) }}" style="display:inline">@csrf @method('put')<button class="btn btn-small" type="submit">Save</button></form>
                             <form method="post" action="{{ route('admin.forms.fields.destroy', $field) }}" style="display:inline" onsubmit="return confirm('Remove this question?')">@csrf @method('delete')<button class="btn btn-small btn-outline" type="submit">Remove</button></form>
@@ -102,6 +103,7 @@ document.querySelectorAll('.token').forEach(function (b) {
             </div>
             <div class="field"><label for="new-options">Choices (one per line, for dropdown, multiple choice and checkboxes)</label><textarea id="new-options" name="options" rows="3"></textarea></div>
             <div class="field"><input type="hidden" name="required" value="0"><label class="check"><input type="checkbox" name="required" value="1"> Required</label></div>
+            <div class="field"><input type="hidden" name="allow_other" value="0"><label class="check"><input type="checkbox" name="allow_other" value="1"> Add an "Other:" choice with a box to type in (dropdown, multiple choice and checkboxes)</label></div>
             <button class="btn" type="submit">Add question</button>
         </form>
     </div>

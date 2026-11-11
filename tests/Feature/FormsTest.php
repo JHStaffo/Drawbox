@@ -286,4 +286,35 @@ class FormsTest extends TestCase
         $this->actingAs($admin)->post("/admin/forms/{$form->id}/test")->assertSessionHas('status');
         Http::assertSent(fn (Request $r) => str_ends_with($r->url(), 'chat.postMessage') && str_starts_with($r['blocks'][0]['text']['text'], "*TEST*\n:rotating_light: *[Level] call* at [Facility]"));
     }
+
+    public function test_choice_questions_can_offer_other_with_a_box_to_type_in(): void
+    {
+        $this->fakeSlack();
+        $this->connect();
+        $admin = User::factory()->role('admin')->create();
+        $dana = $this->dispatcherWithForms();
+        $form = Form::create(['name' => 'Unable to accommodate', 'slack_channel' => 'C111', 'active' => true]);
+
+        $this->actingAs($admin)->post("/admin/forms/{$form->id}/fields", ['label' => 'Reason', 'type' => 'radio', 'options' => "Truck not available\nNo ALS available", 'required' => '1', 'allow_other' => '1'])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post("/admin/forms/{$form->id}/fields", ['label' => 'Where', 'type' => 'select', 'options' => "Sentara\nRiverside", 'allow_other' => '1']);
+        $this->actingAs($admin)->post("/admin/forms/{$form->id}/fields", ['label' => 'Needs', 'type' => 'checkboxes', 'options' => "Oxygen", 'allow_other' => '1']);
+        $this->actingAs($admin)->post("/admin/forms/{$form->id}/fields", ['label' => 'Notes', 'type' => 'text', 'allow_other' => '1']);
+        [$reason, $where, $needs, $notes] = $form->fields()->get()->all();
+        $this->assertTrue($reason->allow_other);
+        $this->assertFalse($notes->allow_other); // only choice questions get Other
+
+        $this->actingAs($dana)->get("/forms/{$form->id}")->assertOk()->assertSee('Other:')->assertSee('Other…', false);
+
+        // Picking Other means typing something.
+        $this->actingAs($dana)->post("/forms/{$form->id}", ["f{$reason->id}" => '__other'])->assertSessionHasErrors("f{$reason->id}_other");
+        $this->actingAs($dana)->post("/forms/{$form->id}", ["f{$reason->id}" => 'Made up'])->assertSessionHasErrors("f{$reason->id}");
+
+        $this->actingAs($dana)->post("/forms/{$form->id}", [
+            "f{$reason->id}" => '__other', "f{$reason->id}_other" => 'Patient refused',
+            "f{$where->id}" => '__other', "f{$where->id}_other" => 'Bon Secours',
+            "f{$needs->id}" => ['Oxygen', '__other'], "f{$needs->id}_other" => 'Stair chair',
+        ])->assertSessionHasNoErrors();
+        $answers = collect(FormSubmission::first()->answers)->pluck('value')->all();
+        $this->assertSame(['Patient refused', 'Bon Secours', 'Oxygen, Stair chair', null], $answers);
+    }
 }

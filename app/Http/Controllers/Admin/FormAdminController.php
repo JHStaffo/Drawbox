@@ -170,6 +170,7 @@ class FormAdminController extends Controller
             'options' => 'nullable|string|max:5000',
             'help' => 'nullable|string|max:255',
             'required' => 'boolean',
+            'allow_other' => 'boolean',
         ]);
         $needsChoices = in_array($data['type'], FormField::WITH_OPTIONS, true);
         if ($needsChoices && trim((string) ($data['options'] ?? '')) === '') {
@@ -182,6 +183,7 @@ class FormAdminController extends Controller
             'options' => $needsChoices ? trim($data['options']) : null,
             'help' => $data['help'] ?? null,
             'required' => $request->boolean('required'),
+            'allow_other' => $needsChoices && $request->boolean('allow_other'),
         ];
     }
 }

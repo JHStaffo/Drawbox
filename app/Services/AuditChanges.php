@@ -33,7 +33,7 @@ class AuditChanges
             'taxable' => 'taxable', 'cash_bonus' => 'cash bonus',
         ],
         \App\Models\Form::class => ['name' => 'name', 'description' => 'description', 'slack_channel' => 'Slack channel', 'slack_template' => 'Slack message', 'active' => 'on'],
-        \App\Models\FormField::class => ['label' => 'question', 'type' => 'type', 'options' => 'choices', 'help' => 'help text', 'required' => 'required'],
+        \App\Models\FormField::class => ['label' => 'question', 'type' => 'type', 'options' => 'choices', 'help' => 'help text', 'required' => 'required', 'allow_other' => 'Other choice'],
         ScopeItem::class => ['name' => 'name', 'level' => 'level of care', 'note' => 'message'],
         LiftRule::class => [
             'scene_type' => 'scene', 'destination_type' => 'destination', 'min_weight_lbs' => 'min weight',
@@ -173,7 +173,7 @@ class AuditChanges
             $field === 'permission_profile_id' => PermissionProfile::find($value)?->label() ?? "#{$value}",
             $field === 'parent_id' => PermissionProfile::find($value)?->name ?? "#{$value}",
             $field === 'value_cents' => money((int) $value),
-            is_bool($value) || in_array($field, ['active', 'taxable', 'diminishing', 'cash_bonus_allowed', 'cash_bonus', 'is_default', 'hide_winners', 'required'], true) => $value ? 'yes' : 'no',
+            is_bool($value) || in_array($field, ['active', 'taxable', 'diminishing', 'cash_bonus_allowed', 'cash_bonus', 'is_default', 'hide_winners', 'required', 'allow_other'], true) => $value ? 'yes' : 'no',
             $field === 'pto_hours' => (string) ($value + 0),
             $field === 'level' => ScopeItem::LEVELS[$value] ?? (string) $value,
             default => (string) $value,
