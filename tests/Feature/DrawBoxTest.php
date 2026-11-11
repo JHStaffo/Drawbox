@@ -1293,7 +1293,10 @@ class DrawBoxTest extends TestCase
         // Whatever the main profile gains, its sub-profiles gain too.
         $this->actingAs($admin)->put("/admin/profiles/{$member->id}", ['name' => 'Team Member', 'permissions' => ['credit_calls']])->assertSessionHasNoErrors();
         $this->actingAs($pat = $pat->fresh())->get('/dispatch')->assertOk();
-        $this->actingAs($admin)->get('/admin/profiles')->assertSee('from Team Member')->assertSee('1 sub-profile');
+        // One profile per page, chosen from the dropdown.
+        $this->actingAs($admin)->get('/admin/profiles')->assertSee('<h2>Team Member</h2>', false)->assertSee('1 sub-profile')->assertDontSee('<h2>Dispatcher</h2>', false);
+        $this->actingAs($admin)->get("/admin/profiles?profile={$emt->id}")->assertSee('<h2>Team Member › EMT</h2>', false)->assertSee('from Team Member');
+        $this->actingAs($admin)->get('/admin/profiles?profile=new')->assertSee('Add a profile or sub-profile</h2>', false);
         $this->actingAs($admin)->get('/admin/users')->assertSee('Team Member › EMT');
 
         // A sub-profile only stores what it adds.

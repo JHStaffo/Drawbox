@@ -11,23 +11,22 @@ use Illuminate\Validation\ValidationException;
 
 class ProfileController extends Controller
 {
-    public function index()
+    /** One profile at a time, picked from a dropdown, so the page stays short however many there are. */
+    public function index(Request $request)
     {
-        $counts = PermissionProfile::withCount('users', 'children')->get()->keyBy('id');
+        $profiles = PermissionProfile::ordered();
+        $adding = $request->query('profile') === 'new';
+        $profile = $adding ? null : ($profiles->firstWhere('id', (int) $request->query('profile')) ?? $profiles->first());
+        $profile?->loadCount('users', 'children');
 
-        return view('admin.profiles', [
-            'profiles' => PermissionProfile::ordered()->each(function (PermissionProfile $p) use ($counts) {
-                $p->users_count = $counts[$p->id]->users_count;
-                $p->children_count = $counts[$p->id]->children_count;
-            }),
-        ]);
+        return view('admin.profiles', ['profiles' => $profiles, 'profile' => $profile, 'adding' => $adding]);
     }
 
     public function store(Request $request)
     {
         $profile = PermissionProfile::create($this->validated($request));
 
-        return back()->with('status', "Added the {$profile->label()} profile.");
+        return redirect()->route('admin.profiles', ['profile' => $profile->id])->with('status', "Added the {$profile->label()} profile.");
     }
 
     public function update(Request $request, PermissionProfile $profile)
@@ -71,7 +70,7 @@ class ProfileController extends Controller
         }
         $profile->delete();
 
-        return back()->with('status', "Deleted the {$profile->label()} profile.");
+        return redirect()->route('admin.profiles')->with('status', "Deleted the {$profile->label()} profile.");
     }
 
     private function validated(Request $request, ?PermissionProfile $profile = null): array
