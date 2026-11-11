@@ -14,7 +14,6 @@
             @foreach ($forms as $form)
                 <a class="card form-tile" href="{{ route('forms.show', $form) }}">
                     <h2>{{ $form->name }}</h2>
-                    @if ($form->description)<p class="hint">{{ Str::limit($form->description, 160) }}</p>@endif
                     @if ($form->channelLabel())<span class="pill pill-teal">Posts to {{ $form->channelLabel() }}</span>@endif
                 </a>
             @endforeach
