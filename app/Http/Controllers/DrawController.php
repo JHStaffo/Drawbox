@@ -29,7 +29,7 @@ class DrawController extends Controller
 
     public function show(Request $request, Draw $draw)
     {
-        abort_unless($draw->user_id === $request->user()->id || $request->user()->hasRole('supervisor'), 403);
+        abort_unless($draw->user_id === $request->user()->id || $request->user()->hasPermission('dashboard'), 403);
 
         return view('draws.show', [
             'draw' => $draw,

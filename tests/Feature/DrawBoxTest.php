@@ -624,9 +624,9 @@ class DrawBoxTest extends TestCase
         $this->actingAs($admin)->post('/admin/users/import', ['file' => $file])
             ->assertSessionHas('status', 'Added 2 team member(s). Skipped 2 already on the roster. Skipped line(s) 5 with a missing name or email.');
 
-        $this->assertSame('employee', User::where('email', 'amy@example.com')->value('role'));
+        $this->assertSame('Team Member', User::where('email', 'amy@example.com')->first()->profile->name);
         $this->assertSame("Mary Jo O'Neil", User::where('email', 'maryjo@example.com')->value('name'));
-        $this->assertSame('supervisor', User::where('email', 'boss@example.com')->value('role'));
+        $this->assertSame('Supervisor', User::where('email', 'boss@example.com')->first()->profile->name);
         $this->assertSame(4, User::count());
 
         $headerless = \Illuminate\Http\UploadedFile::fake()->createWithContent('team.csv', "Sam,Crew,sam@example.com\n");
@@ -1011,13 +1011,13 @@ class DrawBoxTest extends TestCase
             'name' => '$5 gift card', 'type' => 'gift_card', 'value' => 5, 'cash_bonus_allowed' => '0', 'taxable' => '1', 'available' => 8, 'monthly_quantity' => 10,
         ]);
         $this->actingAs($admin)->put("/supervisor/inventory/brands/{$wawa->id}", ['quantity' => 6]);
-        $this->actingAs($admin)->put("/admin/users/{$medic->id}", ['name' => 'Pat Medic', 'email' => $medic->email, 'role' => 'dispatcher', 'active' => '1']);
+        $this->actingAs($admin)->put("/admin/users/{$medic->id}", ['name' => 'Pat Medic', 'email' => $medic->email, 'permission_profile_id' => \App\Models\PermissionProfile::where('name', 'Dispatcher')->value('id'), 'active' => '1']);
         $this->actingAs($admin)->put('/supervisor/settings', ['draw_window_days' => 10, 'locker_pickup_days' => 7, 'expiry_reminder_enabled' => '1']);
 
         $logs = \App\Models\AuditLog::orderBy('id')->pluck('description');
         $this->assertSame('Saved $5 gift card. Changed $5 gift card: monthly from 12 to 10, draws left from 12 to 8.', $logs[0]);
         $this->assertStringContainsString('$5 gift card Wawa: on hand from 4 to 6.', $logs[1]);
-        $this->assertStringContainsString('Pat Medic: role from employee to dispatcher.', $logs[2]);
+        $this->assertStringContainsString('Pat Medic: profile from Team Member to Dispatcher.', $logs[2]);
         $this->assertStringContainsString('Settings: Draw window (days) from 7 to 10.', $logs[3]);
         $this->assertStringNotContainsString('Locker pickup', $logs[3]);
     }
@@ -1050,7 +1050,7 @@ class DrawBoxTest extends TestCase
 
         $this->actingAs($admin)->put('/supervisor/settings', [
             'draw_window_days' => 7, 'locker_pickup_days' => 7, 'expiry_reminder_enabled' => '1',
-            'news_hide_dispatcher' => '1', 'news_hide_supervisor' => '0', 'news_hide_admin' => '0', 'news_min_dollars' => '5',
+            'news_hide' => [\App\Models\PermissionProfile::where('name', 'Dispatcher')->value('id') => '1'], 'news_min_dollars' => '5',
         ])->assertSessionHasNoErrors();
         $this->assertSame('500', Setting::get('news_min_cents'));
         $this->assertStringContainsString('Hide prizes under from $0 to $5', \App\Models\AuditLog::latest('id')->value('description'));
@@ -1230,5 +1230,102 @@ class DrawBoxTest extends TestCase
         $this->actingAs($user)->withSession(['signed_in_at' => now()->subHours(12)->timestamp])->get('/')->assertRedirect('/login');
         $this->assertGuest();
         $this->get('/login')->assertSee('Your sign-in expired after 12 hours.');
+    }
+
+    public function test_permission_profiles_control_access(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $this->assertSame(['Team Member', 'Dispatcher', 'Supervisor', 'Admin'], \App\Models\PermissionProfile::orderBy('id')->pluck('name')->all());
+        $this->actingAs($admin)->get('/admin/profiles')->assertOk()->assertSee('Permission Profiles')->assertSee('Scope Check');
+        $this->actingAs(User::factory()->role('supervisor')->create())->get('/admin/profiles')->assertForbidden();
+
+        // A new profile that can only use Scope Check.
+        $this->actingAs($admin)->post('/admin/profiles', ['name' => 'Call Taker', 'permissions' => ['scope_check']])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/admin/profiles', ['name' => 'Call Taker'])->assertSessionHasErrors('name');
+        $this->actingAs($admin)->post('/admin/profiles', ['name' => 'Bad', 'permissions' => ['launch_rockets']])->assertSessionHasErrors('permissions.0');
+        $taker = \App\Models\PermissionProfile::where('name', 'Call Taker')->first();
+        $pat = User::factory()->create();
+        $this->actingAs($admin)->put("/admin/users/{$pat->id}", ['name' => $pat->name, 'email' => $pat->email, 'permission_profile_id' => $taker->id, 'active' => '1'])->assertSessionHasNoErrors();
+        $this->actingAs($pat = $pat->fresh())->get('/scope')->assertOk()->assertSee('>Dispatch</summary>', false)->assertDontSee('Credit a call');
+        $this->actingAs($pat)->get('/dispatch')->assertForbidden();
+
+        // Adding a permission opens the page; the audit log lists the change.
+        $this->actingAs($admin)->put("/admin/profiles/{$taker->id}", ['name' => 'Call Taker', 'permissions' => ['scope_check', 'credit_calls']])->assertSessionHasNoErrors();
+        $this->assertSame(['credit_calls', 'scope_check'], $taker->fresh()->permissions);
+        $this->assertStringContainsString('Call Taker profile: permissions from [Scope Check] to [Credit a call, Scope Check].', \App\Models\AuditLog::latest('id')->value('description'));
+        $this->actingAs($pat = $pat->fresh())->get('/dispatch')->assertOk();
+
+        // Guard rails: no locking yourself out, no deleting a profile in use or the default one.
+        $mine = $admin->profile;
+        $this->actingAs($admin)->put("/admin/profiles/{$mine->id}", ['name' => 'Admin', 'permissions' => ['team_members']])->assertSessionHas('error');
+        $this->assertTrue($mine->fresh()->allows('profiles'));
+        $this->actingAs($admin)->put("/admin/users/{$admin->id}", ['name' => $admin->name, 'email' => $admin->email, 'permission_profile_id' => $taker->id, 'active' => '1'])->assertSessionHas('error');
+        $this->actingAs($admin)->delete("/admin/profiles/{$taker->id}")->assertSessionHas('error');
+        $default = \App\Models\PermissionProfile::default();
+        $this->actingAs($admin)->delete("/admin/profiles/{$default->id}")->assertSessionHas('error');
+
+        // New and imported team members get the default profile.
+        $this->actingAs($admin)->put('/admin/profiles/default', ['profile' => $taker->id])->assertSessionHasNoErrors();
+        $this->assertSame('Call Taker', \App\Models\PermissionProfile::default()->name);
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('team.csv', "First Name,Last Name,Email\nSam,Crew,sam@example.com\n");
+        $this->actingAs($admin)->post('/admin/users/import', ['file' => $file]);
+        $this->assertSame('Call Taker', User::where('email', 'sam@example.com')->first()->profile->name);
+
+        // Duplicate copies the name, main profile and permissions, then opens the copy.
+        $this->actingAs($admin)->post("/admin/profiles/{$taker->id}/duplicate")->assertRedirect();
+        $copy = \App\Models\PermissionProfile::where('name', 'Call Taker (copy)')->first();
+        $this->assertSame($taker->fresh()->permissions, $copy->permissions);
+        $this->assertFalse($copy->is_default);
+        $this->actingAs($admin)->post("/admin/profiles/{$taker->id}/duplicate");
+        $this->assertTrue(\App\Models\PermissionProfile::where('name', 'Call Taker (copy 2)')->exists());
+        $this->actingAs($admin)->get("/admin/profiles?profile={$copy->id}")->assertSee('<h2>Call Taker (copy)</h2>', false)->assertSee('Duplicate');
+
+        $empty = \App\Models\PermissionProfile::create(['name' => 'Unused', 'permissions' => []]);
+        $this->actingAs($admin)->delete("/admin/profiles/{$empty->id}")->assertSessionHas('status');
+        $this->assertNull($empty->fresh());
+    }
+
+    public function test_sub_profiles_add_to_their_main_profile(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $member = \App\Models\PermissionProfile::where('name', 'Team Member')->first();
+        $dispatcher = \App\Models\PermissionProfile::where('name', 'Dispatcher')->first();
+
+        // EMT sits under Team Member and adds Scope Check.
+        $this->actingAs($admin)->post('/admin/profiles', ['name' => 'EMT', 'parent_id' => $member->id, 'permissions' => ['scope_check']])->assertSessionHasNoErrors();
+        $emt = \App\Models\PermissionProfile::where('name', 'EMT')->first();
+        $this->assertSame('Team Member › EMT', $emt->label());
+        $pat = User::factory()->create(['permission_profile_id' => $emt->id]);
+        $this->actingAs($pat)->get('/scope')->assertOk();
+        $this->actingAs($pat)->get('/dispatch')->assertForbidden();
+
+        // Whatever the main profile gains, its sub-profiles gain too.
+        $this->actingAs($admin)->put("/admin/profiles/{$member->id}", ['name' => 'Team Member', 'permissions' => ['credit_calls']])->assertSessionHasNoErrors();
+        $this->actingAs($pat = $pat->fresh())->get('/dispatch')->assertOk();
+        // One profile per page, chosen from the dropdown.
+        $this->actingAs($admin)->get('/admin/profiles')->assertSee('<h2>Team Member</h2>', false)->assertSee('1 sub-profile')->assertDontSee('<h2>Dispatcher</h2>', false);
+        $this->actingAs($admin)->get("/admin/profiles?profile={$emt->id}")->assertSee('<h2>Team Member › EMT</h2>', false)->assertSee('from Team Member');
+        $this->actingAs($admin)->get('/admin/profiles?profile=new')->assertSee('Add a profile or sub-profile</h2>', false);
+        $this->actingAs($admin)->get('/admin/users')->assertSee('Team Member › EMT');
+
+        // A sub-profile only stores what it adds.
+        $this->actingAs($admin)->put("/admin/profiles/{$emt->id}", ['name' => 'EMT', 'parent_id' => $member->id, 'permissions' => ['credit_calls', 'scope_check']]);
+        $this->assertSame(['scope_check'], $emt->fresh()->permissions);
+
+        // One level deep, and no deleting a main profile that still has sub-profiles.
+        $this->actingAs($admin)->post('/admin/profiles', ['name' => 'Medic Lead', 'parent_id' => $emt->id])->assertSessionHasErrors('parent_id');
+        $this->actingAs($admin)->put("/admin/profiles/{$member->id}", ['name' => 'Team Member', 'parent_id' => $dispatcher->id])->assertSessionHasErrors('parent_id');
+        $this->actingAs($admin)->put("/admin/profiles/{$emt->id}", ['name' => 'EMT', 'parent_id' => $emt->id])->assertSessionHasErrors('parent_id');
+        $pat->update(['permission_profile_id' => $member->id]);
+        $member->update(['is_default' => false]);
+        $dispatcher->update(['is_default' => true]);
+        User::where('permission_profile_id', $member->id)->update(['permission_profile_id' => $dispatcher->id]);
+        $this->actingAs($admin)->delete("/admin/profiles/{$member->id}")->assertSessionHas('error');
+        $this->assertNotNull($member->fresh());
+
+        // Moving your own main profile under one without Permission Profiles is blocked.
+        $mine = $admin->profile;
+        $this->actingAs($admin)->put("/admin/profiles/{$mine->id}", ['name' => 'Admin', 'parent_id' => $dispatcher->id, 'permissions' => ['team_members']])->assertSessionHas('error');
+        $this->assertNull($mine->fresh()->parent_id);
     }
 }

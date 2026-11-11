@@ -244,3 +244,12 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .scope-list { columns: 2 280px; column-gap: 24px; }
 .scope-list .scope-item { break-inside: avoid; }
 .scope-item { padding: 4px 0; }
+
+/* Permission Profiles */
+.profile-head { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.perm-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.perm-group { border: 1px solid var(--line, #dde3e8); border-radius: 10px; padding: 10px 14px 6px; margin: 0; }
+.perm-group legend { font-family: "Oswald", sans-serif; text-transform: uppercase; letter-spacing: .04em; color: var(--navy); padding: 0 6px; }
+.perm-group .check { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
+.perm-group .check.inherited { color: var(--muted); }
+.profile-picker { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; max-width: 640px; }

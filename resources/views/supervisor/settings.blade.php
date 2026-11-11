@@ -30,9 +30,9 @@
     <h2 class="mt">Prize News</h2>
     <p class="hint">Choose which wins show in Recent Winners on everyone's Home page.</p>
     <div class="field">
-        @foreach (['dispatcher' => 'Dispatcher', 'supervisor' => 'Supervisor', 'admin' => 'Admin'] as $role => $roleLabel)
-            <input type="hidden" name="news_hide_{{ $role }}" value="0">
-            <label class="check"><input type="checkbox" name="news_hide_{{ $role }}" value="1" @checked($newsHide[$role])> Don't display {{ $roleLabel }} winners</label>
+        @foreach ($profiles as $profile)
+            <input type="hidden" name="news_hide[{{ $profile->id }}]" value="0">
+            <label class="check"><input type="checkbox" name="news_hide[{{ $profile->id }}]" value="1" @checked($profile->hide_winners)> Don't display {{ $profile->label() }} winners</label>
         @endforeach
     </div>
     <div class="field">

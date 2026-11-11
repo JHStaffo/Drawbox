@@ -8,7 +8,7 @@
 @section('content')
 <div class="stack">
     @if (! $hasRules)
-        <div class="card"><p class="empty">No equipment, meds or lift assist rules have been set up yet. @if (auth()->user()->hasRole('admin'))Add them in <a href="{{ route('supervisor.settings') }}">Settings</a>.@else Ask an admin to add them.@endif</p></div>
+        <div class="card"><p class="empty">No equipment, meds or lift assist rules have been set up yet. @if (auth()->user()->hasPermission('settings'))Add them in <a href="{{ route('supervisor.settings') }}">Settings</a>.@else Ask an admin to add them.@endif</p></div>
     @endif
 
     @if ($result)
@@ -76,7 +76,7 @@
         <div class="row-actions">
             <button class="btn" type="submit">Check</button>
             <a class="btn btn-outline" href="{{ route('scope') }}">Clear</a>
-            @if (auth()->user()->hasRole('admin'))<a class="btn btn-outline" href="{{ route('supervisor.settings') }}#scope">Edit rules</a>@endif
+            @if (auth()->user()->hasPermission('settings'))<a class="btn btn-outline" href="{{ route('supervisor.settings') }}#scope">Edit rules</a>@endif
         </div>
     </form>
 </div>

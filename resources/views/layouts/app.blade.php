@@ -20,23 +20,17 @@
             <nav class="nav">
                 <a href="{{ route('home') }}" @class(['active' => request()->routeIs('home')])>Home</a>
                 <details class="nav-menu">
-                    <summary @class(['active' => request()->routeIs('drawbox.home', 'draws.*', 'dispatch.*', 'supervisor.dashboard', 'supervisor.reports', 'supervisor.inventory*', 'admin.lockers')])>Draw Box</summary>
+                    <summary @class(['active' => request()->routeIs('drawbox.home', 'draws.*', 'dispatch.*', 'supervisor.dashboard', 'supervisor.dispense', 'supervisor.reports*', 'supervisor.inventory*', 'admin.lockers', 'admin.draws.*')])>Draw Box</summary>
                     <div class="nav-drop">
                         <a href="{{ route('drawbox.home') }}" @class(['active' => request()->routeIs('drawbox.home', 'draws.*')])>Draw Box Home</a>
-                        @if ($u->hasRole('dispatcher'))
-                            <a href="{{ route('dispatch.create') }}" @class(['active' => request()->routeIs('dispatch.*')])>Credit a call</a>
-                        @endif
-                        @if ($u->hasRole('supervisor'))
-                            <a href="{{ route('supervisor.dashboard') }}" @class(['active' => request()->routeIs('supervisor.dashboard')])>Dashboard</a>
-                        @endif
-                        @if ($u->hasRole('admin'))
-                            <a href="{{ route('supervisor.reports') }}" @class(['active' => request()->routeIs('supervisor.reports')])>Reports</a>
-                            <a href="{{ route('supervisor.inventory') }}" @class(['active' => request()->routeIs('supervisor.inventory*')])>Inventory</a>
-                            <a href="{{ route('admin.lockers') }}" @class(['active' => request()->routeIs('admin.lockers')])>Lockers</a>
-                        @endif
+                        @if ($u->hasPermission('credit_calls'))<a href="{{ route('dispatch.create') }}" @class(['active' => request()->routeIs('dispatch.*')])>Credit a call</a>@endif
+                        @if ($u->hasPermission('dashboard'))<a href="{{ route('supervisor.dashboard') }}" @class(['active' => request()->routeIs('supervisor.dashboard', 'supervisor.dispense')])>Dashboard</a>@endif
+                        @if ($u->hasPermission('reports'))<a href="{{ route('supervisor.reports') }}" @class(['active' => request()->routeIs('supervisor.reports*')])>Reports</a>@endif
+                        @if ($u->hasPermission('inventory'))<a href="{{ route('supervisor.inventory') }}" @class(['active' => request()->routeIs('supervisor.inventory*')])>Inventory</a>@endif
+                        @if ($u->hasPermission('lockers'))<a href="{{ route('admin.lockers') }}" @class(['active' => request()->routeIs('admin.lockers')])>Lockers</a>@endif
                     </div>
                 </details>
-                @if ($u->hasRole('dispatcher'))
+                @if ($u->hasPermission('scope_check'))
                     <details class="nav-menu">
                         <summary @class(['active' => request()->routeIs('scope')])>Dispatch</summary>
                         <div class="nav-drop">
@@ -44,13 +38,14 @@
                         </div>
                     </details>
                 @endif
-                @if ($u->hasRole('admin'))
+                @if ($u->hasAnyPermission('team_members', 'settings', 'audit_log', 'profiles'))
                     <details class="nav-menu">
-                        <summary @class(['active' => request()->routeIs('admin.users*', 'admin.draws.*', 'supervisor.settings', 'admin.audit')])>Admin</summary>
+                        <summary @class(['active' => request()->routeIs('admin.users*', 'supervisor.settings', 'admin.audit', 'admin.profiles*')])>Admin</summary>
                         <div class="nav-drop">
-                            <a href="{{ route('admin.users') }}" @class(['active' => request()->routeIs('admin.users*', 'admin.draws.*')])>Team Members</a>
-                            <a href="{{ route('supervisor.settings') }}" @class(['active' => request()->routeIs('supervisor.settings')])>Settings</a>
-                            <a href="{{ route('admin.audit') }}" @class(['active' => request()->routeIs('admin.audit')])>Audit log</a>
+                            @if ($u->hasPermission('team_members'))<a href="{{ route('admin.users') }}" @class(['active' => request()->routeIs('admin.users*')])>Team Members</a>@endif
+                            @if ($u->hasPermission('profiles'))<a href="{{ route('admin.profiles') }}" @class(['active' => request()->routeIs('admin.profiles*')])>Permission Profiles</a>@endif
+                            @if ($u->hasPermission('settings'))<a href="{{ route('supervisor.settings') }}" @class(['active' => request()->routeIs('supervisor.settings')])>Settings</a>@endif
+                            @if ($u->hasPermission('audit_log'))<a href="{{ route('admin.audit') }}" @class(['active' => request()->routeIs('admin.audit')])>Audit log</a>@endif
                         </div>
                     </details>
                 @endif

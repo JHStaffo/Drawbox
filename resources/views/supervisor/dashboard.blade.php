@@ -77,7 +77,7 @@ document.querySelectorAll('.check-all').forEach(function (all) {
         <div class="card">
             <div class="row-actions" style="justify-content:space-between">
                 <h2 style="margin:0">In lockers ({{ $lockerAssignments->count() }})</h2>
-                @if (auth()->user()->hasRole('admin'))<a class="btn btn-small btn-outline" href="{{ route('admin.lockers') }}">Locker map</a>@endif
+                @if (auth()->user()->hasPermission('lockers'))<a class="btn btn-small btn-outline" href="{{ route('admin.lockers') }}">Locker map</a>@endif
             </div>
             <div class="table-wrap mt"><table>
                 <tr><th>Locker</th><th>Team Member</th><th>Prizes</th><th>Pick up by</th><th></th></tr>
