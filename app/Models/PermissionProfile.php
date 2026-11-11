@@ -22,7 +22,6 @@ class PermissionProfile extends Model
      */
     public const GROUPS = [
         'Draw Box' => [
-            'credit_calls' => 'Credit a call',
             'dashboard' => 'Dashboard (hand out prizes, check lockers, remove unused draws)',
             'reports' => 'Reports',
             'inventory' => 'Inventory',
@@ -30,6 +29,7 @@ class PermissionProfile extends Model
             'edit_won' => 'Change or remove won prizes',
         ],
         'Dispatch' => [
+            'credit_calls' => 'Credit a call',
             'scope_check' => 'Scope Check',
             'forms' => 'Forms (fill out and send)',
         ],
