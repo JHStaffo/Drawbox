@@ -47,6 +47,15 @@ p { margin: 0 0 1em; }
 .nav a, .nav button { font-family: "Oswald", sans-serif; text-transform: uppercase; font-size: .9rem; letter-spacing: .04em; color: var(--navy); text-decoration: none; padding: 8px 10px; border-radius: 8px; background: none; border: 0; cursor: pointer; }
 .nav a:hover, .nav button:hover { background: var(--bg); }
 .nav a.active { color: var(--teal); }
+.nav-menu { position: relative; }
+.nav-menu summary { list-style: none; font-family: "Oswald", sans-serif; text-transform: uppercase; font-size: .9rem; letter-spacing: .04em; color: var(--navy); padding: 8px 10px; border-radius: 8px; cursor: pointer; user-select: none; }
+.nav-menu summary::-webkit-details-marker { display: none; }
+.nav-menu summary::after { content: ""; display: inline-block; margin-left: 6px; vertical-align: 3px; border: 4px solid transparent; border-top-color: currentColor; border-bottom: 0; }
+.nav-menu summary:hover, .nav-menu[open] summary { background: var(--bg); }
+.nav-menu summary.active { color: var(--teal); }
+.nav-drop { position: absolute; left: 0; top: calc(100% + 6px); z-index: 50; min-width: 200px; background: #fff; border-radius: 10px; box-shadow: 0 10px 30px rgba(44, 62, 80, .18); border-top: 3px solid var(--red); padding: 6px; display: flex; flex-direction: column; }
+.nav-drop a { display: block; padding: 9px 12px; }
+.nav-menu:last-of-type .nav-drop { left: auto; right: 0; }
 
 /* Bands and layout */
 .band { background: var(--navy); color: #fff; }

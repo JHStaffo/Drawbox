@@ -32,7 +32,9 @@ return [
     |
     */
 
-    'lifetime' => (int) env('SESSION_LIFETIME', 120),
+    // Sign-ins last up to 12 hours (App\Http\Middleware\SignInExpiry), so an idle
+    // session is kept that long too. Not read from .env, so the server needs no change.
+    'lifetime' => 720,
 
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 

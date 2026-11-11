@@ -857,7 +857,7 @@ class DrawBoxTest extends TestCase
         $this->artisan('drawbox:expire')->assertSuccessful();
         $this->assertSame('in_locker', $second->fresh()->status);
         $this->assertTrue($current->fresh()->isOverdue());
-        $this->actingAs($other)->get('/')->assertSee('has run out');
+        $this->actingAs($other)->withSession(['signed_in_at' => now()->timestamp])->get('/')->assertSee('has run out');
 
         $admin = User::factory()->role('admin')->create();
         $this->actingAs($admin)->get('/admin/lockers')->assertOk()->assertSee('Overdue')->assertSee('1 2 3');
@@ -1204,5 +1204,31 @@ class DrawBoxTest extends TestCase
         $this->assertStringContainsString('Chest tube: level of care from ALS to Preferred SCT/ALS', \App\Models\AuditLog::latest('id')->value('description'));
         $this->actingAs($admin)->delete('/admin/scope/items/'.$id('Oxygen'));
         $this->assertNull($id('Oxygen'));
+    }
+
+    public function test_navigation_groups_pages_by_role(): void
+    {
+        $employee = User::factory()->create();
+        $this->actingAs($employee)->get('/')->assertOk()->assertSee('Fast Track Pulse')
+            ->assertSee('>Draw Box</summary>', false)->assertSee('Draw Box Home')
+            ->assertDontSee('>Dispatch</summary>', false)->assertDontSee('>Admin</summary>', false)->assertDontSee('Credit a call');
+        $this->actingAs($employee)->get('/draw-box')->assertOk()->assertSee('<summary class="active">Draw Box</summary>', false);
+
+        $dispatcher = User::factory()->role('dispatcher')->create();
+        $this->actingAs($dispatcher)->get('/scope')->assertOk()->assertSee('Credit a call')
+            ->assertSee('<summary class="active">Dispatch</summary>', false)->assertDontSee('>Admin</summary>', false);
+
+        $admin = User::factory()->role('admin')->create();
+        $this->actingAs($admin)->get('/admin/audit')->assertOk()->assertSee('<summary class="active">Admin</summary>', false)
+            ->assertSee('Team Members')->assertSee('Lockers')->assertSee('Inventory');
+    }
+
+    public function test_sign_in_lasts_up_to_twelve_hours(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user)->withSession(['signed_in_at' => now()->subHours(11)->timestamp])->get('/')->assertOk();
+        $this->actingAs($user)->withSession(['signed_in_at' => now()->subHours(12)->timestamp])->get('/')->assertRedirect('/login');
+        $this->assertGuest();
+        $this->get('/login')->assertSee('Your sign-in expired after 12 hours.');
     }
 }

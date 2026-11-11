@@ -30,6 +30,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     Route::get('/', [HomeController::class, 'index'])->name('home');
+    // Draw Box Home shows the same page as Home for now; they'll split later.
+    Route::get('/draw-box', [HomeController::class, 'index'])->name('drawbox.home');
     Route::post('/credits/{credit}/draw', [DrawController::class, 'store'])->name('draws.store');
     Route::get('/draws/{draw}', [DrawController::class, 'show'])->name('draws.show');
     Route::post('/draws/{draw}/brand', [DrawController::class, 'brand'])->name('draws.brand');
