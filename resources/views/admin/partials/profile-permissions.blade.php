@@ -2,6 +2,7 @@
     <label>Find a permission</label>
     <input type="search" placeholder="Type to filter" autocomplete="off" oninput="filterPerms(this)" onkeydown="if (event.key === 'Enter') event.preventDefault()">
 </div>
+@php($mine = auth()->user()->permissions())
 <div class="perm-groups">
     @foreach (\App\Models\PermissionProfile::GROUPS as $group => $perms)
         <fieldset class="perm-group">
@@ -10,7 +11,7 @@
                 @if (in_array($key, $inherited, true))
                     <label class="check inherited" data-perm="{{ Str::lower($group.' '.$label) }}"><input type="checkbox" checked disabled> <span>{{ $label }} <span class="hint">from {{ $from }}</span></span></label>
                 @else
-                    <label class="check" data-perm="{{ Str::lower($group.' '.$label) }}"><input type="checkbox" name="permissions[]" value="{{ $key }}" @checked(in_array($key, $picked, true))> {{ $label }}</label>
+                    <label class="check" data-perm="{{ Str::lower($group.' '.$label) }}"><input type="checkbox" name="permissions[]" value="{{ $key }}" @checked(in_array($key, $picked, true)) @disabled(($locked ?? false) || ! in_array($key, $mine, true))> {{ $label }}@unless (in_array($key, $mine, true)) <span class="hint">you don't have this</span>@endunless</label>
                 @endif
             @endforeach
         </fieldset>

@@ -35,6 +35,44 @@ class User extends Authenticatable
         return collect($permissions)->contains(fn ($p) => $this->hasPermission($p));
     }
 
+    /** Every permission this person has, through their profile and its parent. */
+    public function permissions(): array
+    {
+        return $this->profile?->effectivePermissions() ?? [];
+    }
+
+    /**
+     * True when the permissions can be handed out by this person: nobody can
+     * give a profile, or a team member, anything they don't have themselves.
+     * Admins have every permission, so they can give anything.
+     */
+    public function canGrant(array $permissions): bool
+    {
+        return array_diff($permissions, $this->permissions()) === [];
+    }
+
+    /** True when they may put a team member on this profile. */
+    public function canGrantProfile(PermissionProfile $profile): bool
+    {
+        return $this->canGrant($profile->effectivePermissions());
+    }
+
+    /**
+     * True when they may change, duplicate or delete this profile. A change to
+     * a main profile reaches its sub-profiles, so those count too.
+     */
+    public function canEditProfile(PermissionProfile $profile): bool
+    {
+        return $this->canGrantProfile($profile)
+            && $profile->children()->get()->every(fn (PermissionProfile $child) => $this->canGrantProfile($child));
+    }
+
+    /** True when they may edit or delete this team member: never someone with more access than them. */
+    public function canManage(User $other): bool
+    {
+        return $this->canGrant($other->permissions());
+    }
+
     public function profile(): BelongsTo
     {
         return $this->belongsTo(PermissionProfile::class, 'permission_profile_id');

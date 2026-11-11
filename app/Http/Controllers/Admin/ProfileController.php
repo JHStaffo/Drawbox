@@ -31,6 +31,9 @@ class ProfileController extends Controller
 
     public function update(Request $request, PermissionProfile $profile)
     {
+        if ($error = $this->cantEdit($request, $profile)) {
+            return back()->with('error', $error);
+        }
         $data = $this->validated($request, $profile);
 
         // Keep the person saving able to get back to this page, whether the
@@ -48,8 +51,11 @@ class ProfileController extends Controller
     }
 
     /** A copy with the same permissions and main profile, opened so it can be renamed. Sub-profiles aren't copied. */
-    public function duplicate(PermissionProfile $profile)
+    public function duplicate(Request $request, PermissionProfile $profile)
     {
+        if ($error = $this->cantEdit($request, $profile)) {
+            return back()->with('error', $error);
+        }
         $name = "{$profile->name} (copy)";
         for ($n = 2; PermissionProfile::where('name', $name)->exists(); $n++) {
             $name = "{$profile->name} (copy {$n})";
@@ -67,15 +73,21 @@ class ProfileController extends Controller
     public function setDefault(Request $request)
     {
         $data = $request->validate(['profile' => 'required|exists:permission_profiles,id']);
-        PermissionProfile::where('id', '!=', $data['profile'])->update(['is_default' => false]);
         $profile = PermissionProfile::findOrFail($data['profile']);
+        if (! $request->user()->canGrantProfile($profile)) {
+            return back()->with('error', "The {$profile->label()} profile has access you don't have, so you can't give it to new team members.");
+        }
+        PermissionProfile::where('id', '!=', $profile->id)->update(['is_default' => false]);
         $profile->update(['is_default' => true]);
 
         return back()->with('status', "New and imported team members now get the {$profile->label()} profile.");
     }
 
-    public function destroy(PermissionProfile $profile)
+    public function destroy(Request $request, PermissionProfile $profile)
     {
+        if ($error = $this->cantEdit($request, $profile)) {
+            return back()->with('error', $error);
+        }
         if ($profile->users()->exists()) {
             return back()->with('error', "The {$profile->label()} profile still has team members. Move them to another profile first.");
         }
@@ -90,6 +102,14 @@ class ProfileController extends Controller
         return redirect()->route('admin.profiles')->with('status', "Deleted the {$profile->label()} profile.");
     }
 
+    /** Profiles (or sub-profiles under them) with access the person lacks are look-only for them. */
+    private function cantEdit(Request $request, PermissionProfile $profile): ?string
+    {
+        return $request->user()->canEditProfile($profile)
+            ? null
+            : "The {$profile->label()} profile has access you don't have, so you can't change, copy or delete it.";
+    }
+
     private function validated(Request $request, ?PermissionProfile $profile = null): array
     {
         $data = $request->validate([
@@ -100,6 +120,12 @@ class ProfileController extends Controller
         ], ['parent_id.exists' => 'A sub-profile has to sit under a main profile, not another sub-profile.']);
 
         $parent = isset($data['parent_id']) ? (int) $data['parent_id'] : null;
+        // Nobody can give a profile access they don't have themselves, whether
+        // by checking it or by putting the profile under a main profile that has it.
+        $inherited = $parent ? (PermissionProfile::find($parent)->permissions ?? []) : [];
+        if (! $request->user()->canGrant(array_merge($inherited, $data['permissions'] ?? []))) {
+            throw ValidationException::withMessages(['permissions' => "You can only give a profile access you have yourself."]);
+        }
         if ($profile && $parent === $profile->id) {
             throw ValidationException::withMessages(['parent_id' => "A profile can't be a sub-profile of itself."]);
         }
@@ -109,7 +135,6 @@ class ProfileController extends Controller
 
         // Stored in menu order so the audit log reads the same way every time.
         // A sub-profile only stores what it adds; the rest comes from its parent.
-        $inherited = $parent ? (PermissionProfile::find($parent)->permissions ?? []) : [];
         $picked = array_diff($data['permissions'] ?? [], $inherited);
 
         return [
