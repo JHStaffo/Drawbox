@@ -61,6 +61,7 @@ class AuditLog extends Model
         'admin.users.destroy' => 'Deleted a team member',
         'admin.profiles.store' => 'Added a permission profile',
         'admin.profiles.update' => 'Changed a permission profile',
+        'admin.profiles.duplicate' => 'Duplicated a permission profile',
         'admin.profiles.default' => 'Changed the profile for new team members',
         'admin.profiles.destroy' => 'Deleted a permission profile',
         'admin.draws.update' => 'Changed a won prize',

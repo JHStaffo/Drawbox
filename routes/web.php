@@ -119,6 +119,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/profiles', [ProfileController::class, 'store'])->name('profiles.store');
             Route::put('/profiles/default', [ProfileController::class, 'setDefault'])->name('profiles.default');
             Route::put('/profiles/{profile}', [ProfileController::class, 'update'])->name('profiles.update');
+            Route::post('/profiles/{profile}/duplicate', [ProfileController::class, 'duplicate'])->name('profiles.duplicate');
             Route::delete('/profiles/{profile}', [ProfileController::class, 'destroy'])->name('profiles.destroy');
         });
     });

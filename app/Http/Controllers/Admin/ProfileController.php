@@ -47,6 +47,23 @@ class ProfileController extends Controller
         return back()->with('status', "Saved the {$profile->fresh()->label()} profile.");
     }
 
+    /** A copy with the same permissions and main profile, opened so it can be renamed. Sub-profiles aren't copied. */
+    public function duplicate(PermissionProfile $profile)
+    {
+        $name = "{$profile->name} (copy)";
+        for ($n = 2; PermissionProfile::where('name', $name)->exists(); $n++) {
+            $name = "{$profile->name} (copy {$n})";
+        }
+        $copy = PermissionProfile::create([
+            'name' => mb_substr($name, 0, 60),
+            'parent_id' => $profile->parent_id,
+            'permissions' => $profile->permissions ?? [],
+            'hide_winners' => $profile->hide_winners,
+        ]);
+
+        return redirect()->route('admin.profiles', ['profile' => $copy->id])->with('status', "Made {$copy->label()} from {$profile->label()}. Rename it and change what it can do, then Save.");
+    }
+
     public function setDefault(Request $request)
     {
         $data = $request->validate(['profile' => 'required|exists:permission_profiles,id']);

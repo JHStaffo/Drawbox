@@ -1271,6 +1271,15 @@ class DrawBoxTest extends TestCase
         $this->actingAs($admin)->post('/admin/users/import', ['file' => $file]);
         $this->assertSame('Call Taker', User::where('email', 'sam@example.com')->first()->profile->name);
 
+        // Duplicate copies the name, main profile and permissions, then opens the copy.
+        $this->actingAs($admin)->post("/admin/profiles/{$taker->id}/duplicate")->assertRedirect();
+        $copy = \App\Models\PermissionProfile::where('name', 'Call Taker (copy)')->first();
+        $this->assertSame($taker->fresh()->permissions, $copy->permissions);
+        $this->assertFalse($copy->is_default);
+        $this->actingAs($admin)->post("/admin/profiles/{$taker->id}/duplicate");
+        $this->assertTrue(\App\Models\PermissionProfile::where('name', 'Call Taker (copy 2)')->exists());
+        $this->actingAs($admin)->get("/admin/profiles?profile={$copy->id}")->assertSee('<h2>Call Taker (copy)</h2>', false)->assertSee('Duplicate');
+
         $empty = \App\Models\PermissionProfile::create(['name' => 'Unused', 'permissions' => []]);
         $this->actingAs($admin)->delete("/admin/profiles/{$empty->id}")->assertSessionHas('status');
         $this->assertNull($empty->fresh());

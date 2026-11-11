@@ -39,11 +39,13 @@
             @include('admin.partials.profile-permissions', ['picked' => $profile->permissions ?? [], 'inherited' => $profile->inheritedPermissions(), 'from' => $profile->parent?->name])
             <div class="row-actions">
                 <button class="btn btn-teal" type="submit">Save</button>
+                <button class="btn btn-outline" type="submit" form="dup-profile">Duplicate</button>
                 @if ($deletable)
                     <button class="btn btn-outline" style="color:var(--red)" type="submit" form="del-profile">Delete</button>
                 @endif
             </div>
         </form>
+        <form id="dup-profile" method="post" action="{{ route('admin.profiles.duplicate', $profile) }}">@csrf</form>
         @if ($deletable)
             <form id="del-profile" method="post" action="{{ route('admin.profiles.destroy', $profile) }}" onsubmit="return confirm('Delete the {{ $profile->label() }} profile?')">@csrf @method('delete')</form>
         @endif
