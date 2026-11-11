@@ -17,7 +17,7 @@ class UserController extends Controller
 {
     public function index()
     {
-        return view('admin.users', ['profiles' => PermissionProfile::orderBy('id')->get(), 'users' => User::with('profile')->get()->sortBy([fn ($a, $b) => $b->active <=> $a->active, fn ($a, $b) => $a->sortName() <=> $b->sortName()])->values()]);
+        return view('admin.users', ['profiles' => PermissionProfile::ordered(), 'users' => User::with('profile')->get()->sortBy([fn ($a, $b) => $b->active <=> $a->active, fn ($a, $b) => $a->sortName() <=> $b->sortName()])->values()]);
     }
 
     public function store(Request $request)

@@ -5,7 +5,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-// Permission profiles replace the four fixed roles. The starting profiles
+// Permission profiles replace the four fixed roles, and any profile can have
+// sub-profiles. The starting profiles
 // match what each role could do, and everyone keeps the access they had.
 return new class extends Migration
 {
@@ -21,6 +22,8 @@ return new class extends Migration
         Schema::create('permission_profiles', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
+            // A sub-profile (EMT under Team Member, say) gets everything its parent allows, plus its own.
+            $table->foreignId('parent_id')->nullable()->constrained('permission_profiles');
             $table->json('permissions');
             $table->boolean('is_default')->default(false);
             $table->boolean('hide_winners')->default(false);

@@ -15,7 +15,7 @@
                 <div class="field"><label>Email</label><input type="email" name="email" value="{{ old('email') }}" required></div>
                 <div class="field"><label>Team Member #</label><input type="text" name="employee_number" value="{{ old('employee_number') }}"></div>
                 <div class="field"><label>Permission profile</label>
-                    <select name="permission_profile_id">@foreach ($profiles as $p)<option value="{{ $p->id }}" @selected(old('permission_profile_id') ? old('permission_profile_id') == $p->id : $p->is_default)>{{ $p->name }}</option>@endforeach</select>
+                    <select name="permission_profile_id">@foreach ($profiles as $p)<option value="{{ $p->id }}" @selected(old('permission_profile_id') ? old('permission_profile_id') == $p->id : $p->is_default)>{{ $p->label() }}</option>@endforeach</select>
                 </div>
             </div>
             <button class="btn" type="submit">Add team member</button>
@@ -24,7 +24,7 @@
 
     <div class="card">
         <h2>Import from a CSV</h2>
-        <p class="hint">Use a file with First Name, Last Name and Email columns. Everyone gets the {{ $profiles->firstWhere('is_default', true)?->name ?? 'default' }} profile, and anyone whose email is already on the roster is skipped.</p>
+        <p class="hint">Use a file with First Name, Last Name and Email columns. Everyone gets the {{ $profiles->firstWhere('is_default', true)?->label() ?? 'default' }} profile, and anyone whose email is already on the roster is skipped.</p>
         <form method="post" action="{{ route('admin.users.import') }}" enctype="multipart/form-data">@csrf
             <div class="field"><input type="file" name="file" accept=".csv,text/csv" required></div>
             <button class="btn btn-teal" type="submit">Import team members</button>

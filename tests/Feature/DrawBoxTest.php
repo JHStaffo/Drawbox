@@ -1275,4 +1275,45 @@ class DrawBoxTest extends TestCase
         $this->actingAs($admin)->delete("/admin/profiles/{$empty->id}")->assertSessionHas('status');
         $this->assertNull($empty->fresh());
     }
+
+    public function test_sub_profiles_add_to_their_main_profile(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $member = \App\Models\PermissionProfile::where('name', 'Team Member')->first();
+        $dispatcher = \App\Models\PermissionProfile::where('name', 'Dispatcher')->first();
+
+        // EMT sits under Team Member and adds Scope Check.
+        $this->actingAs($admin)->post('/admin/profiles', ['name' => 'EMT', 'parent_id' => $member->id, 'permissions' => ['scope_check']])->assertSessionHasNoErrors();
+        $emt = \App\Models\PermissionProfile::where('name', 'EMT')->first();
+        $this->assertSame('Team Member › EMT', $emt->label());
+        $pat = User::factory()->create(['permission_profile_id' => $emt->id]);
+        $this->actingAs($pat)->get('/scope')->assertOk();
+        $this->actingAs($pat)->get('/dispatch')->assertForbidden();
+
+        // Whatever the main profile gains, its sub-profiles gain too.
+        $this->actingAs($admin)->put("/admin/profiles/{$member->id}", ['name' => 'Team Member', 'permissions' => ['credit_calls']])->assertSessionHasNoErrors();
+        $this->actingAs($pat = $pat->fresh())->get('/dispatch')->assertOk();
+        $this->actingAs($admin)->get('/admin/profiles')->assertSee('from Team Member')->assertSee('1 sub-profile');
+        $this->actingAs($admin)->get('/admin/users')->assertSee('Team Member › EMT');
+
+        // A sub-profile only stores what it adds.
+        $this->actingAs($admin)->put("/admin/profiles/{$emt->id}", ['name' => 'EMT', 'parent_id' => $member->id, 'permissions' => ['credit_calls', 'scope_check']]);
+        $this->assertSame(['scope_check'], $emt->fresh()->permissions);
+
+        // One level deep, and no deleting a main profile that still has sub-profiles.
+        $this->actingAs($admin)->post('/admin/profiles', ['name' => 'Medic Lead', 'parent_id' => $emt->id])->assertSessionHasErrors('parent_id');
+        $this->actingAs($admin)->put("/admin/profiles/{$member->id}", ['name' => 'Team Member', 'parent_id' => $dispatcher->id])->assertSessionHasErrors('parent_id');
+        $this->actingAs($admin)->put("/admin/profiles/{$emt->id}", ['name' => 'EMT', 'parent_id' => $emt->id])->assertSessionHasErrors('parent_id');
+        $pat->update(['permission_profile_id' => $member->id]);
+        $member->update(['is_default' => false]);
+        $dispatcher->update(['is_default' => true]);
+        User::where('permission_profile_id', $member->id)->update(['permission_profile_id' => $dispatcher->id]);
+        $this->actingAs($admin)->delete("/admin/profiles/{$member->id}")->assertSessionHas('error');
+        $this->assertNotNull($member->fresh());
+
+        // Moving your own main profile under one without Permission Profiles is blocked.
+        $mine = $admin->profile;
+        $this->actingAs($admin)->put("/admin/profiles/{$mine->id}", ['name' => 'Admin', 'parent_id' => $dispatcher->id, 'permissions' => ['team_members']])->assertSessionHas('error');
+        $this->assertNull($mine->fresh()->parent_id);
+    }
 }

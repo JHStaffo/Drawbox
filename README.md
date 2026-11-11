@@ -19,7 +19,7 @@ Fast Track EMS's draw box, online. Dispatch credits a crew for a solicited call,
 
 ## Permission profiles
 
-Each team member has one permission profile, and admins edit profiles under Admin > Permission Profiles. Everyone can draw, pick a gift card brand and see their own prizes. A profile adds any of: Credit a call, Dashboard, Reports, Inventory, Locker map, Change or remove won prizes, Scope Check, Team Members, Settings, Audit log and Permission Profiles. The starting profiles are Team Member, Dispatcher, Supervisor and Admin, matching the old fixed roles. `drawbox:make-admin` puts someone on the Admin profile and gives that profile every permission.
+Each team member has one permission profile, and admins edit profiles under Admin > Permission Profiles. Everyone can draw, pick a gift card brand and see their own prizes. A profile adds any of: Credit a call, Dashboard, Reports, Inventory, Locker map, Change or remove won prizes, Scope Check, Team Members, Settings, Audit log and Permission Profiles. A profile can have sub-profiles (EMT under Team Member, say), one level deep: a sub-profile gets everything its main profile allows plus what's checked for it. New features add a permission key in `PermissionProfile::GROUPS`; every profile starts without it. The starting profiles are Team Member, Dispatcher, Supervisor and Admin, matching the old fixed roles. `drawbox:make-admin` puts someone on the Admin profile and gives that profile every permission.
 
 ## Run locally
 

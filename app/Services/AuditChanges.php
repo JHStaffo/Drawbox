@@ -27,7 +27,7 @@ class AuditChanges
         ],
         GiftCardStock::class => ['brand' => 'name', 'quantity' => 'on hand', 'active' => 'shown'],
         User::class => ['name' => 'name', 'email' => 'email', 'employee_number' => 'team member #', 'permission_profile_id' => 'profile', 'active' => 'active'],
-        PermissionProfile::class => ['name' => 'name', 'permissions' => 'permissions', 'is_default' => 'new team members get it', 'hide_winners' => 'hidden from Recent Winners'],
+        PermissionProfile::class => ['name' => 'name', 'parent_id' => 'sub-profile of', 'permissions' => 'permissions', 'is_default' => 'new team members get it', 'hide_winners' => 'hidden from Recent Winners'],
         Draw::class => [
             'prize_name' => 'prize', 'brand' => 'brand', 'value_cents' => 'value', 'pto_hours' => 'PTO hours',
             'taxable' => 'taxable', 'cash_bonus' => 'cash bonus',
@@ -160,7 +160,8 @@ class AuditChanges
         return match (true) {
             $field === 'permissions' => $this->permissions($value),
             $value === null || $value === '' => 'none',
-            $field === 'permission_profile_id' => PermissionProfile::find($value)?->name ?? "#{$value}",
+            $field === 'permission_profile_id' => PermissionProfile::find($value)?->label() ?? "#{$value}",
+            $field === 'parent_id' => PermissionProfile::find($value)?->name ?? "#{$value}",
             $field === 'value_cents' => money((int) $value),
             is_bool($value) || in_array($field, ['active', 'taxable', 'diminishing', 'cash_bonus_allowed', 'cash_bonus', 'is_default', 'hide_winners'], true) => $value ? 'yes' : 'no',
             $field === 'pto_hours' => (string) ($value + 0),

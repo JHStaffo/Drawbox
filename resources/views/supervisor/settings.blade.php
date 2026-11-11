@@ -32,7 +32,7 @@
     <div class="field">
         @foreach ($profiles as $profile)
             <input type="hidden" name="news_hide[{{ $profile->id }}]" value="0">
-            <label class="check"><input type="checkbox" name="news_hide[{{ $profile->id }}]" value="1" @checked($profile->hide_winners)> Don't display {{ $profile->name }} winners</label>
+            <label class="check"><input type="checkbox" name="news_hide[{{ $profile->id }}]" value="1" @checked($profile->hide_winners)> Don't display {{ $profile->label() }} winners</label>
         @endforeach
     </div>
     <div class="field">

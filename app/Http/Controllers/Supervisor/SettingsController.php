@@ -20,7 +20,7 @@ class SettingsController extends Controller
             'drawDelayHours' => Setting::get('draw_delay_hours') + 0,
             'lockerPickupDays' => Setting::get('locker_pickup_days'),
             'expiryReminderEnabled' => (bool) Setting::get('expiry_reminder_enabled'),
-            'profiles' => \App\Models\PermissionProfile::orderBy('id')->get(),
+            'profiles' => \App\Models\PermissionProfile::ordered(),
             'newsMinDollars' => (int) Setting::get('news_min_cents') / 100,
         ]);
     }
