@@ -12,6 +12,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DispatchController;
 use App\Http\Controllers\DrawController;
 use App\Http\Controllers\FormController;
+use App\Http\Controllers\FormReportController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PickUpController;
 use App\Http\Controllers\ScopeController;
@@ -49,6 +50,10 @@ Route::middleware('auth')->group(function () {
         Route::delete('/dispatch/calls/{call}', [DispatchController::class, 'destroy'])->name('dispatch.destroy');
     });
     Route::get('/scope', [ScopeController::class, 'index'])->middleware('permission:scope_check')->name('scope');
+    Route::middleware('permission:form_reports')->group(function () {
+        Route::get('/forms/reports', [FormReportController::class, 'index'])->name('forms.reports');
+        Route::get('/forms/reports.csv', [FormReportController::class, 'csv'])->name('forms.reports.csv');
+    });
     Route::middleware('permission:forms')->group(function () {
         Route::get('/forms', [FormController::class, 'index'])->name('forms');
         Route::get('/forms/{form}', [FormController::class, 'show'])->name('forms.show');

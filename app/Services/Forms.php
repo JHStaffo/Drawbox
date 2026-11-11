@@ -65,14 +65,19 @@ class Forms
     /** Saves a checked submission and tries to post it right away. */
     public function submit(Form $form, array $input, User $user): FormSubmission
     {
-        $answers = $form->fields->map(fn (FormField $f) => [
+        $answers = $form->fields->map(fn (FormField $f) => array_filter([
             'label' => $f->label,
             'type' => $f->type,
             'value' => $this->display($f, $input[$f->inputName()] ?? null, $input[$f->otherInputName()] ?? null),
-        ])->values()->all();
+            // Team Member answers keep who it was, for reports.
+            'user_id' => $f->type === 'team_member' && ! empty($input[$f->inputName()]) ? (int) $input[$f->inputName()] : null,
+        ], fn ($v, $k) => $k !== 'user_id' || $v !== null, ARRAY_FILTER_USE_BOTH))->values()->all();
+        $about = collect($answers)->firstWhere('type', 'team_member');
 
         $submission = $form->submissions()->create([
             'user_id' => $user->id,
+            // Who it's about: the Team Member answer, or the sender if the form doesn't ask.
+            'subject_user_id' => $about ? ($about['user_id'] ?? null) : $user->id,
             'form_name' => $form->name,
             'answers' => $answers,
             'slack_template' => $form->slack_template,

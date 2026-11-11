@@ -32,6 +32,7 @@ class PermissionProfile extends Model
             'credit_calls' => 'Credit a call',
             'scope_check' => 'Scope Check',
             'forms' => 'Forms (fill out and send)',
+            'form_reports' => 'Form reports (every submission, totals and CSV)',
         ],
         'Admin' => [
             'team_members' => 'Team Members',
