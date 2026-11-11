@@ -253,4 +253,37 @@ class FormsTest extends TestCase
         $this->assertSame('off', FormSubmission::first()->slack_status);
         Http::assertNothingSent();
     }
+
+    public function test_a_form_can_have_its_own_slack_message(): void
+    {
+        $this->fakeSlack();
+        $this->connect();
+        $admin = User::factory()->role('admin')->create();
+        $dana = $this->dispatcherWithForms();
+        $form = $this->form();
+        [$facility, $level, $needs, $notes] = $form->fields->all();
+
+        $template = ":rotating_light: *\$answer2 call* at \$answer1 <!here>\nNeeds: \$answer3\nNotes: \$answer4\nLogged by \$sender for \$form (\$answer9)";
+        $this->actingAs($admin)->put("/admin/forms/{$form->id}", ['name' => $form->name, 'slack_channel' => 'C111', 'slack_template' => $template, 'active' => '1'])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->get("/admin/forms/{$form->id}")->assertSee('$answer2')->assertSee('Level');
+
+        $this->actingAs($dana)->post("/forms/{$form->id}", ["f{$facility->id}" => 'Sentara <Leigh>', "f{$level->id}" => 'ALS', "f{$needs->id}" => ['Oxygen']]);
+        $s = FormSubmission::first();
+        $this->assertSame('sent', $s->slack_status);
+        $this->assertSame($template, $s->slack_template);
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), 'chat.postMessage')
+            && $r['blocks'][0]['text']['text'] === ":rotating_light: *ALS call* at Sentara &lt;Leigh&gt; <!here>\nNeeds: Oxygen\nNotes: \nLogged by Dana Dispatch for Facility Call Log (\$answer9)"
+            && count($r['blocks']) === 1);
+
+        // Moving a question keeps the numbers on the same answers; removing one drops it.
+        $this->actingAs($admin)->post("/admin/form-fields/{$level->id}/move", ['direction' => 'up']);
+        $this->assertStringStartsWith(':rotating_light: *$answer1 call* at $answer2', $form->fresh()->slack_template);
+        $this->actingAs($admin)->delete("/admin/form-fields/{$needs->id}");
+        $this->assertStringContainsString("Needs: \nNotes: \$answer3", $form->fresh()->slack_template);
+        $this->assertStringContainsString('Slack message from', \App\Models\AuditLog::latest('id')->value('description'));
+
+        // The test button fills in each question's name.
+        $this->actingAs($admin)->post("/admin/forms/{$form->id}/test")->assertSessionHas('status');
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), 'chat.postMessage') && str_starts_with($r['blocks'][0]['text']['text'], "*TEST*\n:rotating_light: *[Level] call* at [Facility]"));
+    }
 }

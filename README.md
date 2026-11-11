@@ -23,7 +23,7 @@ Each team member has one permission profile, and admins edit profiles under Admi
 
 ## Forms and Slack
 
-Dispatch forms replace Google Forms, the Google Sheet and Zapier. An admin builds each form under Admin > Forms (questions, choices, required or not) and picks the Slack channel it posts to. When someone sends a form, Pulse saves it, then posts it to that channel right away. If Slack doesn't take it, the submission stays saved and `pulse:slack-retry` (every five minutes, from `schedule:run`) tries again up to five times; an admin can also press Post now under Admin > Forms > All submissions.
+Dispatch forms replace Google Forms, the Google Sheet and Zapier. An admin builds each form under Admin > Forms (questions, choices, required or not) and picks the Slack channel it posts to. A form can also have its own Slack message, typed freely with `$answer1`, `$answer2` ... (and `$sender`, `$form`, `$date`, `$time`) filled in from the answers. When someone sends a form, Pulse saves it, then posts it to that channel right away. If Slack doesn't take it, the submission stays saved and `pulse:slack-retry` (every five minutes, from `schedule:run`) tries again up to five times; an admin can also press Post now under Admin > Forms > All submissions.
 
 Slack is connected once, under Admin > Slack, with a Slack app's bot token (xoxb-...). The page has the app manifest and step-by-step setup. The token is stored encrypted with `APP_KEY`, so if the app key ever changes the token has to be pasted again. Public channels work straight away; private channels need `/invite @Fast Track Pulse` once. The server needs outbound HTTPS to slack.com.
 

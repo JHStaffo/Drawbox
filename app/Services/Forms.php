@@ -63,6 +63,7 @@ class Forms
             'user_id' => $user->id,
             'form_name' => $form->name,
             'answers' => $answers,
+            'slack_template' => $form->slack_template,
             'slack_status' => $form->slack_channel ? 'pending' : 'off',
             'slack_channel' => $form->slack_channel,
         ]);
@@ -122,7 +123,8 @@ class Forms
         }
         $sample = new FormSubmission([
             'form_name' => $form->name,
-            'answers' => $form->fields->map(fn (FormField $f) => ['label' => $f->label, 'type' => $f->type, 'value' => '(answer)'])->all(),
+            'answers' => $form->fields->map(fn (FormField $f) => ['label' => $f->label, 'type' => $f->type, 'value' => "[{$f->label}]"])->all(),
+            'slack_template' => $form->slack_template,
         ]);
         $sample->setRelation('user', $user);
         $sample->created_at = now();
@@ -147,14 +149,53 @@ class Forms
         };
     }
 
+    /** The tokens a Slack message can use, besides $answer1, $answer2 ... */
+    public const TOKENS = [
+        '$sender' => 'who sent it (the signed-in team member)',
+        '$form' => 'the form\'s name',
+        '$date' => 'the date it was sent',
+        '$time' => 'the time it was sent',
+    ];
+
+    /**
+     * Fills in a form's own Slack message: $answer1 is the first question's
+     * answer, and so on, plus the tokens above. Answers are escaped for Slack;
+     * the typed message isn't, so Slack formatting like *bold* and <!here> works.
+     */
+    public function render(string $template, FormSubmission $s): string
+    {
+        $answers = array_values($s->answers ?? []);
+        $when = ($s->created_at ?? now())->timezone(config('app.timezone'));
+        $template = str_replace(["\r\n", "\r"], "\n", $template);
+
+        return preg_replace_callback('/\$(?:answer(\d+)|(sender|form|date|time))\b/', function ($m) use ($answers, $s, $when) {
+            if (($m[1] ?? '') !== '') {
+                $a = $answers[(int) $m[1] - 1] ?? null;
+
+                return $a === null ? $m[0] : Slack::escape((string) ($a['value'] ?? ''));
+            }
+
+            return match ($m[2]) {
+                'sender' => Slack::escape($s->user?->name ?? 'someone'),
+                'form' => Slack::escape($s->form_name),
+                'date' => $when->format('M j, Y'),
+                'time' => $when->format('g:i A'),
+            };
+        }, $template);
+    }
+
     private function fallbackText(FormSubmission $s): string
     {
         return $s->form_name.' from '.($s->user?->name ?? 'someone');
     }
 
-    /** Slack Block Kit: the form name as a header, the answers, then who sent it and when. */
+    /** The form's own message when it has one; otherwise the form name as a header, the answers, then who sent it and when. */
     private function blocks(FormSubmission $s, bool $test = false): array
     {
+        if (trim((string) $s->slack_template) !== '') {
+            return $this->customBlocks($s, $test);
+        }
+
         $blocks = [[
             'type' => 'header',
             'text' => ['type' => 'plain_text', 'text' => Str::limit(($test ? 'TEST: ' : '').$s->form_name, 140), 'emoji' => true],
@@ -182,6 +223,30 @@ class Forms
             'type' => 'mrkdwn',
             'text' => Slack::escape(($test ? 'Test sent by ' : 'Sent by ').($s->user?->name ?? 'someone')." from Fast Track Pulse · {$when}"),
         ]]];
+
+        return array_slice($blocks, 0, 50);
+    }
+
+    /** The typed message, split into sections under Slack's 3000-character limit. */
+    private function customBlocks(FormSubmission $s, bool $test): array
+    {
+        $text = trim($this->render($s->slack_template, $s));
+        if ($test) {
+            $text = "*TEST*\n".$text;
+        }
+        $blocks = [];
+        $chunk = '';
+        foreach (explode("\n", $text) as $line) {
+            $line = Str::limit($line, 2900);
+            if ($chunk !== '' && strlen($chunk) + strlen($line) + 1 > 2900) {
+                $blocks[] = ['type' => 'section', 'text' => ['type' => 'mrkdwn', 'text' => rtrim($chunk)]];
+                $chunk = '';
+            }
+            $chunk .= $line."\n";
+        }
+        if (trim($chunk) !== '') {
+            $blocks[] = ['type' => 'section', 'text' => ['type' => 'mrkdwn', 'text' => rtrim($chunk)]];
+        }
 
         return array_slice($blocks, 0, 50);
     }
