@@ -2,7 +2,7 @@
 
 @section('band')
     <h1>Audit log</h1>
-    <p>Every sign-in, failed sign-in and change made in Draw Box, newest first.</p>
+    <p>Every sign-in, failed sign-in and change made in Fast Track Pulse, newest first.</p>
 @endsection
 
 @section('content')

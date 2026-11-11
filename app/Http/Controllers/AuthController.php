@@ -86,11 +86,12 @@ class AuthController extends Controller
         }
 
         $login->update(['used_at' => now()]);
-        Auth::login($user, remember: true);
+        Auth::login($user);
         $user->forceFill(['last_login_at' => now()])->save();
         AuditLog::record('login', 'Signed in.', $user);
         $request->session()->forget('login_email');
         $request->session()->regenerate();
+        $request->session()->put('signed_in_at', now()->timestamp);
 
         return redirect()->intended(route('home'));
     }
