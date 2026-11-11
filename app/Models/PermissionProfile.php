@@ -31,12 +31,14 @@ class PermissionProfile extends Model
         ],
         'Dispatch' => [
             'scope_check' => 'Scope Check',
+            'forms' => 'Forms (fill out and send)',
         ],
         'Admin' => [
             'team_members' => 'Team Members',
             'settings' => 'Settings',
             'audit_log' => 'Audit log',
             'profiles' => 'Permission Profiles',
+            'manage_forms' => 'Forms and Slack (build forms, see every submission, connect Slack)',
         ],
     ];
 

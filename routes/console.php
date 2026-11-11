@@ -39,6 +39,15 @@ Artisan::command('drawbox:make-admin {email} {name}', function (string $email, s
     $this->info("{$user->name} <{$user->email}> is an admin.");
 })->purpose('Create or promote an admin account');
 
+Artisan::command('pulse:slack-retry', function (\App\Services\Forms $forms) {
+    $count = $forms->retryFailed();
+    if ($count) {
+        AuditLog::record('system.slack-retry', "Posted {$count} form submission(s) to Slack that didn't go through the first time.");
+    }
+    $this->info("Posted {$count} submission(s).");
+})->purpose('Try again to post form submissions Slack did not take');
+
 Schedule::command('drawbox:expire')->everyFifteenMinutes();
 Schedule::command('drawbox:notify')->everyTwoHours();
 Schedule::command('drawbox:remind')->hourly();
+Schedule::command('pulse:slack-retry')->everyFiveMinutes();

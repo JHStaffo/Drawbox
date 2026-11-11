@@ -24,6 +24,8 @@ class Setting extends Model
         'news_hide_admin' => '0',
         'news_min_cents' => '0',
         'scope_base_crew' => '2',
+        // Encrypted Slack bot token (see App\Services\Slack). Empty means not connected.
+        'slack_bot_token' => '',
         'scope_scene_types' => "House\nApartment with elevator\nApartment without elevator\nNursing facility\nAssisted living\nHospital\nDialysis center\nDoctor's office",
         'scope_destination_types' => "Hospital\nNursing facility\nAssisted living\nHouse\nApartment with elevator\nApartment without elevator\nDialysis center\nDoctor's office",
     ];

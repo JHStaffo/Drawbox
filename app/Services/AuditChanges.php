@@ -32,6 +32,8 @@ class AuditChanges
             'prize_name' => 'prize', 'brand' => 'brand', 'value_cents' => 'value', 'pto_hours' => 'PTO hours',
             'taxable' => 'taxable', 'cash_bonus' => 'cash bonus',
         ],
+        \App\Models\Form::class => ['name' => 'name', 'description' => 'description', 'slack_channel' => 'Slack channel', 'active' => 'on'],
+        \App\Models\FormField::class => ['label' => 'question', 'type' => 'type', 'options' => 'choices', 'help' => 'help text', 'required' => 'required'],
         ScopeItem::class => ['name' => 'name', 'level' => 'level of care', 'note' => 'message'],
         LiftRule::class => [
             'scene_type' => 'scene', 'destination_type' => 'destination', 'min_weight_lbs' => 'min weight',
@@ -115,6 +117,12 @@ class AuditChanges
 
     private function setting(Setting $setting, ?string $old): void
     {
+        // The Slack token is a secret: say it changed, never what it was.
+        if ($setting->key === 'slack_bot_token') {
+            $this->add('Settings', 'Slack bot token', $old ? 'set' : 'none', $setting->value ? ($old ? 'replaced' : 'set') : 'none');
+
+            return;
+        }
         $label = self::SETTINGS[$setting->key] ?? $setting->key;
         $show = fn ($v) => match (true) {
             $setting->key === 'expiry_reminder_enabled', str_starts_with($setting->key, 'news_hide_') => $v ? 'on' : 'off',
@@ -142,6 +150,8 @@ class AuditChanges
             $model instanceof ScopeItem => $model->getOriginal('name') ?? $model->name,
             $model instanceof LiftRule => "Lift rule #{$model->id}",
             $model instanceof PermissionProfile => ($model->getOriginal('name') ?? $model->name).' profile',
+            $model instanceof \App\Models\Form => ($model->getOriginal('name') ?? $model->name).' form',
+            $model instanceof \App\Models\FormField => '"'.($model->getOriginal('label') ?? $model->label).'" on the '.($model->form?->name ?? 'form').' form',
         };
     }
 
@@ -163,7 +173,7 @@ class AuditChanges
             $field === 'permission_profile_id' => PermissionProfile::find($value)?->label() ?? "#{$value}",
             $field === 'parent_id' => PermissionProfile::find($value)?->name ?? "#{$value}",
             $field === 'value_cents' => money((int) $value),
-            is_bool($value) || in_array($field, ['active', 'taxable', 'diminishing', 'cash_bonus_allowed', 'cash_bonus', 'is_default', 'hide_winners'], true) => $value ? 'yes' : 'no',
+            is_bool($value) || in_array($field, ['active', 'taxable', 'diminishing', 'cash_bonus_allowed', 'cash_bonus', 'is_default', 'hide_winners', 'required'], true) => $value ? 'yes' : 'no',
             $field === 'pto_hours' => (string) ($value + 0),
             $field === 'level' => ScopeItem::LEVELS[$value] ?? (string) $value,
             default => (string) $value,

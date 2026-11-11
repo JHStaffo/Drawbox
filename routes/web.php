@@ -2,13 +2,16 @@
 
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\DrawController as AdminDrawController;
+use App\Http\Controllers\Admin\FormAdminController;
 use App\Http\Controllers\Admin\LockerController;
 use App\Http\Controllers\Admin\ScopeRuleController;
+use App\Http\Controllers\Admin\SlackController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DispatchController;
 use App\Http\Controllers\DrawController;
+use App\Http\Controllers\FormController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PickUpController;
 use App\Http\Controllers\ScopeController;
@@ -46,6 +49,11 @@ Route::middleware('auth')->group(function () {
         Route::delete('/dispatch/calls/{call}', [DispatchController::class, 'destroy'])->name('dispatch.destroy');
     });
     Route::get('/scope', [ScopeController::class, 'index'])->middleware('permission:scope_check')->name('scope');
+    Route::middleware('permission:forms')->group(function () {
+        Route::get('/forms', [FormController::class, 'index'])->name('forms');
+        Route::get('/forms/{form}', [FormController::class, 'show'])->name('forms.show');
+        Route::post('/forms/{form}', [FormController::class, 'store'])->middleware('throttle:30,1')->name('forms.store');
+    });
 
     // Draw Box pages keep their /supervisor addresses.
     Route::prefix('supervisor')->name('supervisor.')->group(function () {
@@ -113,6 +121,24 @@ Route::middleware('auth')->group(function () {
             Route::get('/draws/{draw}/edit', [AdminDrawController::class, 'edit'])->name('draws.edit');
             Route::put('/draws/{draw}', [AdminDrawController::class, 'update'])->name('draws.update');
             Route::delete('/draws/{draw}', [AdminDrawController::class, 'destroy'])->name('draws.destroy');
+        });
+        Route::middleware('permission:manage_forms')->group(function () {
+            Route::get('/forms', [FormAdminController::class, 'index'])->name('forms');
+            Route::post('/forms', [FormAdminController::class, 'store'])->name('forms.store');
+            Route::get('/forms/submissions', [FormAdminController::class, 'submissions'])->name('forms.submissions');
+            Route::post('/forms/submissions/{submission}/resend', [FormAdminController::class, 'resend'])->name('forms.resend');
+            Route::get('/forms/{form}', [FormAdminController::class, 'edit'])->name('forms.edit');
+            Route::put('/forms/{form}', [FormAdminController::class, 'update'])->name('forms.update');
+            Route::delete('/forms/{form}', [FormAdminController::class, 'destroy'])->name('forms.destroy');
+            Route::post('/forms/{form}/test', [FormAdminController::class, 'test'])->name('forms.test');
+            Route::post('/forms/{form}/fields', [FormAdminController::class, 'storeField'])->name('forms.fields.store');
+            Route::put('/form-fields/{field}', [FormAdminController::class, 'updateField'])->name('forms.fields.update');
+            Route::delete('/form-fields/{field}', [FormAdminController::class, 'destroyField'])->name('forms.fields.destroy');
+            Route::post('/form-fields/{field}/move', [FormAdminController::class, 'moveField'])->name('forms.fields.move');
+            Route::get('/slack', [SlackController::class, 'edit'])->name('slack');
+            Route::put('/slack', [SlackController::class, 'update'])->name('slack.update');
+            Route::delete('/slack', [SlackController::class, 'destroy'])->name('slack.destroy');
+            Route::post('/slack/test', [SlackController::class, 'test'])->name('slack.test');
         });
         Route::middleware('permission:profiles')->group(function () {
             Route::get('/profiles', [ProfileController::class, 'index'])->name('profiles');
