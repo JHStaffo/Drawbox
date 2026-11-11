@@ -22,13 +22,14 @@ class Forms
         foreach ($form->fields as $field) {
             $name = $field->inputName();
             $base = [$field->required ? 'required' : 'nullable'];
+            $choices = $field->hasOther() ? [...$field->choices(), FormField::OTHER] : $field->choices();
             $rules[$name] = match ($field->type) {
                 'textarea' => [...$base, 'string', 'max:5000'],
                 'number' => [...$base, 'numeric'],
                 'date' => [...$base, 'date_format:Y-m-d'],
                 'time' => [...$base, 'date_format:H:i'],
                 'datetime' => [...$base, 'date_format:Y-m-d\TH:i'],
-                'select', 'radio' => [...$base, Rule::in($field->choices())],
+                'select', 'radio' => [...$base, Rule::in($choices)],
                 'checkboxes' => [...$base, 'array'],
                 'yesno' => [...$base, Rule::in(['Yes', 'No'])],
                 'team_member' => [...$base, 'integer', Rule::exists('users', 'id')->where('active', true)],
@@ -37,7 +38,14 @@ class Forms
                 default => [...$base, 'string', 'max:1000'],
             };
             if ($field->type === 'checkboxes') {
-                $rules[$name.'.*'] = [Rule::in($field->choices())];
+                $rules[$name.'.*'] = [Rule::in($choices)];
+            }
+            if ($field->hasOther()) {
+                // Picking Other means typing something in its box.
+                $rules[$field->otherInputName()] = [
+                    Rule::requiredIf(fn () => in_array(FormField::OTHER, (array) request()->input($name, []), true)),
+                    'nullable', 'string', 'max:500',
+                ];
             }
         }
 
@@ -47,7 +55,11 @@ class Forms
     /** Friendly names for the error messages ("The Patient name field is required."). */
     public function attributes(Form $form): array
     {
-        return $form->fields->mapWithKeys(fn (FormField $f) => [$f->inputName() => $f->label, $f->inputName().'.*' => $f->label])->all();
+        return $form->fields->mapWithKeys(fn (FormField $f) => [
+            $f->inputName() => $f->label,
+            $f->inputName().'.*' => $f->label,
+            $f->otherInputName() => "{$f->label} (Other)",
+        ])->all();
     }
 
     /** Saves a checked submission and tries to post it right away. */
@@ -56,7 +68,7 @@ class Forms
         $answers = $form->fields->map(fn (FormField $f) => [
             'label' => $f->label,
             'type' => $f->type,
-            'value' => $this->display($f, $input[$f->inputName()] ?? null),
+            'value' => $this->display($f, $input[$f->inputName()] ?? null, $input[$f->otherInputName()] ?? null),
         ])->values()->all();
 
         $submission = $form->submissions()->create([
@@ -133,10 +145,16 @@ class Forms
     }
 
     /** The answer as text: checkbox picks joined, team members by name, blanks as null. */
-    private function display(FormField $field, mixed $value): ?string
+    private function display(FormField $field, mixed $value, ?string $other = null): ?string
     {
         if ($value === null || $value === '' || $value === []) {
             return null;
+        }
+        // "Other" is replaced by what was typed in its box.
+        if ($field->hasOther()) {
+            $value = is_array($value)
+                ? array_map(fn ($v) => $v === FormField::OTHER ? trim((string) $other) : $v, $value)
+                : ($value === FormField::OTHER ? trim((string) $other) : $value);
         }
 
         return match ($field->type) {

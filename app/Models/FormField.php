@@ -31,7 +31,7 @@ class FormField extends Model
 
     protected function casts(): array
     {
-        return ['required' => 'boolean'];
+        return ['required' => 'boolean', 'allow_other' => 'boolean'];
     }
 
     public function form(): BelongsTo
@@ -53,6 +53,19 @@ class FormField extends Model
     public function needsChoices(): bool
     {
         return in_array($this->type, self::WITH_OPTIONS, true);
+    }
+
+    /** The value the "Other:" choice sends; the typed answer comes in otherInputName(). */
+    public const OTHER = '__other';
+
+    public function hasOther(): bool
+    {
+        return $this->allow_other && $this->needsChoices();
+    }
+
+    public function otherInputName(): string
+    {
+        return $this->inputName().'_other';
     }
 
     /** The input name on the fill-out page. */
