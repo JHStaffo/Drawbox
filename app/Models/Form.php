@@ -25,6 +25,26 @@ class Form extends Model
         return $this->hasMany(FormSubmission::class);
     }
 
+    /**
+     * Keeps $answer numbers in the Slack message pointing at the same
+     * questions after they're reordered or one is removed.
+     *
+     * @param  array<int, int|null>  $map  old number => new number (null: removed)
+     */
+    public function renumberTemplate(array $map): void
+    {
+        if (! $this->slack_template) {
+            return;
+        }
+        $this->update(['slack_template' => preg_replace_callback('/\$answer(\d+)\b/', function ($m) use ($map) {
+            if (! array_key_exists((int) $m[1], $map)) {
+                return $m[0];
+            }
+
+            return $map[(int) $m[1]] === null ? '' : '$answer'.$map[(int) $m[1]];
+        }, $this->slack_template)]);
+    }
+
     /** "#dispatch-log", or the channel ID if the name wasn't known when it was picked. */
     public function channelLabel(): ?string
     {

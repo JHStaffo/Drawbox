@@ -32,7 +32,7 @@ class AuditChanges
             'prize_name' => 'prize', 'brand' => 'brand', 'value_cents' => 'value', 'pto_hours' => 'PTO hours',
             'taxable' => 'taxable', 'cash_bonus' => 'cash bonus',
         ],
-        \App\Models\Form::class => ['name' => 'name', 'description' => 'description', 'slack_channel' => 'Slack channel', 'active' => 'on'],
+        \App\Models\Form::class => ['name' => 'name', 'description' => 'description', 'slack_channel' => 'Slack channel', 'slack_template' => 'Slack message', 'active' => 'on'],
         \App\Models\FormField::class => ['label' => 'question', 'type' => 'type', 'options' => 'choices', 'help' => 'help text', 'required' => 'required'],
         ScopeItem::class => ['name' => 'name', 'level' => 'level of care', 'note' => 'message'],
         LiftRule::class => [

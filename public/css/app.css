@@ -269,3 +269,7 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .answers dd { margin: 0; white-space: pre-line; }
 .steps li { margin-bottom: 6px; }
 .manifest { background: var(--bg); border-radius: 10px; padding: 12px; font-size: .85rem; overflow-x: auto; }
+.token-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.token { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 4px 10px; font: inherit; font-size: .85rem; cursor: pointer; color: var(--ink); }
+.token:hover { border-color: var(--teal); }
+.token code { color: var(--teal); font-weight: 600; margin-right: 4px; }

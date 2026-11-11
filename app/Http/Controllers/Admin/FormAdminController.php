@@ -48,6 +48,7 @@ class FormAdminController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:150',
             'description' => 'nullable|string|max:2000',
+            'slack_template' => 'nullable|string|max:10000',
             'slack_channel' => ['nullable', 'string', 'max:50', 'regex:/^[A-Z0-9]+$/'],
             'active' => 'boolean',
         ], ['slack_channel.regex' => 'A Slack channel ID is letters and numbers, like C0123ABCD. It\'s at the bottom of the channel\'s details in Slack.']);
@@ -56,6 +57,7 @@ class FormAdminController extends Controller
         $form->update([
             'name' => trim($data['name']),
             'description' => $data['description'] ?? null,
+            'slack_template' => trim((string) ($data['slack_template'] ?? '')) ?: null,
             'slack_channel' => $channel,
             'slack_channel_name' => $channel ? ($slack->channels()[$channel] ?? ($channel === $form->slack_channel ? $form->slack_channel_name : null)) : null,
             'active' => $request->boolean('active'),
@@ -101,7 +103,12 @@ class FormAdminController extends Controller
 
     public function destroyField(FormField $field)
     {
+        $form = $field->form;
+        $ids = $form->fields()->pluck('id')->values();
+        $removed = $ids->search($field->id);
         $field->delete();
+        // $answer numbers after the removed question move up one; the removed one is dropped from the message.
+        $form->renumberTemplate($ids->keys()->mapWithKeys(fn ($i) => [$i + 1 => $i === $removed ? null : ($i > $removed ? $i : $i + 1)])->all());
 
         return back()->with('status', "Removed \"{$field->label}\". Past submissions keep their answers to it.");
     }
@@ -120,6 +127,7 @@ class FormAdminController extends Controller
             foreach ($order as $pos => $f) {
                 $f->updateQuietly(['position' => $pos + 1]);
             }
+            $field->form->renumberTemplate([$i + 1 => $j + 1, $j + 1 => $i + 1]);
         }
         audit_note("Moved \"{$field->label}\" {$direction} on the {$field->form->name} form.");
 

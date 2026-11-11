@@ -5,6 +5,21 @@
     <p><a href="{{ route('admin.forms') }}" style="color:#fff">← All forms</a> · <a href="{{ route('admin.forms.submissions', ['form' => $form->id]) }}" style="color:#fff">Submissions</a>@if ($form->active) · <a href="{{ route('forms.show', $form) }}" style="color:#fff">Open the form</a>@endif</p>
 @endsection
 
+@push('scripts')
+<script>
+// Clicking a token adds it to the Slack message where the cursor is.
+document.querySelectorAll('.token').forEach(function (b) {
+    b.addEventListener('click', function () {
+        const box = document.getElementById('slack_template');
+        const start = box.selectionStart ?? box.value.length, end = box.selectionEnd ?? box.value.length;
+        box.value = box.value.slice(0, start) + b.dataset.token + box.value.slice(end);
+        box.focus();
+        box.selectionStart = box.selectionEnd = start + b.dataset.token.length;
+    });
+});
+</script>
+@endpush
+
 @section('content')
 @php($choiceTypes = \App\Models\FormField::WITH_OPTIONS)
 <div class="stack">
@@ -31,6 +46,20 @@
             @endif
         </div>
         <div class="field">
+            <label for="slack_template">Slack message (optional)</label>
+            <textarea id="slack_template" name="slack_template" rows="6" placeholder="Leave blank for the standard message: the form name, each question and answer, and who sent it.">{{ old('slack_template', $form->slack_template) }}</textarea>
+            <div class="hint">Type the message the way it should look in Slack. These fill in from the answers (click one to add it):</div>
+            <div class="token-list">
+                @foreach ($form->fields as $field)
+                    <button type="button" class="token" data-token="$answer{{ $loop->iteration }}"><code>$answer{{ $loop->iteration }}</code> {{ $field->label }}</button>
+                @endforeach
+                @foreach (\App\Services\Forms::TOKENS as $token => $what)
+                    <button type="button" class="token" data-token="{{ $token }}"><code>{{ $token }}</code> {{ $what }}</button>
+                @endforeach
+            </div>
+            <div class="hint">Slack formatting works: *bold*, _italic_, ~strike~, &gt; quote, :emoji: and &lt;!here&gt;. Moving or removing a question keeps the numbers pointing at the right answers.</div>
+        </div>
+        <div class="field">
             <input type="hidden" name="active" value="0">
             <label class="check"><input type="checkbox" name="active" value="1" @checked(old('active', $form->active))> On (team members with Forms access can fill it out)</label>
         </div>
@@ -42,13 +71,14 @@
         <p class="hint">Choices go one per line, for dropdown, multiple choice and checkbox questions. Changing or removing a question doesn't change past submissions.</p>
         @if ($form->fields->isNotEmpty())
             <div class="table-wrap"><table class="field-table">
-                <tr><th></th><th>Question</th><th>Type</th><th>Choices</th><th>Help text</th><th>Required</th><th></th></tr>
+                <tr><th></th><th>#</th><th>Question</th><th>Type</th><th>Choices</th><th>Help text</th><th>Required</th><th></th></tr>
                 @foreach ($form->fields as $field)
                     <tr>
                         <td style="white-space:nowrap">
                             <form method="post" action="{{ route('admin.forms.fields.move', $field) }}" style="display:inline">@csrf<input type="hidden" name="direction" value="up"><button class="btn btn-small btn-outline" type="submit" aria-label="Move up" @disabled($loop->first)>↑</button></form>
                             <form method="post" action="{{ route('admin.forms.fields.move', $field) }}" style="display:inline">@csrf<input type="hidden" name="direction" value="down"><button class="btn btn-small btn-outline" type="submit" aria-label="Move down" @disabled($loop->last)>↓</button></form>
                         </td>
+                        <td><code>$answer{{ $loop->iteration }}</code></td>
                         <td><input form="ff{{ $field->id }}" type="text" name="label" value="{{ $field->label }}" required aria-label="Question"></td>
                         <td><select form="ff{{ $field->id }}" name="type" aria-label="Type">@foreach ($types as $k => $l)<option value="{{ $k }}" @selected($field->type === $k)>{{ $l }}</option>@endforeach</select></td>
                         <td><textarea form="ff{{ $field->id }}" name="options" rows="{{ max(1, min(5, count($field->choices()))) }}" aria-label="Choices" placeholder="{{ in_array($field->type, $choiceTypes, true) ? 'One per line' : 'Not needed' }}">{{ $field->options }}</textarea></td>
