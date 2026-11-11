@@ -17,14 +17,9 @@ Fast Track EMS's draw box, online. Dispatch credits a crew for a solicited call,
 - Draws happen on the server, are final, and are logged in the inventory change log.
 - A prize moves from **won** to **received** when a supervisor marks it handed out. Tax totals count prizes by the date they were received, at the value they had when drawn.
 
-## Roles
+## Permission profiles
 
-| Role | Can |
-|---|---|
-| employee | Draw, pick a gift card brand, see their own prizes |
-| dispatcher | Everything an employee can, plus the call credit form |
-| supervisor | Everything a dispatcher can, plus the dashboard: marking prizes received, dispensing to lockers and checking overdue lockers |
-| admin | Everything a supervisor can, plus reports, inventory, settings, the locker map, managing the team member roster and the audit log of every sign-in and change |
+Each team member has one permission profile, and admins edit profiles under Admin > Permission Profiles. Everyone can draw, pick a gift card brand and see their own prizes. A profile adds any of: Credit a call, Dashboard, Reports, Inventory, Locker map, Change or remove won prizes, Scope Check, Team Members, Settings, Audit log and Permission Profiles. The starting profiles are Team Member, Dispatcher, Supervisor and Admin, matching the old fixed roles. `drawbox:make-admin` puts someone on the Admin profile and gives that profile every permission.
 
 ## Run locally
 

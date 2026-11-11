@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Draw;
 use App\Models\GiftCardStock;
 use App\Models\LiftRule;
+use App\Models\PermissionProfile;
 use App\Models\Prize;
 use App\Models\ScopeItem;
 use App\Models\Setting;
@@ -25,7 +26,8 @@ class AuditChanges
             'diminishing' => 'diminishing', 'cash_bonus_allowed' => 'cash bonus OK', 'taxable' => 'taxable', 'active' => 'shown',
         ],
         GiftCardStock::class => ['brand' => 'name', 'quantity' => 'on hand', 'active' => 'shown'],
-        User::class => ['name' => 'name', 'email' => 'email', 'employee_number' => 'team member #', 'role' => 'role', 'active' => 'active'],
+        User::class => ['name' => 'name', 'email' => 'email', 'employee_number' => 'team member #', 'permission_profile_id' => 'profile', 'active' => 'active'],
+        PermissionProfile::class => ['name' => 'name', 'permissions' => 'permissions', 'is_default' => 'new team members get it', 'hide_winners' => 'hidden from Recent Winners'],
         Draw::class => [
             'prize_name' => 'prize', 'brand' => 'brand', 'value_cents' => 'value', 'pto_hours' => 'PTO hours',
             'taxable' => 'taxable', 'cash_bonus' => 'cash bonus',
@@ -139,15 +141,28 @@ class AuditChanges
             $model instanceof Draw => ($model->user?->name ?? 'Team Member')."'s prize #{$model->id}",
             $model instanceof ScopeItem => $model->getOriginal('name') ?? $model->name,
             $model instanceof LiftRule => "Lift rule #{$model->id}",
+            $model instanceof PermissionProfile => ($model->getOriginal('name') ?? $model->name).' profile',
         };
+    }
+
+    /** A profile's permissions as their labels, or "none". */
+    private function permissions(mixed $value): string
+    {
+        $keys = is_string($value) ? (json_decode($value, true) ?? []) : ($value ?? []);
+        $labels = PermissionProfile::permissionLabels();
+        $names = collect($keys)->map(fn ($k) => preg_replace('/ \(.*\)$/', '', $labels[$k] ?? $k));
+
+        return $names->isEmpty() ? 'none' : '['.$names->implode(', ').']';
     }
 
     private function show(string $field, mixed $value): string
     {
         return match (true) {
+            $field === 'permissions' => $this->permissions($value),
             $value === null || $value === '' => 'none',
+            $field === 'permission_profile_id' => PermissionProfile::find($value)?->name ?? "#{$value}",
             $field === 'value_cents' => money((int) $value),
-            is_bool($value) || in_array($field, ['active', 'taxable', 'diminishing', 'cash_bonus_allowed', 'cash_bonus'], true) => $value ? 'yes' : 'no',
+            is_bool($value) || in_array($field, ['active', 'taxable', 'diminishing', 'cash_bonus_allowed', 'cash_bonus', 'is_default', 'hide_winners'], true) => $value ? 'yes' : 'no',
             $field === 'pto_hours' => (string) ($value + 0),
             $field === 'level' => ScopeItem::LEVELS[$value] ?? (string) $value,
             default => (string) $value,

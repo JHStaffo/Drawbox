@@ -77,7 +77,7 @@
             <p class="empty">No prizes match.</p>
         @else
             <div class="table-wrap"><table>
-                <tr><th>Drawn</th><th>Team Member</th><th>Prize</th><th class="num">Value</th><th>Status</th><th>Handed out by</th>@if (auth()->user()->hasRole('admin'))<th></th>@endif</tr>
+                <tr><th>Drawn</th><th>Team Member</th><th>Prize</th><th class="num">Value</th><th>Status</th><th>Handed out by</th>@if (auth()->user()->hasPermission('edit_won'))<th></th>@endif</tr>
                 @foreach ($draws as $d)
                     <tr>
                         <td>{{ $d->drawn_at->format('M j, Y') }}</td>
@@ -92,7 +92,7 @@
                             @else<span class="pill">Pending Dispensing</span>@endif
                         </td>
                         <td>{{ $d->awarder?->name }}</td>
-                        @if (auth()->user()->hasRole('admin'))
+                        @if (auth()->user()->hasPermission('edit_won'))
                             <td class="right"><div class="row-actions" style="justify-content:flex-end;flex-wrap:nowrap">@include('admin.partials.draw-actions', ['draw' => $d])</div></td>
                         @endif
                     </tr>

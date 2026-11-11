@@ -20,7 +20,7 @@ class DemoSeeder extends Seeder
         Notification::fake();
         $this->call(DatabaseSeeder::class);
 
-        $admin = User::create(['name' => 'Demo Admin', 'email' => 'admin@example.com', 'role' => 'admin']);
+        $admin = User::create(['name' => 'Demo Admin', 'email' => 'admin@example.com', 'permission_profile_id' => \App\Models\PermissionProfile::where('name', 'Admin')->value('id')]);
         $crew = collect(['Alex Rivera', 'Jordan Lee', 'Sam Patel', 'Taylor Brooks', 'Casey Nguyen', 'Morgan Diaz'])
             ->map(fn ($name) => User::create(['name' => $name, 'email' => strtolower(str_replace(' ', '.', $name)).'@example.com']));
 

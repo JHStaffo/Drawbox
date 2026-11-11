@@ -26,14 +26,14 @@ class HomeController extends Controller
         ]);
     }
 
-    /** Recent Winners, newest first, without the roles and small prizes Prize News settings hide. */
+    /** Recent Winners, newest first, without the profiles and small prizes Prize News settings hide. */
     private function recentWinners()
     {
-        $hidden = collect(['dispatcher', 'supervisor', 'admin'])->filter(fn ($r) => Setting::get("news_hide_{$r}"));
+        $hidden = \App\Models\PermissionProfile::where('hide_winners', true)->pluck('id');
 
         return Draw::with('user')
             ->where('value_cents', '>=', (int) Setting::get('news_min_cents'))
-            ->when($hidden->isNotEmpty(), fn ($q) => $q->whereHas('user', fn ($u) => $u->whereNotIn('role', $hidden)))
+            ->when($hidden->isNotEmpty(), fn ($q) => $q->whereHas('user', fn ($u) => $u->whereNotIn('permission_profile_id', $hidden)))
             ->latest('drawn_at')->latest('id')
             ->limit(15)
             ->get();

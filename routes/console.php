@@ -31,7 +31,10 @@ Artisan::command('drawbox:remind', function (Credits $credits) {
 })->purpose('Email team members whose draws expire within 24 hours');
 
 Artisan::command('drawbox:make-admin {email} {name}', function (string $email, string $name) {
-    $user = User::updateOrCreate(['email' => strtolower($email)], ['name' => $name, 'role' => 'admin', 'active' => true]);
+    // The Admin profile, recreated with every permission if it was renamed or deleted.
+    $profile = \App\Models\PermissionProfile::firstOrCreate(['name' => 'Admin'], ['permissions' => array_keys(\App\Models\PermissionProfile::permissionLabels())]);
+    $profile->update(['permissions' => array_keys(\App\Models\PermissionProfile::permissionLabels())]);
+    $user = User::updateOrCreate(['email' => strtolower($email)], ['name' => $name, 'permission_profile_id' => $profile->id, 'active' => true]);
     AuditLog::record('admin.make-admin', "{$user->name} was made an admin from the server command line.", $user);
     $this->info("{$user->name} <{$user->email}> is an admin.");
 })->purpose('Create or promote an admin account');

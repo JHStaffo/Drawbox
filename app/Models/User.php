@@ -6,30 +6,38 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'employee_number', 'role', 'active'])]
+#[Fillable(['name', 'email', 'employee_number', 'permission_profile_id', 'active'])]
 #[Hidden(['remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    public const ROLES = ['employee', 'dispatcher', 'supervisor', 'admin'];
-
-    public const ROLE_LABELS = ['employee' => 'Team Member', 'dispatcher' => 'Dispatcher', 'supervisor' => 'Supervisor', 'admin' => 'Admin'];
-
     protected function casts(): array
     {
         return ['active' => 'boolean', 'last_login_at' => 'datetime'];
     }
 
-    /** Roles rank in order, so a supervisor can do everything a dispatcher can. */
-    public function hasRole(string $role): bool
+    /** True when this person's permission profile includes the permission. */
+    public function hasPermission(string $permission): bool
     {
-        return array_search($this->role, self::ROLES, true) >= array_search($role, self::ROLES, true);
+        return (bool) $this->profile?->allows($permission);
+    }
+
+    /** True when they can open at least one page in the Admin menu. */
+    public function hasAnyPermission(string ...$permissions): bool
+    {
+        return collect($permissions)->contains(fn ($p) => $this->hasPermission($p));
+    }
+
+    public function profile(): BelongsTo
+    {
+        return $this->belongsTo(PermissionProfile::class, 'permission_profile_id');
     }
 
     /** Sort key for lists in last-name order: "Smith John" for "John Smith". */

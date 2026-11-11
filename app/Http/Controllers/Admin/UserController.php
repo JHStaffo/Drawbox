@@ -7,6 +7,7 @@ use App\Models\Call;
 use App\Models\Draw;
 use App\Models\InventoryLog;
 use App\Models\LockerAssignment;
+use App\Models\PermissionProfile;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ class UserController extends Controller
 {
     public function index()
     {
-        return view('admin.users', ['users' => User::all()->sortBy([fn ($a, $b) => $b->active <=> $a->active, fn ($a, $b) => $a->sortName() <=> $b->sortName()])->values()]);
+        return view('admin.users', ['profiles' => PermissionProfile::orderBy('id')->get(), 'users' => User::with('profile')->get()->sortBy([fn ($a, $b) => $b->active <=> $a->active, fn ($a, $b) => $a->sortName() <=> $b->sortName()])->values()]);
     }
 
     public function store(Request $request)
@@ -28,7 +29,7 @@ class UserController extends Controller
 
     /**
      * Add team members from a CSV with First Name, Last Name and Email
-     * columns. Everyone is added as a Team Member. Emails already on the
+     * columns. Everyone gets the default permission profile. Emails already on the
      * roster are skipped, so the same file can be uploaded twice safely.
      */
     public function import(Request $request)
@@ -57,6 +58,7 @@ class UserController extends Controller
         $added = 0;
         $skipped = 0;
         $problems = [];
+        $profileId = PermissionProfile::default()?->id;
         foreach (array_slice($rows, $start, null, true) as $i => $row) {
             if (count(array_filter($row, fn ($v) => trim($v) !== '')) === 0) {
                 continue; // blank line
@@ -73,7 +75,7 @@ class UserController extends Controller
 
                 continue;
             }
-            User::create(['name' => mb_substr($name, 0, 100), 'email' => $address, 'role' => 'employee', 'active' => true]);
+            User::create(['name' => mb_substr($name, 0, 100), 'email' => $address, 'permission_profile_id' => $profileId, 'active' => true]);
             $existing[$address] = true;
             $added++;
         }
@@ -92,8 +94,9 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $data = $this->validated($request, $user) + ['active' => $request->boolean('active')];
-        if ($user->is($request->user()) && ($data['role'] !== 'admin' || ! $data['active'])) {
-            return back()->with('error', "You can't remove your own admin access.");
+        $keepsAccess = PermissionProfile::find($data['permission_profile_id'])?->allows('team_members');
+        if ($user->is($request->user()) && (! $keepsAccess || ! $data['active'])) {
+            return back()->with('error', "You can't take away your own access to Team Members.");
         }
         $user->update($data);
 
@@ -136,7 +139,7 @@ class UserController extends Controller
             'name' => 'required|string|max:100',
             'email' => ['required', 'email', Rule::unique('users')->ignore($user)],
             'employee_number' => 'nullable|string|max:50',
-            'role' => ['required', Rule::in(User::ROLES)],
+            'permission_profile_id' => 'required|exists:permission_profiles,id',
         ]);
     }
 }

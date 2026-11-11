@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\DrawController as AdminDrawController;
 use App\Http\Controllers\Admin\LockerController;
 use App\Http\Controllers\Admin\ScopeRuleController;
+use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DispatchController;
@@ -38,24 +39,27 @@ Route::middleware('auth')->group(function () {
     Route::post('/draws/{draw}/cash-bonus', [DrawController::class, 'cashBonus'])->name('draws.cash-bonus');
     Route::post('/lockers/{assignment}/picked-up', [PickUpController::class, 'store'])->name('lockers.picked-up');
 
-    Route::middleware('role:dispatcher')->group(function () {
+    // Each group needs one permission from the person's permission profile.
+    Route::middleware('permission:credit_calls')->group(function () {
         Route::get('/dispatch', [DispatchController::class, 'create'])->name('dispatch.create');
         Route::post('/dispatch', [DispatchController::class, 'store'])->name('dispatch.store');
         Route::delete('/dispatch/calls/{call}', [DispatchController::class, 'destroy'])->name('dispatch.destroy');
-        Route::get('/scope', [ScopeController::class, 'index'])->name('scope');
     });
+    Route::get('/scope', [ScopeController::class, 'index'])->middleware('permission:scope_check')->name('scope');
 
-    Route::middleware('role:supervisor')->prefix('supervisor')->name('supervisor.')->group(function () {
-        Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-        Route::post('/draws/{draw}/award', [AwardController::class, 'store'])->name('award');
-        Route::post('/credits/{credit}/void', [AwardController::class, 'voidCredit'])->name('credits.void');
-        Route::get('/dispense/{user}', [DispenseController::class, 'create'])->name('dispense');
-        Route::post('/dispense/{user}', [DispenseController::class, 'store'])->name('dispense.store');
-        Route::post('/lockers/{assignment}/picked-up', [DispenseController::class, 'pickUp'])->name('lockers.picked-up');
-        Route::post('/lockers/{assignment}/forfeit', [DispenseController::class, 'forfeit'])->name('lockers.forfeit');
+    // Draw Box pages keep their /supervisor addresses.
+    Route::prefix('supervisor')->name('supervisor.')->group(function () {
+        Route::middleware('permission:dashboard')->group(function () {
+            Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+            Route::post('/draws/{draw}/award', [AwardController::class, 'store'])->name('award');
+            Route::post('/credits/{credit}/void', [AwardController::class, 'voidCredit'])->name('credits.void');
+            Route::get('/dispense/{user}', [DispenseController::class, 'create'])->name('dispense');
+            Route::post('/dispense/{user}', [DispenseController::class, 'store'])->name('dispense.store');
+            Route::post('/lockers/{assignment}/picked-up', [DispenseController::class, 'pickUp'])->name('lockers.picked-up');
+            Route::post('/lockers/{assignment}/forfeit', [DispenseController::class, 'forfeit'])->name('lockers.forfeit');
+        });
 
-        // Reports, inventory and settings are admin-only, though they keep their /supervisor addresses.
-        Route::middleware('role:admin')->group(function () {
+        Route::middleware('permission:reports')->group(function () {
             Route::get('/reports', [ReportController::class, 'index'])->name('reports');
             Route::get('/reports/won', [ReportController::class, 'won'])->name('reports.won');
             Route::get('/reports/won.csv', [ReportController::class, 'wonCsv'])->name('reports.won.csv');
@@ -63,7 +67,9 @@ Route::middleware('auth')->group(function () {
             Route::get('/reports/pto.csv', [ReportController::class, 'ptoCsv'])->name('reports.pto.csv');
             Route::get('/reports/prizes.csv', [ReportController::class, 'prizesCsv'])->name('reports.prizes');
             Route::get('/reports/employees.csv', [ReportController::class, 'employeesCsv'])->name('reports.employees');
+        });
 
+        Route::middleware('permission:inventory')->group(function () {
             Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory');
             Route::post('/inventory/reset', [InventoryController::class, 'resetAvailable'])->name('inventory.reset');
             Route::post('/inventory/prizes', [InventoryController::class, 'storePrize'])->name('inventory.prizes.store');
@@ -76,29 +82,44 @@ Route::middleware('auth')->group(function () {
             Route::post('/inventory/brands/{stock}/toggle', [InventoryController::class, 'toggleStock'])->name('inventory.stocks.toggle');
             Route::delete('/inventory/brands/{stock}', [InventoryController::class, 'destroyStock'])->name('inventory.stocks.destroy');
             Route::get('/inventory/log', [InventoryController::class, 'log'])->name('inventory.log');
+        });
 
+        Route::middleware('permission:settings')->group(function () {
             Route::get('/settings', [SettingsController::class, 'edit'])->name('settings');
             Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
         });
     });
 
-    Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
-        Route::get('/users', [UserController::class, 'index'])->name('users');
-        Route::post('/users', [UserController::class, 'store'])->name('users.store');
-        Route::post('/users/import', [UserController::class, 'import'])->name('users.import');
-        Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
-        Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
-        Route::get('/lockers', [LockerController::class, 'index'])->name('lockers');
-        Route::get('/audit', [AuditLogController::class, 'index'])->name('audit');
-        Route::post('/scope/items', [ScopeRuleController::class, 'storeItem'])->name('scope.items.store');
-        Route::put('/scope/items/{item}', [ScopeRuleController::class, 'updateItem'])->name('scope.items.update');
-        Route::delete('/scope/items/{item}', [ScopeRuleController::class, 'destroyItem'])->name('scope.items.destroy');
-        Route::post('/scope/rules', [ScopeRuleController::class, 'storeRule'])->name('scope.rules.store');
-        Route::put('/scope/rules/{rule}', [ScopeRuleController::class, 'updateRule'])->name('scope.rules.update');
-        Route::delete('/scope/rules/{rule}', [ScopeRuleController::class, 'destroyRule'])->name('scope.rules.destroy');
-        Route::put('/scope/options', [ScopeRuleController::class, 'updateOptions'])->name('scope.options');
-        Route::get('/draws/{draw}/edit', [AdminDrawController::class, 'edit'])->name('draws.edit');
-        Route::put('/draws/{draw}', [AdminDrawController::class, 'update'])->name('draws.update');
-        Route::delete('/draws/{draw}', [AdminDrawController::class, 'destroy'])->name('draws.destroy');
+    Route::prefix('admin')->name('admin.')->group(function () {
+        Route::middleware('permission:team_members')->group(function () {
+            Route::get('/users', [UserController::class, 'index'])->name('users');
+            Route::post('/users', [UserController::class, 'store'])->name('users.store');
+            Route::post('/users/import', [UserController::class, 'import'])->name('users.import');
+            Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+            Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+        });
+        Route::get('/lockers', [LockerController::class, 'index'])->middleware('permission:lockers')->name('lockers');
+        Route::get('/audit', [AuditLogController::class, 'index'])->middleware('permission:audit_log')->name('audit');
+        Route::middleware('permission:settings')->group(function () {
+            Route::post('/scope/items', [ScopeRuleController::class, 'storeItem'])->name('scope.items.store');
+            Route::put('/scope/items/{item}', [ScopeRuleController::class, 'updateItem'])->name('scope.items.update');
+            Route::delete('/scope/items/{item}', [ScopeRuleController::class, 'destroyItem'])->name('scope.items.destroy');
+            Route::post('/scope/rules', [ScopeRuleController::class, 'storeRule'])->name('scope.rules.store');
+            Route::put('/scope/rules/{rule}', [ScopeRuleController::class, 'updateRule'])->name('scope.rules.update');
+            Route::delete('/scope/rules/{rule}', [ScopeRuleController::class, 'destroyRule'])->name('scope.rules.destroy');
+            Route::put('/scope/options', [ScopeRuleController::class, 'updateOptions'])->name('scope.options');
+        });
+        Route::middleware('permission:edit_won')->group(function () {
+            Route::get('/draws/{draw}/edit', [AdminDrawController::class, 'edit'])->name('draws.edit');
+            Route::put('/draws/{draw}', [AdminDrawController::class, 'update'])->name('draws.update');
+            Route::delete('/draws/{draw}', [AdminDrawController::class, 'destroy'])->name('draws.destroy');
+        });
+        Route::middleware('permission:profiles')->group(function () {
+            Route::get('/profiles', [ProfileController::class, 'index'])->name('profiles');
+            Route::post('/profiles', [ProfileController::class, 'store'])->name('profiles.store');
+            Route::put('/profiles/default', [ProfileController::class, 'setDefault'])->name('profiles.default');
+            Route::put('/profiles/{profile}', [ProfileController::class, 'update'])->name('profiles.update');
+            Route::delete('/profiles/{profile}', [ProfileController::class, 'destroy'])->name('profiles.destroy');
+        });
     });
 });
