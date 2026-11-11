@@ -317,4 +317,58 @@ class FormsTest extends TestCase
         $answers = collect(FormSubmission::first()->answers)->pluck('value')->all();
         $this->assertSame(['Patient refused', 'Bon Secours', 'Oxygen, Stair chair', null], $answers);
     }
+
+    public function test_form_reports_filter_and_total_submissions(): void
+    {
+        Http::fake();
+        $this->travelTo(\Carbon\Carbon::parse('2026-11-11 10:00', 'America/New_York'));
+        $admin = User::factory()->role('admin')->create(['name' => 'Ada Admin']);
+        $dana = $this->dispatcherWithForms();
+        $member = PermissionProfile::where('name', 'Team Member')->first();
+        $emt = PermissionProfile::create(['name' => 'EMT', 'parent_id' => $member->id, 'permissions' => []]);
+        $amy = User::factory()->create(['name' => 'Amy Medic', 'permission_profile_id' => $emt->id]);
+        $bob = User::factory()->create(['name' => 'Bob Driver']);
+        $form = Form::create(['name' => 'Attendance', 'active' => true]);
+        $who = $form->fields()->create(['label' => 'Team Member', 'type' => 'team_member', 'required' => true, 'position' => 1]);
+        $type = $form->fields()->create(['label' => 'Type of report', 'type' => 'radio', 'options' => "Late for Work\nCall Out", 'required' => true, 'position' => 2]);
+        $other = Form::create(['name' => 'Shift notes', 'active' => true]);
+        $note = $other->fields()->create(['label' => 'Note', 'type' => 'text', 'position' => 1]);
+
+        $send = fn ($user, $f, $data) => $this->actingAs($user)->post("/forms/{$f->id}", $data)->assertSessionHasNoErrors();
+        $send($dana, $form, ["f{$who->id}" => $amy->id, "f{$type->id}" => 'Late for Work']);
+        $send($dana, $form, ["f{$who->id}" => $amy->id, "f{$type->id}" => 'Call Out']);
+        $send($admin, $form, ["f{$who->id}" => $bob->id, "f{$type->id}" => 'Call Out']);
+        $send($dana, $other, ["f{$note->id}" => 'Quiet night']);
+        $this->travel(-1)->months();
+        $send($dana, $form, ["f{$who->id}" => $bob->id, "f{$type->id}" => 'Late for Work']);
+        $this->travelBack();
+        $this->travelTo(\Carbon\Carbon::parse('2026-11-11 10:05', 'America/New_York'));
+
+        $this->assertSame($amy->id, FormSubmission::first()->subject_user_id);
+        $this->assertSame($dana->id, FormSubmission::where('form_name', 'Shift notes')->value('subject_user_id'));
+
+        $this->actingAs($dana)->get('/forms/reports')->assertForbidden();
+        $this->actingAs($admin)->get('/forms/reports')->assertOk()->assertSee('4 submissions');
+
+        $page = $this->actingAs($admin)->get("/forms/reports?period=month&form={$form->id}&group=".urlencode('q:Type of report'));
+        $page->assertOk()->assertSee('3 submissions')->assertSee('Totals by Type of report');
+        $this->assertEquals([['label' => 'Call Out', 'count' => 2], ['label' => 'Late for Work', 'count' => 1]], $page->viewData('totals')->all());
+
+        // By position: EMT is a sub-profile of Team Member, so Team Member includes Amy.
+        $this->assertSame(2, $this->actingAs($admin)->get("/forms/reports?form={$form->id}&position={$emt->id}")->viewData('submissions')->count());
+        $this->assertSame(3, $this->actingAs($admin)->get("/forms/reports?form={$form->id}&position={$member->id}")->viewData('submissions')->count());
+        $this->assertEquals([['label' => 'Team Member › EMT', 'count' => 2], ['label' => 'Team Member', 'count' => 1]], $this->actingAs($admin)->get("/forms/reports?form={$form->id}&group=position")->viewData('totals')->all());
+
+        // By team member, sender, and custom dates reaching back to last month.
+        $this->assertSame(1, $this->actingAs($admin)->get("/forms/reports?member={$bob->id}")->viewData('submissions')->count());
+        $this->assertSame(1, $this->actingAs($admin)->get("/forms/reports?sender={$admin->id}")->viewData('submissions')->count());
+        $this->assertSame(2, $this->actingAs($admin)->get("/forms/reports?period=custom&from=2026-10-01&to=2026-11-30&member={$bob->id}")->viewData('submissions')->count());
+        $this->assertSame(1, $this->actingAs($admin)->get('/forms/reports?period=last_month')->viewData('submissions')->count());
+        $this->assertSame(4, $this->actingAs($admin)->get('/forms/reports?period=today')->viewData('submissions')->count());
+
+        $csv = $this->actingAs($admin)->get("/forms/reports.csv?form={$form->id}&member={$amy->id}")->streamedContent();
+        $this->assertStringContainsString('"Team Member",Position,"Sent by",Slack,"Team Member","Type of report"', $csv);
+        $this->assertStringContainsString('"Amy Medic","Team Member › EMT","Dana Dispatch"', $csv);
+        $this->assertSame('Exported form report', \App\Models\AuditLog::latest('id')->first()->label());
+    }
 }

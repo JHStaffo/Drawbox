@@ -27,7 +27,7 @@ Dispatch forms replace Google Forms, the Google Sheet and Zapier. An admin build
 
 Slack is connected once, under Admin > Slack, with a Slack app's bot token (xoxb-...). The page has the app manifest and step-by-step setup. The token is stored encrypted with `APP_KEY`, so if the app key ever changes the token has to be pasted again. Public channels work straight away; private channels need `/invite @Fast Track Pulse` once. The server needs outbound HTTPS to slack.com.
 
-Two permissions control it: Forms (fill out and send) and Forms and Slack (build forms, see every submission, connect Slack). Both start on the Admin profile only. Every send, test, edit and retry is in the audit log; the token never is.
+Three permissions control it: Forms (fill out and send), Form reports (Dispatch > Form reports: filter by period, form, Team Member, position and sender, totals by any of those or by a choice question, and CSV) and Forms and Slack (build forms, see every submission, connect Slack). All start on the Admin profile only. Every send, test, edit and retry is in the audit log; the token never is.
 
 ## Run locally
 

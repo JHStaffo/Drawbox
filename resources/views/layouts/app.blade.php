@@ -29,13 +29,14 @@
                         @if ($u->hasPermission('lockers'))<a href="{{ route('admin.lockers') }}" @class(['active' => request()->routeIs('admin.lockers')])>Lockers</a>@endif
                     </div>
                 </details>
-                @if ($u->hasAnyPermission('credit_calls', 'scope_check', 'forms'))
+                @if ($u->hasAnyPermission('credit_calls', 'scope_check', 'forms', 'form_reports'))
                     <details class="nav-menu">
                         <summary @class(['active' => request()->routeIs('dispatch.*', 'scope', 'forms*')])>Dispatch</summary>
                         <div class="nav-drop">
                             @if ($u->hasPermission('credit_calls'))<a href="{{ route('dispatch.create') }}" @class(['active' => request()->routeIs('dispatch.*')])>Credit a call</a>@endif
                             @if ($u->hasPermission('scope_check'))<a href="{{ route('scope') }}" @class(['active' => request()->routeIs('scope')])>Scope Check</a>@endif
-                            @if ($u->hasPermission('forms'))<a href="{{ route('forms') }}" @class(['active' => request()->routeIs('forms*')])>Forms</a>@endif
+                            @if ($u->hasPermission('forms'))<a href="{{ route('forms') }}" @class(['active' => request()->routeIs('forms', 'forms.show')])>Forms</a>@endif
+                            @if ($u->hasPermission('form_reports'))<a href="{{ route('forms.reports') }}" @class(['active' => request()->routeIs('forms.reports*')])>Form reports</a>@endif
                         </div>
                     </details>
                 @endif

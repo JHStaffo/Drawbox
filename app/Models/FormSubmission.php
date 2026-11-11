@@ -31,6 +31,18 @@ class FormSubmission extends Model
         return $this->belongsTo(User::class);
     }
 
+    /** Who the submission is about: the Team Member answer, or the sender. */
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'subject_user_id');
+    }
+
+    /** The answer to a question, by its label at the time. */
+    public function answer(string $label): ?string
+    {
+        return collect($this->answers)->firstWhere('label', $label)['value'] ?? null;
+    }
+
     public function statusLabel(): string
     {
         return match ($this->slack_status) {
