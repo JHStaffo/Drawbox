@@ -48,7 +48,7 @@ p { margin: 0 0 1em; }
 .nav a:hover, .nav button:hover { background: var(--bg); }
 .nav a.active { color: var(--teal); }
 .nav-menu { position: relative; }
-.nav-menu summary { list-style: none; font-family: "Oswald", sans-serif; text-transform: uppercase; font-size: .9rem; letter-spacing: .04em; color: var(--navy); padding: 8px 10px; border-radius: 8px; cursor: pointer; user-select: none; }
+.nav-menu summary { list-style: none; font-family: "Oswald", sans-serif; text-transform: uppercase; font-size: .9rem; font-weight: 400; letter-spacing: .04em; color: var(--navy); padding: 8px 10px; border-radius: 8px; cursor: pointer; user-select: none; }
 .nav-menu summary::-webkit-details-marker { display: none; }
 .nav-menu summary::after { content: ""; display: inline-block; margin-left: 6px; vertical-align: 3px; border: 4px solid transparent; border-top-color: currentColor; border-bottom: 0; }
 .nav-menu summary:hover, .nav-menu[open] summary { background: var(--bg); }
