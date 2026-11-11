@@ -1309,7 +1309,7 @@ class DrawBoxTest extends TestCase
         $this->assertSame('Dispatcher', $pat->fresh()->profile->name);
 
         // An admin's row is look-only: no taking over their email, turning them off or deleting them.
-        $this->actingAs($sup)->get('/admin/users')->assertSee("Has access you don't");
+        $this->actingAs($sup)->get('/admin/users')->assertSee("Has access you don't", false);
         $this->actingAs($sup)->put("/admin/users/{$admin->id}", $row($admin, $profiles['Admin'], ['email' => 'mine@example.com']))->assertSessionHas('error');
         $this->actingAs($sup)->put("/admin/users/{$admin->id}", $row($admin, $profiles['Team Member']))->assertSessionHas('error');
         $this->actingAs($sup)->delete("/admin/users/{$admin->id}")->assertSessionHas('error');
