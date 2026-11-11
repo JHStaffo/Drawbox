@@ -72,6 +72,8 @@ class FormsTest extends TestCase
             ->assertSessionHas('status', 'Connected to the Fast Track EMS Slack workspace as fast_track_pulse.');
 
         $this->assertSame('xoxb-123-abc-secret', app(Slack::class)->token());
+        // The encrypted token is ~290 characters; MySQL would refuse it in a 255-character column.
+        $this->assertSame('text', \Illuminate\Support\Facades\Schema::getColumnType('settings', 'value'));
         $this->assertStringNotContainsString('secret', Setting::find('slack_bot_token')->value);
         $log = AuditLog::latest('id')->first();
         $this->assertStringContainsString('Connected to the Fast Track EMS Slack workspace', $log->description);
