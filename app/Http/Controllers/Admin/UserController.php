@@ -17,12 +17,18 @@ class UserController extends Controller
 {
     public function index()
     {
-        return view('admin.users', ['profiles' => PermissionProfile::ordered(), 'users' => User::with('profile')->get()->sortBy([fn ($a, $b) => $b->active <=> $a->active, fn ($a, $b) => $a->sortName() <=> $b->sortName()])->values()]);
+        $profiles = PermissionProfile::ordered();
+
+        return view('admin.users', ['profiles' => $profiles, 'grantable' => $profiles->filter(fn ($p) => request()->user()->canGrantProfile($p))->values(), 'users' => User::with('profile.parent')->get()->sortBy([fn ($a, $b) => $b->active <=> $a->active, fn ($a, $b) => $a->sortName() <=> $b->sortName()])->values()]);
     }
 
     public function store(Request $request)
     {
-        $user = User::create($this->validated($request) + ['active' => true]);
+        $data = $this->validated($request);
+        if ($error = $this->cantGrant($request, $data['permission_profile_id'])) {
+            return back()->withInput()->with('error', $error);
+        }
+        $user = User::create($data + ['active' => true]);
 
         return back()->with('status', "Added {$user->name}.");
     }
@@ -59,6 +65,9 @@ class UserController extends Controller
         $skipped = 0;
         $problems = [];
         $profileId = PermissionProfile::default()?->id;
+        if ($profileId && ($error = $this->cantGrant($request, $profileId))) {
+            return back()->with('error', $error);
+        }
         foreach (array_slice($rows, $start, null, true) as $i => $row) {
             if (count(array_filter($row, fn ($v) => trim($v) !== '')) === 0) {
                 continue; // blank line
@@ -93,7 +102,13 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
+        if (! $request->user()->canManage($user)) {
+            return back()->with('error', "{$user->name} has access you don't have, so only someone with at least that access can change them.");
+        }
         $data = $this->validated($request, $user) + ['active' => $request->boolean('active')];
+        if ($error = $this->cantGrant($request, $data['permission_profile_id'])) {
+            return back()->with('error', $error);
+        }
         $keepsAccess = PermissionProfile::find($data['permission_profile_id'])?->allows('team_members');
         if ($user->is($request->user()) && (! $keepsAccess || ! $data['active'])) {
             return back()->with('error', "You can't take away your own access to Team Members.");
@@ -113,6 +128,9 @@ class UserController extends Controller
         if ($user->is($request->user())) {
             return back()->with('error', "You can't delete yourself.");
         }
+        if (! $request->user()->canManage($user)) {
+            return back()->with('error', "{$user->name} has access you don't have, so only someone with at least that access can delete them.");
+        }
 
         $history = $user->draws()->exists()
             || LockerAssignment::where('user_id', $user->id)->orWhere('dispensed_by', $user->id)->exists()
@@ -129,6 +147,19 @@ class UserController extends Controller
         });
 
         return back()->with('status', "Deleted {$user->name}.");
+    }
+
+    /**
+     * Nobody can hand out a profile with access they don't have themselves,
+     * so a supervisor who can edit team members can't make anyone an admin.
+     */
+    private function cantGrant(Request $request, int|string $profileId): ?string
+    {
+        $profile = PermissionProfile::findOrFail($profileId);
+
+        return $request->user()->canGrantProfile($profile)
+            ? null
+            : "The {$profile->label()} profile has access you don't have, so you can't give it to anyone.";
     }
 
     private function validated(Request $request, ?User $user = null): array

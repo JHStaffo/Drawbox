@@ -1285,6 +1285,61 @@ class DrawBoxTest extends TestCase
         $this->assertNull($empty->fresh());
     }
 
+    public function test_nobody_can_hand_out_access_they_do_not_have(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $profiles = \App\Models\PermissionProfile::pluck('id', 'name');
+        // A supervisor who was also given Team Members and Permission Profiles.
+        $lead = \App\Models\PermissionProfile::create(['name' => 'Lead', 'permissions' => ['credit_calls', 'scope_check', 'dashboard', 'team_members', 'profiles']]);
+        $sup = User::factory()->create(['permission_profile_id' => $lead->id]);
+        $pat = User::factory()->create();
+        $row = fn (User $u, $profile, $extra = []) => $extra + ['name' => $u->name, 'email' => $u->email, 'permission_profile_id' => $profile, 'active' => '1'];
+
+        // They can't make anyone an admin, themselves included, by adding or editing.
+        $this->actingAs($sup)->get('/admin/users')->assertOk()->assertDontSee('<option value="'.$profiles['Admin'].'"', false)->assertSee('<option value="'.$profiles['Dispatcher'].'"', false);
+        $this->actingAs($sup)->put("/admin/users/{$sup->id}", $row($sup, $profiles['Admin']))->assertSessionHas('error');
+        $this->actingAs($sup)->put("/admin/users/{$pat->id}", $row($pat, $profiles['Admin']))->assertSessionHas('error');
+        $this->actingAs($sup)->post('/admin/users', ['name' => 'New Boss', 'email' => 'boss@example.com', 'permission_profile_id' => $profiles['Admin']])->assertSessionHas('error');
+        $this->assertSame('Lead', $sup->fresh()->profile->name);
+        $this->assertSame('Team Member', $pat->fresh()->profile->name);
+        $this->assertFalse(User::where('email', 'boss@example.com')->exists());
+
+        // Profiles within their own access are fine.
+        $this->actingAs($sup)->put("/admin/users/{$pat->id}", $row($pat, $profiles['Dispatcher']))->assertSessionHas('status');
+        $this->assertSame('Dispatcher', $pat->fresh()->profile->name);
+
+        // An admin's row is look-only: no taking over their email, turning them off or deleting them.
+        $this->actingAs($sup)->get('/admin/users')->assertSee("Has access you don't");
+        $this->actingAs($sup)->put("/admin/users/{$admin->id}", $row($admin, $profiles['Admin'], ['email' => 'mine@example.com']))->assertSessionHas('error');
+        $this->actingAs($sup)->put("/admin/users/{$admin->id}", $row($admin, $profiles['Team Member']))->assertSessionHas('error');
+        $this->actingAs($sup)->delete("/admin/users/{$admin->id}")->assertSessionHas('error');
+        $this->assertSame('Admin', $admin->fresh()->profile->name);
+        $this->assertNotSame('mine@example.com', $admin->fresh()->email);
+
+        // No adding access they lack to a profile, theirs or another, or slipping it in under a parent.
+        $this->actingAs($sup)->put("/admin/profiles/{$lead->id}", ['name' => 'Lead', 'permissions' => ['credit_calls', 'scope_check', 'dashboard', 'team_members', 'profiles', 'settings']])->assertSessionHasErrors('permissions');
+        $this->assertNotContains('settings', $lead->fresh()->permissions);
+        $this->actingAs($sup)->post('/admin/profiles', ['name' => 'Sneaky', 'permissions' => ['settings']])->assertSessionHasErrors('permissions');
+        $this->actingAs($sup)->post('/admin/profiles', ['name' => 'Sneaky', 'parent_id' => $profiles['Admin']])->assertSessionHasErrors('permissions');
+        $this->assertFalse(\App\Models\PermissionProfile::where('name', 'Sneaky')->exists());
+
+        // The Admin profile is look-only for them, and can't become the default for new team members.
+        $this->actingAs($sup)->get("/admin/profiles?profile={$profiles['Admin']}")->assertOk()->assertSee('you can look but not change it');
+        $this->actingAs($sup)->put("/admin/profiles/{$profiles['Admin']}", ['name' => 'Admin', 'permissions' => []])->assertSessionHas('error');
+        $this->actingAs($sup)->post("/admin/profiles/{$profiles['Admin']}/duplicate")->assertSessionHas('error');
+        $this->actingAs($sup)->put('/admin/profiles/default', ['profile' => $profiles['Admin']])->assertSessionHas('error');
+        $this->assertSame('Team Member', \App\Models\PermissionProfile::default()->name);
+        $this->assertContains('settings', \App\Models\PermissionProfile::find($profiles['Admin'])->permissions);
+
+        // They can still build profiles within their own access.
+        $this->actingAs($sup)->post('/admin/profiles', ['name' => 'Crew Lead', 'permissions' => ['dashboard']])->assertSessionHasNoErrors();
+
+        // Admins keep full control.
+        $this->actingAs($admin)->put("/admin/users/{$pat->id}", $row($pat, $profiles['Admin']))->assertSessionHas('status');
+        $this->assertSame('Admin', $pat->fresh()->profile->name);
+        $this->actingAs($admin)->put("/admin/profiles/{$lead->id}", ['name' => 'Lead', 'permissions' => ['dashboard', 'team_members', 'profiles', 'settings']])->assertSessionHasNoErrors();
+    }
+
     public function test_sub_profiles_add_to_their_main_profile(): void
     {
         $admin = User::factory()->role('admin')->create();

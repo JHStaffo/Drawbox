@@ -22,24 +22,30 @@
     </form>
 
     @if ($profile)
-        @php($deletable = $profile->users_count === 0 && $profile->children_count === 0 && ! $profile->is_default)
+        @php($editable = auth()->user()->canEditProfile($profile))
+        @php($deletable = $editable && $profile->users_count === 0 && $profile->children_count === 0 && ! $profile->is_default)
         <form class="card" method="post" action="{{ route('admin.profiles.update', $profile) }}">@csrf @method('put')
             <h2>{{ $profile->label() }}</h2>
             <p class="hint">{{ $profile->users_count }} {{ $profile->users_count === 1 ? 'team member' : 'team members' }}@if ($profile->children_count) · {{ $profile->children_count }} {{ $profile->children_count === 1 ? 'sub-profile' : 'sub-profiles' }}@endif @if ($profile->is_default) · {{ 'new team members get this one' }}@endif</p>
+            @unless ($editable)
+                <p class="flash flash-error">This profile{{ $profile->children_count ? ', or one of its sub-profiles,' : '' }} has access you don't have, so you can look but not change it.</p>
+            @endunless
             <div class="field-row" style="max-width:600px">
-                <div class="field"><label for="pn">{{ $profile->parent_id ? 'Sub-profile name' : 'Profile name' }}</label><input id="pn" type="text" name="name" value="{{ old('name', $profile->name) }}" required maxlength="60"></div>
+                <div class="field"><label for="pn">{{ $profile->parent_id ? 'Sub-profile name' : 'Profile name' }}</label><input id="pn" type="text" name="name" value="{{ old('name', $profile->name) }}" required maxlength="60" @disabled(! $editable)></div>
                 <div class="field"><label for="pp">Sub-profile of</label>
                     @if ($profile->children_count)
                         <select id="pp" disabled><option>None (has sub-profiles)</option></select>
                     @else
-                        <select id="pp" name="parent_id"><option value="">None, main profile</option>@foreach ($mains->where('id', '!=', $profile->id) as $m)<option value="{{ $m->id }}" @selected($profile->parent_id === $m->id)>{{ $m->name }}</option>@endforeach</select>
+                        <select id="pp" name="parent_id" @disabled(! $editable)><option value="">None, main profile</option>@foreach ($mains->where('id', '!=', $profile->id) as $m)<option value="{{ $m->id }}" @selected($profile->parent_id === $m->id)>{{ $m->name }}</option>@endforeach</select>
                     @endif
                 </div>
             </div>
-            @include('admin.partials.profile-permissions', ['picked' => $profile->permissions ?? [], 'inherited' => $profile->inheritedPermissions(), 'from' => $profile->parent?->name])
+            @include('admin.partials.profile-permissions', ['picked' => $profile->permissions ?? [], 'inherited' => $profile->inheritedPermissions(), 'from' => $profile->parent?->name, 'locked' => ! $editable])
             <div class="row-actions">
-                <button class="btn btn-teal" type="submit">Save</button>
-                <button class="btn btn-outline" type="submit" form="dup-profile">Duplicate</button>
+                @if ($editable)
+                    <button class="btn btn-teal" type="submit">Save</button>
+                    <button class="btn btn-outline" type="submit" form="dup-profile">Duplicate</button>
+                @endif
                 @if ($deletable)
                     <button class="btn btn-outline" style="color:var(--red)" type="submit" form="del-profile">Delete</button>
                 @endif
@@ -68,7 +74,7 @@
         <h2>New team members</h2>
         <div class="field">
             <label for="default-profile">Profile for people added or imported</label>
-            <select id="default-profile" name="profile">@foreach ($profiles as $p)<option value="{{ $p->id }}" @selected($p->is_default)>{{ $p->label() }}</option>@endforeach</select>
+            <select id="default-profile" name="profile">@foreach ($profiles->filter(fn ($p) => $p->is_default || auth()->user()->canGrantProfile($p)) as $p)<option value="{{ $p->id }}" @selected($p->is_default)>{{ $p->label() }}</option>@endforeach</select>
         </div>
         <button class="btn" type="submit">Save</button>
     </form>

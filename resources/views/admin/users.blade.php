@@ -15,7 +15,7 @@
                 <div class="field"><label>Email</label><input type="email" name="email" value="{{ old('email') }}" required></div>
                 <div class="field"><label>Team Member #</label><input type="text" name="employee_number" value="{{ old('employee_number') }}"></div>
                 <div class="field"><label>Permission profile</label>
-                    <select name="permission_profile_id">@foreach ($profiles as $p)<option value="{{ $p->id }}" @selected(old('permission_profile_id') ? old('permission_profile_id') == $p->id : $p->is_default)>{{ $p->label() }}</option>@endforeach</select>
+                    <select name="permission_profile_id">@foreach ($grantable as $p)<option value="{{ $p->id }}" @selected(old('permission_profile_id') ? old('permission_profile_id') == $p->id : $p->is_default)>{{ $p->label() }}</option>@endforeach</select>
                 </div>
             </div>
             <button class="btn" type="submit">Add team member</button>
