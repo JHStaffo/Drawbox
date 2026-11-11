@@ -20,20 +20,20 @@
             <nav class="nav">
                 <a href="{{ route('home') }}" @class(['active' => request()->routeIs('home')])>Home</a>
                 <details class="nav-menu">
-                    <summary @class(['active' => request()->routeIs('drawbox.home', 'draws.*', 'dispatch.*', 'supervisor.dashboard', 'supervisor.dispense', 'supervisor.reports*', 'supervisor.inventory*', 'admin.lockers', 'admin.draws.*')])>Draw Box</summary>
+                    <summary @class(['active' => request()->routeIs('drawbox.home', 'draws.*', 'supervisor.dashboard', 'supervisor.dispense', 'supervisor.reports*', 'supervisor.inventory*', 'admin.lockers', 'admin.draws.*')])>Draw Box</summary>
                     <div class="nav-drop">
                         <a href="{{ route('drawbox.home') }}" @class(['active' => request()->routeIs('drawbox.home', 'draws.*')])>Draw Box Home</a>
-                        @if ($u->hasPermission('credit_calls'))<a href="{{ route('dispatch.create') }}" @class(['active' => request()->routeIs('dispatch.*')])>Credit a call</a>@endif
                         @if ($u->hasPermission('dashboard'))<a href="{{ route('supervisor.dashboard') }}" @class(['active' => request()->routeIs('supervisor.dashboard', 'supervisor.dispense')])>Dashboard</a>@endif
                         @if ($u->hasPermission('reports'))<a href="{{ route('supervisor.reports') }}" @class(['active' => request()->routeIs('supervisor.reports*')])>Reports</a>@endif
                         @if ($u->hasPermission('inventory'))<a href="{{ route('supervisor.inventory') }}" @class(['active' => request()->routeIs('supervisor.inventory*')])>Inventory</a>@endif
                         @if ($u->hasPermission('lockers'))<a href="{{ route('admin.lockers') }}" @class(['active' => request()->routeIs('admin.lockers')])>Lockers</a>@endif
                     </div>
                 </details>
-                @if ($u->hasAnyPermission('scope_check', 'forms'))
+                @if ($u->hasAnyPermission('credit_calls', 'scope_check', 'forms'))
                     <details class="nav-menu">
-                        <summary @class(['active' => request()->routeIs('scope', 'forms*')])>Dispatch</summary>
+                        <summary @class(['active' => request()->routeIs('dispatch.*', 'scope', 'forms*')])>Dispatch</summary>
                         <div class="nav-drop">
+                            @if ($u->hasPermission('credit_calls'))<a href="{{ route('dispatch.create') }}" @class(['active' => request()->routeIs('dispatch.*')])>Credit a call</a>@endif
                             @if ($u->hasPermission('scope_check'))<a href="{{ route('scope') }}" @class(['active' => request()->routeIs('scope')])>Scope Check</a>@endif
                             @if ($u->hasPermission('forms'))<a href="{{ route('forms') }}" @class(['active' => request()->routeIs('forms*')])>Forms</a>@endif
                         </div>
