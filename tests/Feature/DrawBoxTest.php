@@ -635,6 +635,54 @@ class DrawBoxTest extends TestCase
         $this->actingAs(User::factory()->role('supervisor')->create())->post('/admin/users/import', ['file' => $headerless])->assertForbidden();
     }
 
+    public function test_team_members_have_a_phone_number_and_changes_are_audited(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $profile = \App\Models\PermissionProfile::default()->id;
+
+        $this->actingAs($admin)->post('/admin/users', ['name' => 'Pat Crew', 'email' => 'pat@example.com', 'phone' => '757.555.1234', 'permission_profile_id' => $profile])
+            ->assertSessionHas('status');
+        $pat = User::where('email', 'pat@example.com')->first();
+        $this->assertSame('+17575551234', $pat->phone);
+        $this->actingAs($admin)->get('/admin/users')->assertSee('(757) 555-1234');
+
+        $this->actingAs($admin)->put("/admin/users/{$pat->id}", ['name' => 'Pat Crew', 'email' => 'pat@example.com', 'phone' => '1 (804) 555-9876', 'permission_profile_id' => $profile, 'active' => 1]);
+        $this->assertSame('+18045559876', $pat->fresh()->phone);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'admin.users.update', 'description' => 'Saved Pat Crew. Changed Pat Crew: phone from (757) 555-1234 to (804) 555-9876.']);
+
+        $this->actingAs($admin)->put("/admin/users/{$pat->id}", ['name' => 'Pat Crew', 'email' => 'pat@example.com', 'phone' => '555-1234', 'permission_profile_id' => $profile, 'active' => 1])
+            ->assertSessionHasErrors('phone');
+        $this->assertSame('+18045559876', $pat->fresh()->phone);
+
+        $this->actingAs($admin)->put("/admin/users/{$pat->id}", ['name' => 'Pat Crew', 'email' => 'pat@example.com', 'phone' => '', 'permission_profile_id' => $profile, 'active' => 1]);
+        $this->assertNull($pat->fresh()->phone);
+        $this->assertDatabaseHas('audit_logs', ['description' => 'Saved Pat Crew. Changed Pat Crew: phone from (804) 555-9876 to none.']);
+    }
+
+    public function test_csv_import_reads_an_optional_phone_column(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $old = User::factory()->create(['email' => 'old@example.com']);
+        $kept = User::factory()->create(['email' => 'kept@example.com', 'phone' => '+17575550000']);
+        $csv = "First Name,Last Name,Email,Cell Phone\n"
+            ."Amy,Zimmer,amy@example.com,(757) 555-1111\n"
+            ."Bo,Bad,bo@example.com,12345\n"
+            ."Cy,None,cy@example.com,\n"
+            ."Old,Timer,old@example.com,757-555-2222\n"
+            ."Kept,Number,kept@example.com,757-555-3333\n";
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('team.csv', $csv);
+
+        $this->actingAs($admin)->post('/admin/users/import', ['file' => $file])
+            ->assertSessionHas('status', 'Added 3 team member(s). Skipped 2 already on the roster. Added a phone number for 1 already on the roster. Left out the phone number on line(s) 3 because it isn\'t a valid phone number.');
+
+        $this->assertSame('+17575551111', User::where('email', 'amy@example.com')->value('phone'));
+        $this->assertNull(User::where('email', 'bo@example.com')->value('phone'));
+        $this->assertNull(User::where('email', 'cy@example.com')->value('phone'));
+        $this->assertSame('+17575552222', $old->fresh()->phone);
+        $this->assertSame('+17575550000', $kept->fresh()->phone);
+        $this->assertTrue(\App\Models\AuditLog::where('action', 'admin.users.import')->where('description', 'like', '%phone from none to (757) 555-2222%')->exists());
+    }
+
     public function test_admin_can_edit_and_delete_a_won_prize_but_supervisor_cannot(): void
     {
         $admin = User::factory()->role('admin')->create();

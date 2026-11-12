@@ -35,8 +35,10 @@ class UserController extends Controller
 
     /**
      * Add team members from a CSV with First Name, Last Name and Email
-     * columns. Everyone gets the default permission profile. Emails already on the
-     * roster are skipped, so the same file can be uploaded twice safely.
+     * columns, and an optional Phone column. Everyone gets the default permission
+     * profile. Emails already on the roster are skipped, so the same file can be
+     * uploaded twice safely, except that someone on the roster with no phone
+     * number gets the one in the file.
      */
     public function import(Request $request)
     {
@@ -51,8 +53,9 @@ class UserController extends Controller
         $first = $find(['firstname', 'first', 'fname']);
         $last = $find(['lastname', 'last', 'lname', 'surname']);
         $email = $find(['email', 'emailaddress', 'mail']);
+        $phone = $find(['phone', 'phonenumber', 'mobile', 'mobilephone', 'mobilenumber', 'cell', 'cellphone', 'cellnumber']);
         if ($first === false && $last === false && $email === false) {
-            [$first, $last, $email] = [0, 1, 2];
+            [$first, $last, $email, $phone] = [0, 1, 2, 3];
             $start = 0;
         } elseif ($first === false || $last === false || $email === false) {
             return back()->with('error', 'The CSV needs First Name, Last Name and Email columns.');
@@ -63,7 +66,9 @@ class UserController extends Controller
         $existing = User::pluck('email')->flip();
         $added = 0;
         $skipped = 0;
+        $phonesAdded = 0;
         $problems = [];
+        $badPhones = [];
         $profileId = PermissionProfile::default()?->id;
         if ($profileId && ($error = $this->cantGrant($request, $profileId))) {
             return back()->with('error', $error);
@@ -79,12 +84,24 @@ class UserController extends Controller
 
                 continue;
             }
+            $number = null;
+            if ($phone !== false && trim($row[$phone] ?? '') !== '') {
+                $number = User::normalizePhone($row[$phone]);
+                if (! $number) {
+                    $badPhones[] = $i + 1;
+                }
+            }
             if ($existing->has($address)) {
                 $skipped++;
+                $member = $number ? User::where('email', $address)->whereNull('phone')->first() : null;
+                if ($member && $request->user()->canManage($member)) {
+                    $member->update(['phone' => $number]);
+                    $phonesAdded++;
+                }
 
                 continue;
             }
-            User::create(['name' => mb_substr($name, 0, 100), 'email' => $address, 'permission_profile_id' => $profileId, 'active' => true]);
+            User::create(['name' => mb_substr($name, 0, 100), 'email' => $address, 'phone' => $number, 'permission_profile_id' => $profileId, 'active' => true]);
             $existing[$address] = true;
             $added++;
         }
@@ -93,8 +110,14 @@ class UserController extends Controller
         if ($skipped) {
             $message .= " Skipped {$skipped} already on the roster.";
         }
+        if ($phonesAdded) {
+            $message .= " Added a phone number for {$phonesAdded} already on the roster.";
+        }
         if ($problems) {
             $message .= ' Skipped line(s) '.implode(', ', $problems).' with a missing name or email.';
+        }
+        if ($badPhones) {
+            $message .= ' Left out the phone number on line(s) '.implode(', ', $badPhones).' because it isn\'t a valid phone number.';
         }
 
         return back()->with('status', $message);
@@ -166,11 +189,19 @@ class UserController extends Controller
     {
         $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
 
-        return $request->validate([
+        $data = $request->validate([
             'name' => 'required|string|max:100',
             'email' => ['required', 'email', Rule::unique('users')->ignore($user)],
+            'phone' => ['nullable', 'string', 'max:30', function ($attribute, $value, $fail) {
+                if (! User::normalizePhone($value)) {
+                    $fail('The phone number needs 10 digits, like (757) 555-1234.');
+                }
+            }],
             'employee_number' => 'nullable|string|max:50',
             'permission_profile_id' => 'required|exists:permission_profiles,id',
         ]);
+        $data['phone'] = User::normalizePhone($data['phone'] ?? null);
+
+        return $data;
     }
 }
