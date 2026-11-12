@@ -22,7 +22,10 @@ class ScopeCheck
         $top = $items->max(fn (ScopeItem $i) => $i->rank());
         $level = $top === null ? null : array_keys(ScopeItem::LEVELS)[$top];
 
-        $rules = LiftRule::all()->filter(fn (LiftRule $r) => $r->matches($scene, $destination, $steps, $weight))->values();
+        // Only the rule calling for the most crew members counts, so only its note is shown.
+        // Rules tied at that number are all shown, since each one applies equally.
+        $matched = LiftRule::all()->filter(fn (LiftRule $r) => $r->matches($scene, $destination, $steps, $weight));
+        $rules = $matched->where('crew', $matched->max('crew'))->sortBy('id')->values();
 
         return [
             'level' => $level,

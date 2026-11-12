@@ -1238,7 +1238,15 @@ class DrawBoxTest extends TestCase
         $check(['items' => [$id('ICP monitoring'), $id('Impella')], 'weight' => 360])
             ->assertSee('scope-big scope-rn', false)->assertSee('Because of: Impella')->assertSee('Call the RN on duty')
             ->assertSee('Ideal crew members: 3')->assertSee('Weight 350+ lbs');
-        $check(['scene' => 'Apartment, no elevator', 'steps' => 12, 'weight' => 400])->assertSee('Ideal crew members: 4')->assertDontSee('truck');
+        $check(['scene' => 'Apartment, no elevator', 'steps' => 12, 'weight' => 400])->assertSee('Ideal crew members: 4')->assertDontSee('truck')
+            ->assertSee('Apartment, no elevator (scene or destination), 10+ steps: 4 ideal crew members')->assertDontSee('Weight 350+ lbs');
+        // Only the highest rule's note shows; a tie at the top shows each tied rule.
+        \App\Models\LiftRule::where('crew', 3)->update(['note' => 'Bring the bariatric stretcher']);
+        $this->actingAs($admin)->post('/admin/scope/rules', ['min_weight_lbs' => 600, 'crew' => 4, 'note' => 'Send a second truck'])->assertSessionHasNoErrors();
+        $check(['weight' => 400])->assertSee('Bring the bariatric stretcher');
+        $check(['weight' => 650])->assertSee('Ideal crew members: 4')->assertSee('Send a second truck')->assertDontSee('Bring the bariatric stretcher');
+        $check(['scene' => 'Apartment, no elevator', 'steps' => 12, 'weight' => 650])->assertSee('Send a second truck')->assertSee('10+ steps')->assertDontSee('Bring the bariatric stretcher');
+        \App\Models\LiftRule::where('min_weight_lbs', 600)->delete();
         $check(['scene' => 'Residence', 'steps' => 12])->assertSee('Ideal crew members: 2')->assertSee('No lift assist rule applies.');
 
         // Scene and destination match either way round.
