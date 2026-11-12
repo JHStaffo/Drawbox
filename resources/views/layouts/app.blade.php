@@ -42,12 +42,13 @@
                 @endif
                 @if ($u->hasAnyPermission('team_members', 'settings', 'audit_log', 'profiles', 'manage_forms'))
                     <details class="nav-menu">
-                        <summary @class(['active' => request()->routeIs('admin.users*', 'supervisor.settings', 'admin.audit', 'admin.profiles*', 'admin.forms*', 'admin.slack*')])>Admin</summary>
+                        <summary @class(['active' => request()->routeIs('admin.users*', 'supervisor.settings', 'admin.audit', 'admin.profiles*', 'admin.forms*', 'admin.lists*', 'admin.slack*')])>Admin</summary>
                         <div class="nav-drop">
                             @if ($u->hasPermission('team_members'))<a href="{{ route('admin.users') }}" @class(['active' => request()->routeIs('admin.users*')])>Team Members</a>@endif
                             @if ($u->hasPermission('profiles'))<a href="{{ route('admin.profiles') }}" @class(['active' => request()->routeIs('admin.profiles*')])>Permission Profiles</a>@endif
                             @if ($u->hasPermission('settings'))<a href="{{ route('supervisor.settings') }}" @class(['active' => request()->routeIs('supervisor.settings')])>Settings</a>@endif
                             @if ($u->hasPermission('manage_forms'))<a href="{{ route('admin.forms') }}" @class(['active' => request()->routeIs('admin.forms*')])>Forms</a>@endif
+                            @if ($u->hasPermission('manage_forms'))<a href="{{ route('admin.lists') }}" @class(['active' => request()->routeIs('admin.lists*')])>Shared lists</a>@endif
                             @if ($u->hasPermission('manage_forms'))<a href="{{ route('admin.slack') }}" @class(['active' => request()->routeIs('admin.slack*')])>Slack</a>@endif
                             @if ($u->hasPermission('audit_log'))<a href="{{ route('admin.audit') }}" @class(['active' => request()->routeIs('admin.audit')])>Audit log</a>@endif
                         </div>

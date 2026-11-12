@@ -81,7 +81,13 @@ document.querySelectorAll('.token').forEach(function (b) {
                         <td><code>$answer{{ $loop->iteration }}</code></td>
                         <td><input form="ff{{ $field->id }}" type="text" name="label" value="{{ $field->label }}" required aria-label="Question"></td>
                         <td><select form="ff{{ $field->id }}" name="type" aria-label="Type">@foreach ($types as $k => $l)<option value="{{ $k }}" @selected($field->type === $k)>{{ $l }}</option>@endforeach</select></td>
-                        <td><textarea form="ff{{ $field->id }}" name="options" rows="{{ max(1, min(5, count($field->choices()))) }}" aria-label="Choices" placeholder="{{ in_array($field->type, $choiceTypes, true) ? 'One per line' : 'Not needed' }}">{{ $field->options }}</textarea></td>
+                        <td>
+                            @if ($field->type === 'list')
+                                <select form="ff{{ $field->id }}" name="option_list_id" aria-label="Shared list">@foreach ($lists as $l)<option value="{{ $l->id }}" @selected($field->option_list_id === $l->id)>{{ $l->name }}</option>@endforeach</select>
+                            @else
+                                <textarea form="ff{{ $field->id }}" name="options" rows="{{ max(1, min(5, count($field->choices()))) }}" aria-label="Choices" placeholder="{{ in_array($field->type, $choiceTypes, true) ? 'One per line' : 'Not needed' }}">{{ $field->options }}</textarea>
+                            @endif
+                        </td>
                         <td><input form="ff{{ $field->id }}" type="text" name="help" value="{{ $field->help }}" aria-label="Help text"></td>
                         <td><input form="ff{{ $field->id }}" type="hidden" name="required" value="0"><input form="ff{{ $field->id }}" type="checkbox" name="required" value="1" @checked($field->required) aria-label="Required"></td>
                         <td><input form="ff{{ $field->id }}" type="hidden" name="allow_other" value="0"><input form="ff{{ $field->id }}" type="checkbox" name="allow_other" value="1" @checked($field->allow_other) aria-label="Allow Other with a box to type in" title="Add an Other: choice with a box to type in (dropdown, multiple choice and checkboxes)"></td>
@@ -102,6 +108,11 @@ document.querySelectorAll('.token').forEach(function (b) {
                 <div class="field"><label for="new-help">Help text (optional)</label><input id="new-help" type="text" name="help" maxlength="255"></div>
             </div>
             <div class="field"><label for="new-options">Choices (one per line, for dropdown, multiple choice and checkboxes)</label><textarea id="new-options" name="options" rows="3"></textarea></div>
+            <div class="field" style="max-width:360px">
+                <label for="new-list">Shared list (for "Shared list" questions)</label>
+                <select id="new-list" name="option_list_id"><option value="">—</option>@foreach ($lists as $l)<option value="{{ $l->id }}">{{ $l->name }}</option>@endforeach</select>
+                <div class="hint">Manage lists like Facilities under <a href="{{ route('admin.lists') }}">Admin &gt; Forms &gt; Shared lists</a>.</div>
+            </div>
             <div class="field"><input type="hidden" name="required" value="0"><label class="check"><input type="checkbox" name="required" value="1"> Required</label></div>
             <div class="field"><input type="hidden" name="allow_other" value="0"><label class="check"><input type="checkbox" name="allow_other" value="1"> Add an "Other:" choice with a box to type in (dropdown, multiple choice and checkboxes)</label></div>
             <button class="btn" type="submit">Add question</button>

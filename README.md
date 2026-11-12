@@ -27,7 +27,9 @@ Dispatch forms replace Google Forms, the Google Sheet and Zapier. An admin build
 
 Slack is connected once, under Admin > Slack, with a Slack app's bot token (xoxb-...). The page has the app manifest and step-by-step setup. The token is stored encrypted with `APP_KEY`, so if the app key ever changes the token has to be pasted again. Public channels work straight away; private channels need `/invite @Fast Track Pulse` once. The server needs outbound HTTPS to slack.com.
 
-Three permissions control it: Forms (fill out and send), Form reports (Dispatch > Form reports: filter by period, form, Team Member, position and sender, totals by any of those or by a choice question, and CSV) and Forms and Slack (build forms, see every submission, connect Slack). All start on the Admin profile only. Every send, test, edit and retry is in the audit log; the token never is.
+Three permissions control it: Forms (fill out and send), Form reports (Dispatch > Form reports: filter by period, form and sender, and once a form is picked by any of its own questions; total by any question, optionally split by a second one into a grid; Team Member and position only appear when the form asks about a Team Member; CSV) and Forms and Slack (build forms, see every submission, connect Slack). All start on the Admin profile only. Every send, test, edit and retry is in the audit log; the token never is.
+
+Shared lists (Admin > Shared lists, under the Forms and Slack permission) hold choices that grow over time, starting with Facilities. A "Shared list" question lets people pick an entry or type a new one, which is added to the list (matched ignoring capitals and extra spaces) unless the list is set to pick-only. Admins can bulk-add, rename, hide and remove entries; past submissions keep their own copy of the answer.
 
 ## Run locally
 
