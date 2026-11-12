@@ -36,8 +36,9 @@ class FormAdminController extends Controller
     public function edit(Request $request, Form $form, Slack $slack)
     {
         return view('admin.forms.edit', [
-            'form' => $form->load('fields'),
+            'form' => $form->load('fields.optionList'),
             'types' => FormField::TYPES,
+            'lists' => \App\Models\OptionList::orderBy('name')->get(),
             'channels' => $slack->channels($request->boolean('refresh')),
             'connected' => $slack->connected(),
         ]);
@@ -171,7 +172,15 @@ class FormAdminController extends Controller
             'help' => 'nullable|string|max:255',
             'required' => 'boolean',
             'allow_other' => 'boolean',
+            'option_list_id' => 'nullable|integer|exists:option_lists,id',
         ]);
+        if ($data['type'] === 'list' && empty($data['option_list_id'])) {
+            // Switched to a shared list without picking one: start with the first list; it can be changed after.
+            $data['option_list_id'] = \App\Models\OptionList::orderBy('id')->value('id');
+        }
+        if ($data['type'] === 'list' && empty($data['option_list_id'])) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['option_list_id' => 'Pick which shared list this question uses.']);
+        }
         $needsChoices = in_array($data['type'], FormField::WITH_OPTIONS, true);
         if ($needsChoices && trim((string) ($data['options'] ?? '')) === '') {
             throw \Illuminate\Validation\ValidationException::withMessages(['options' => 'Add the choices, one per line.']);
@@ -184,6 +193,7 @@ class FormAdminController extends Controller
             'help' => $data['help'] ?? null,
             'required' => $request->boolean('required'),
             'allow_other' => $needsChoices && $request->boolean('allow_other'),
+            'option_list_id' => $data['type'] === 'list' ? $data['option_list_id'] : null,
         ];
     }
 }

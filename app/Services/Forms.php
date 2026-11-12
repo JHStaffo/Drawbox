@@ -13,6 +13,9 @@ use RuntimeException;
 /** Checks a filled-out form, saves it, and posts it to the form's Slack channel. */
 class Forms
 {
+    /** @var list<string> new shared-list entries from the last submit, for the audit log */
+    public array $added = [];
+
     public function __construct(private Slack $slack) {}
 
     /** Validation rules for the fill-out page, keyed by each field's input name. */
@@ -33,6 +36,10 @@ class Forms
                 'checkboxes' => [...$base, 'array'],
                 'yesno' => [...$base, Rule::in(['Yes', 'No'])],
                 'team_member' => [...$base, 'integer', Rule::exists('users', 'id')->where('active', true)],
+                // A shared list takes any entry when people may add to it; otherwise only what's on it.
+                'list' => $field->optionList?->allow_add === false
+                    ? [...$base, Rule::in($field->optionList->activeNames())]
+                    : [...$base, 'string', 'max:200'],
                 'email' => [...$base, 'email', 'max:255'],
                 'phone' => [...$base, 'string', 'max:40', 'regex:/^[0-9 ()+.\-x]+$/i'],
                 default => [...$base, 'string', 'max:1000'],
@@ -65,6 +72,20 @@ class Forms
     /** Saves a checked submission and tries to post it right away. */
     public function submit(Form $form, array $input, User $user): FormSubmission
     {
+        // Shared-list answers use the list's spelling, and a new entry joins the list.
+        foreach ($form->fields->where('type', 'list') as $f) {
+            $typed = trim(preg_replace('/\s+/', ' ', (string) ($input[$f->inputName()] ?? '')));
+            if ($typed === '' || ! $f->optionList) {
+                continue;
+            }
+            $item = $f->optionList->find($typed);
+            if (! $item && $f->optionList->allow_add) {
+                $item = $f->optionList->items()->create(['name' => $typed, 'added_by' => $user->id]);
+                $this->added[] = "\"{$item->name}\" to {$f->optionList->name}";
+            }
+            $input[$f->inputName()] = $item?->name ?? $typed;
+        }
+
         $answers = $form->fields->map(fn (FormField $f) => array_filter([
             'label' => $f->label,
             'type' => $f->type,

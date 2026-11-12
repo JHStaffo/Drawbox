@@ -14,15 +14,21 @@ class FormReportController extends Controller
     public function index(Request $request, FormReports $reports)
     {
         $f = $reports->filters($request);
-        $form = ! empty($f['form']) ? Form::with('fields')->find($f['form']) : null;
-        $submissions = $reports->submissions($f);
+        $form = ! empty($f['form']) ? Form::with('fields.optionList.items')->find($f['form']) : null;
+        $f = $reports->forForm($f, $form);
+        $submissions = $reports->submissions($f, $form);
         $groups = $reports->groupOptions($form);
-        $group = isset($groups[$f['group']]) ? $f['group'] : 'member';
+        // Default: a form's first question you can total by, otherwise Team Member.
+        $group = isset($groups[$f['group'] ?? '']) ? $f['group'] : array_key_first($groups);
+        $split = isset($groups[$f['split'] ?? '']) && $f['split'] !== $group ? $f['split'] : null;
 
         return view('forms.reports', [
             'f' => $f,
             'group' => $group,
+            'split' => $split,
             'groups' => $groups,
+            'asksTeamMember' => $reports->asksTeamMember($form),
+            'filterable' => $form ? $form->fields->filter(fn ($q) => in_array($q->type, FormReports::FILTERABLE, true))->values() : collect(),
             'form' => $form,
             'forms' => Form::orderBy('name')->get(),
             'people' => User::byLastName(User::all()),
@@ -30,6 +36,7 @@ class FormReportController extends Controller
             'periods' => FormReports::PERIODS,
             'submissions' => $submissions,
             'totals' => $reports->totals($submissions, $group),
+            'matrix' => $split ? $reports->matrix($submissions, $group, $split) : null,
             'labels' => $form ? $reports->questionLabels($submissions) : [],
         ]);
     }
@@ -37,7 +44,9 @@ class FormReportController extends Controller
     public function csv(Request $request, FormReports $reports)
     {
         $f = $reports->filters($request);
-        $submissions = $reports->submissions($f);
+        $form = ! empty($f['form']) ? Form::with('fields.optionList.items')->find($f['form']) : null;
+        $f = $reports->forForm($f, $form);
+        $submissions = $reports->submissions($f, $form);
         $labels = $reports->questionLabels($submissions);
         $name = 'form-report-'.$f['start']->toDateString().'-to-'.$f['end']->toDateString().'.csv';
 

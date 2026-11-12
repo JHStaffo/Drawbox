@@ -25,7 +25,7 @@ class FormController extends Controller
         abort_unless($form->active, 404);
 
         return view('forms.show', [
-            'form' => $form->load('fields'),
+            'form' => $form->load('fields.optionList.items'),
             'teamMembers' => $form->fields->contains('type', 'team_member') ? User::byLastName(User::where('active', true)->get()) : collect(),
         ]);
     }
@@ -33,7 +33,7 @@ class FormController extends Controller
     public function store(Request $request, Form $form, Forms $forms)
     {
         abort_unless($form->active, 404);
-        $form->load('fields');
+        $form->load('fields.optionList.items');
         $input = $request->validate($forms->rules($form), [], $forms->attributes($form));
 
         $submission = $forms->submit($form, $input, $request->user());
@@ -41,7 +41,7 @@ class FormController extends Controller
             'sent' => ' and posted it to Slack.',
             'failed' => '. Slack didn\'t take it: '.$submission->slack_error,
             default => '.',
-        });
+        }.($forms->added ? ' Added '.implode(', ', $forms->added).'.' : ''));
 
         $message = match ($submission->slack_status) {
             'sent' => "Sent. {$form->name} was posted to {$form->channelLabel()}.",

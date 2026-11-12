@@ -33,7 +33,9 @@ class AuditChanges
             'taxable' => 'taxable', 'cash_bonus' => 'cash bonus',
         ],
         \App\Models\Form::class => ['name' => 'name', 'description' => 'description', 'slack_channel' => 'Slack channel', 'slack_template' => 'Slack message', 'active' => 'on'],
-        \App\Models\FormField::class => ['label' => 'question', 'type' => 'type', 'options' => 'choices', 'help' => 'help text', 'required' => 'required', 'allow_other' => 'Other choice'],
+        \App\Models\FormField::class => ['label' => 'question', 'type' => 'type', 'options' => 'choices', 'option_list_id' => 'shared list', 'help' => 'help text', 'required' => 'required', 'allow_other' => 'Other choice'],
+        \App\Models\OptionList::class => ['name' => 'name', 'allow_add' => 'people can add'],
+        \App\Models\OptionListItem::class => ['name' => 'name', 'active' => 'offered'],
         ScopeItem::class => ['name' => 'name', 'level' => 'level of care', 'note' => 'message'],
         LiftRule::class => [
             'scene_type' => 'scene', 'destination_type' => 'destination', 'min_weight_lbs' => 'min weight',
@@ -150,6 +152,8 @@ class AuditChanges
             $model instanceof ScopeItem => $model->getOriginal('name') ?? $model->name,
             $model instanceof LiftRule => "Lift rule #{$model->id}",
             $model instanceof PermissionProfile => ($model->getOriginal('name') ?? $model->name).' profile',
+            $model instanceof \App\Models\OptionList => ($model->getOriginal('name') ?? $model->name).' list',
+            $model instanceof \App\Models\OptionListItem => '"'.($model->getOriginal('name') ?? $model->name).'" on '.($model->list?->name ?? 'a list'),
             $model instanceof \App\Models\Form => ($model->getOriginal('name') ?? $model->name).' form',
             $model instanceof \App\Models\FormField => '"'.($model->getOriginal('label') ?? $model->label).'" on the '.($model->form?->name ?? 'form').' form',
         };
@@ -173,7 +177,7 @@ class AuditChanges
             $field === 'permission_profile_id' => PermissionProfile::find($value)?->label() ?? "#{$value}",
             $field === 'parent_id' => PermissionProfile::find($value)?->name ?? "#{$value}",
             $field === 'value_cents' => money((int) $value),
-            is_bool($value) || in_array($field, ['active', 'taxable', 'diminishing', 'cash_bonus_allowed', 'cash_bonus', 'is_default', 'hide_winners', 'required', 'allow_other'], true) => $value ? 'yes' : 'no',
+            is_bool($value) || in_array($field, ['active', 'taxable', 'diminishing', 'cash_bonus_allowed', 'cash_bonus', 'is_default', 'hide_winners', 'required', 'allow_other', 'allow_add'], true) => $value ? 'yes' : 'no',
             $field === 'pto_hours' => (string) ($value + 0),
             $field === 'level' => ScopeItem::LEVELS[$value] ?? (string) $value,
             default => (string) $value,

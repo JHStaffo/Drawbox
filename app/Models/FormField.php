@@ -22,6 +22,7 @@ class FormField extends Model
         'checkboxes' => 'Checkboxes (pick any)',
         'yesno' => 'Yes / No',
         'team_member' => 'Team Member (pick one)',
+        'list' => 'Shared list, like Facilities (pick or add)',
         'email' => 'Email',
         'phone' => 'Phone',
     ];
@@ -32,6 +33,21 @@ class FormField extends Model
     protected function casts(): array
     {
         return ['required' => 'boolean', 'allow_other' => 'boolean'];
+    }
+
+    public function optionList(): BelongsTo
+    {
+        return $this->belongsTo(OptionList::class);
+    }
+
+    /** Every answer a report can filter by: the choices, Yes/No, or the whole shared list. */
+    public function reportChoices(): array
+    {
+        return match ($this->type) {
+            'yesno' => ['Yes', 'No'],
+            'list' => $this->optionList?->items->pluck('name')->all() ?? [],
+            default => $this->choices(),
+        };
     }
 
     public function form(): BelongsTo
