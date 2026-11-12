@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'employee_number', 'permission_profile_id', 'active'])]
+#[Fillable(['name', 'email', 'phone', 'employee_number', 'permission_profile_id', 'active'])]
 #[Hidden(['remember_token'])]
 class User extends Authenticatable
 {
@@ -106,6 +106,40 @@ class User extends Authenticatable
     public function loginCodes(): HasMany
     {
         return $this->hasMany(LoginCode::class);
+    }
+
+    /**
+     * A phone number as typed, in the form texting services expect
+     * (+15551234567), or null when it isn't a phone number. Ten digits, or
+     * eleven starting with 1, are US numbers; other countries need a leading +.
+     */
+    public static function normalizePhone(?string $value): ?string
+    {
+        $value = trim((string) $value);
+        $digits = preg_replace('/\D/', '', $value);
+        if (str_starts_with($value, '+')) {
+            return strlen($digits) >= 8 && strlen($digits) <= 15 && ! str_starts_with($digits, '0') ? '+'.$digits : null;
+        }
+        if (strlen($digits) === 11 && str_starts_with($digits, '1')) {
+            $digits = substr($digits, 1);
+        }
+
+        return preg_match('/^[2-9]\d{2}[2-9]\d{6}$/', $digits) ? '+1'.$digits : null;
+    }
+
+    /** A stored phone number the way people read it: (555) 123-4567 for US numbers. */
+    public static function formatPhone(?string $phone): string
+    {
+        if (! $phone) {
+            return '';
+        }
+
+        return preg_match('/^\+1(\d{3})(\d{3})(\d{4})$/', $phone, $m) ? "({$m[1]}) {$m[2]}-{$m[3]}" : $phone;
+    }
+
+    public function phoneDisplay(): string
+    {
+        return self::formatPhone($this->phone);
     }
 
     public function setEmailAttribute(string $value): void
