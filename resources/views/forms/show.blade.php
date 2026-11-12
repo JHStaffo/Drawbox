@@ -71,6 +71,17 @@ document.querySelectorAll('.other-box').forEach(function (box) {
                             @foreach ($teamMembers as $tm)<option value="{{ $tm->id }}" @selected((string) old($name) === (string) $tm->id)>{{ $tm->name }}</option>@endforeach
                         </select>
                         @break
+                    @case('list')
+                        @if ($field->optionList?->allow_add === false)
+                            <select id="{{ $id }}" name="{{ $name }}" @required($field->required)>
+                                <option value="">Choose…</option>
+                                @foreach ($field->optionList->activeNames() as $choice)<option value="{{ $choice }}" @selected(old($name) === $choice)>{{ $choice }}</option>@endforeach
+                            </select>
+                        @else
+                            <input id="{{ $id }}" type="text" name="{{ $name }}" value="{{ old($name) }}" list="{{ $id }}-list" autocomplete="off" maxlength="200" placeholder="Start typing to pick, or type a new one to add it" @required($field->required)>
+                            <datalist id="{{ $id }}-list">@foreach ($field->optionList?->activeNames() ?? [] as $choice)<option value="{{ $choice }}">@endforeach</datalist>
+                        @endif
+                        @break
                     @default
                         <input id="{{ $id }}" name="{{ $name }}" value="{{ old($name) }}" @required($field->required)
                             type="{{ ['number' => 'number', 'date' => 'date', 'time' => 'time', 'datetime' => 'datetime-local', 'email' => 'email', 'phone' => 'tel'][$field->type] ?? 'text' }}"

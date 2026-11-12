@@ -371,4 +371,141 @@ class FormsTest extends TestCase
         $this->assertStringContainsString('"Amy Medic","Team Member › EMT","Dana Dispatch"', $csv);
         $this->assertSame('Exported form report', \App\Models\AuditLog::latest('id')->first()->label());
     }
+
+    public function test_reports_follow_the_chosen_forms_own_questions(): void
+    {
+        Http::fake();
+        $this->travelTo(\Carbon\Carbon::parse('2026-11-11 10:00', 'America/New_York'));
+        $admin = User::factory()->role('admin')->create(['name' => 'Ada Admin']);
+        $dana = $this->dispatcherWithForms();
+        $facilities = \App\Models\OptionList::where('name', 'Facilities')->first();
+        $facilities->items()->createMany([['name' => 'Riverside Regional'], ['name' => 'Sentara Norfolk']]);
+        $form = Form::create(['name' => 'Missed calls', 'active' => true]);
+        $where = $form->fields()->create(['label' => 'Where', 'type' => 'list', 'option_list_id' => $facilities->id, 'required' => true, 'position' => 1]);
+        $reason = $form->fields()->create(['label' => 'Reason', 'type' => 'select', 'options' => "No trucks\nNo crew", 'allow_other' => true, 'required' => true, 'position' => 2]);
+        $eta = $form->fields()->create(['label' => 'ETA given', 'type' => 'text', 'position' => 3]);
+
+        $send = fn ($w, $r, $e, $other = null) => $this->actingAs($dana)->post("/forms/{$form->id}", array_filter([
+            "f{$where->id}" => $w, "f{$reason->id}" => $r, "f{$eta->id}" => $e, $reason->otherInputName() => $other,
+        ]))->assertSessionHasNoErrors();
+        $send('Riverside Regional', 'No trucks', '2 hours');
+        $send('riverside  regional', 'No crew', '90 minutes');
+        $send('Sentara Norfolk', 'No trucks', '3 hours');
+        $send('Sentara Norfolk', \App\Models\FormField::OTHER, '', 'Weather');
+
+        $base = "/forms/reports?form={$form->id}";
+        $page = $this->actingAs($admin)->get($base)->assertOk();
+        // No Team Member question, so no Team Member or Position filters, and totals start on the form's first question.
+        $page->assertDontSee('id="member"', false)->assertDontSee('id="position"', false)->assertSee('Then split by');
+        $this->assertSame('q:Where', $page->viewData('group'));
+        $this->assertEquals([['label' => 'Riverside Regional', 'count' => 2], ['label' => 'Sentara Norfolk', 'count' => 2]], $page->viewData('totals')->all());
+        $this->assertArrayNotHasKey('member', $page->viewData('groups'));
+
+        $count = fn ($qs) => $this->actingAs($admin)->get($base.'&'.$qs)->viewData('submissions')->count();
+        $this->assertSame(2, $count('q[Reason]=No+trucks'));
+        $this->assertSame(1, $count('q[Reason]=__other'));
+        $this->assertSame(1, $count('q[Where]=Sentara+Norfolk&q[Reason]=No+trucks'));
+        $this->assertSame(1, $count('q[ETA+given]=hour&q[Where]=Riverside+Regional'));
+        // A filter left over from another form is ignored.
+        $this->assertSame(4, $count('q[Type+of+report]=Call+Out'));
+
+        $matrix = $this->actingAs($admin)->get($base.'&group=q:Where&split=q:Reason')->assertOk()->assertSee('Where by Reason')->viewData('matrix');
+        $this->assertSame(['No trucks', 'No crew', 'Weather'], $matrix['columns']); // Most used first, then A to Z.
+        $this->assertEquals(['label' => 'Sentara Norfolk', 'cells' => ['No trucks' => 1, 'Weather' => 1], 'total' => 2], $matrix['rows'][1]);
+        $this->assertSame(['No trucks' => 2, 'No crew' => 1, 'Weather' => 1], $matrix['totals']);
+
+        $csv = $this->actingAs($admin)->get("/forms/reports.csv?form={$form->id}&q[Reason]=No+crew")->streamedContent();
+        $this->assertSame(2, substr_count(trim($csv), "\n") + 1);
+    }
+
+    public function test_shared_list_questions_pick_or_add_entries(): void
+    {
+        Http::fake();
+        $dana = $this->dispatcherWithForms();
+        $facilities = \App\Models\OptionList::where('name', 'Facilities')->first();
+        $facilities->items()->create(['name' => 'Riverside Regional']);
+        $facilities->items()->create(['name' => 'Old Clinic', 'active' => false]);
+        $form = Form::create(['name' => 'Missed calls', 'active' => true]);
+        $where = $form->fields()->create(['label' => 'Where', 'type' => 'list', 'option_list_id' => $facilities->id, 'required' => true, 'position' => 1]);
+
+        $this->actingAs($dana)->get("/forms/{$form->id}")->assertOk()
+            ->assertSee('<option value="Riverside Regional">', false)->assertDontSee('Old Clinic');
+
+        // Typing an existing entry in other capitals uses the list's spelling.
+        $this->actingAs($dana)->post("/forms/{$form->id}", ["f{$where->id}" => ' riverside REGIONAL '])->assertSessionHasNoErrors();
+        $this->assertSame('Riverside Regional', FormSubmission::latest('id')->first()->answer('Where'));
+
+        // A new one is added to the list, and the audit log says so.
+        $this->actingAs($dana)->post("/forms/{$form->id}", ["f{$where->id}" => 'Bon Secours Mary Immaculate'])->assertSessionHasNoErrors();
+        $added = $facilities->items()->where('name', 'Bon Secours Mary Immaculate')->first();
+        $this->assertNotNull($added);
+        $this->assertSame($dana->id, $added->added_by);
+        $this->assertStringContainsString('Added "Bon Secours Mary Immaculate" to Facilities', AuditLog::latest('id')->first()->description);
+        $this->assertSame(3, $facilities->items()->count());
+
+        // With adding turned off, only listed entries are accepted.
+        $facilities->update(['allow_add' => false]);
+        $this->actingAs($dana)->get("/forms/{$form->id}")->assertSee('<select', false);
+        $this->actingAs($dana)->post("/forms/{$form->id}", ["f{$where->id}" => 'Somewhere New'])->assertSessionHasErrors("f{$where->id}");
+        $this->assertSame(3, $facilities->items()->count());
+    }
+
+    public function test_admins_manage_shared_lists_and_every_change_is_audited(): void
+    {
+        $admin = User::factory()->role('admin')->create(['name' => 'Ada Admin']);
+        $dana = $this->dispatcherWithForms();
+        $this->actingAs($dana)->get('/admin/lists')->assertForbidden();
+        $this->actingAs($admin)->get('/admin/lists')->assertOk()->assertSee('Facilities');
+
+        $facilities = \App\Models\OptionList::where('name', 'Facilities')->first();
+        $label = fn () => AuditLog::latest('id')->first()->label();
+
+        $this->actingAs($admin)->post("/admin/lists/{$facilities->id}/items", ['names' => "Riverside Regional\nSentara Norfolk\n riverside regional \n\n"])->assertSessionHasNoErrors();
+        $this->assertSame(['Riverside Regional', 'Sentara Norfolk'], $facilities->items()->pluck('name')->all());
+        $this->assertSame('Added to a shared list', $label());
+        $this->assertStringContainsString('Riverside Regional, Sentara Norfolk', AuditLog::latest('id')->first()->description);
+
+        $item = $facilities->items()->where('name', 'Sentara Norfolk')->first();
+        $this->actingAs($admin)->put("/admin/list-items/{$item->id}", ['name' => 'Riverside regional'])->assertSessionHas('error');
+        $this->actingAs($admin)->put("/admin/list-items/{$item->id}", ['name' => 'Sentara Norfolk General'])->assertSessionHas('status');
+        $this->assertSame('Sentara Norfolk General', $item->fresh()->name);
+        $this->assertSame('Renamed a shared list entry', $label());
+
+        $this->actingAs($admin)->post("/admin/list-items/{$item->id}/toggle");
+        $this->assertFalse($item->fresh()->active);
+        $this->assertSame('Hid or unhid a shared list entry', $label());
+
+        $this->actingAs($admin)->put("/admin/lists/{$facilities->id}", ['name' => 'Facilities', 'allow_add' => '0']);
+        $this->assertFalse($facilities->fresh()->allow_add);
+        $this->assertSame('Changed a shared list', $label());
+
+        $this->actingAs($admin)->delete("/admin/list-items/{$item->id}");
+        $this->assertNull($item->fresh());
+        $this->assertSame('Removed a shared list entry', $label());
+
+        $this->actingAs($admin)->post('/admin/lists', ['name' => 'Destinations'])->assertRedirect();
+        $this->assertSame('Added a shared list', $label());
+        $dest = \App\Models\OptionList::where('name', 'Destinations')->first();
+
+        // A list a question uses can't be deleted.
+        $form = Form::create(['name' => 'Transfers', 'active' => true]);
+        $form->fields()->create(['label' => 'To', 'type' => 'list', 'option_list_id' => $dest->id, 'position' => 1]);
+        $this->actingAs($admin)->delete("/admin/lists/{$dest->id}")->assertSessionHas('error');
+        $this->assertNotNull($dest->fresh());
+        $form->fields()->delete();
+        $this->actingAs($admin)->delete("/admin/lists/{$dest->id}");
+        $this->assertNull($dest->fresh());
+        $this->assertSame('Deleted a shared list', $label());
+    }
+
+    public function test_form_builder_adds_a_shared_list_question(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $form = Form::create(['name' => 'Missed calls', 'active' => true]);
+        $this->actingAs($admin)->get("/admin/forms/{$form->id}")->assertOk()->assertSee('Shared list');
+        $this->actingAs($admin)->post("/admin/forms/{$form->id}/fields", ['label' => 'Where', 'type' => 'list'])->assertSessionHasNoErrors();
+        $field = $form->fields()->first();
+        $this->assertSame('list', $field->type);
+        $this->assertSame('Facilities', $field->optionList->name);
+    }
 }
