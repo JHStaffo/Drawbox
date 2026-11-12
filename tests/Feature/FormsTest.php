@@ -184,7 +184,7 @@ class FormsTest extends TestCase
             }
             $blocks = json_encode($r['blocks']);
 
-            return $r['channel'] === 'C111' && $r['text'] === 'Facility Call Log from Dana Dispatch'
+            return $r['channel'] === 'C111' && str_starts_with($r['text'], "Facility Call Log\nFacility: Sentara &lt;Leigh&gt; &amp; Co")
                 && str_contains($blocks, 'Sentara &lt;Leigh&gt; &amp; Co')
                 && str_contains($blocks, 'Sent by Dana Dispatch from Fast Track Pulse')
                 && ! str_contains($blocks, 'Notes');
@@ -273,6 +273,8 @@ class FormsTest extends TestCase
         $this->assertSame($template, $s->slack_template);
         Http::assertSent(fn (Request $r) => str_ends_with($r->url(), 'chat.postMessage')
             && $r['blocks'][0]['text']['text'] === ":rotating_light: *ALS call* at Sentara &lt;Leigh&gt; <!here>\nNeeds: Oxygen\nNotes: \nLogged by Dana Dispatch for Facility Call Log (\$answer9)"
+            // The phone notification reads like the message, without the bold marks.
+            && $r['text'] === ":rotating_light: ALS call at Sentara &lt;Leigh&gt; <!here>\nNeeds: Oxygen\nNotes: \nLogged by Dana Dispatch for Facility Call Log (\$answer9)"
             && count($r['blocks']) === 1);
 
         // Moving a question keeps the numbers on the same answers; removing one drops it.

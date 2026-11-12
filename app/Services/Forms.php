@@ -228,9 +228,26 @@ class Forms
         }, $template);
     }
 
+    /**
+     * The plain text Slack shows in phone and desktop notifications: the
+     * form's own message when it has one, otherwise the form name and answers.
+     * Bold, italic and strike marks are taken off, since notifications don't show them.
+     */
     private function fallbackText(FormSubmission $s): string
     {
-        return $s->form_name.' from '.($s->user?->name ?? 'someone');
+        if (trim((string) $s->slack_template) !== '') {
+            $text = trim($this->render($s->slack_template, $s));
+        } else {
+            $lines = collect($s->answers)->filter(fn ($a) => ($a['value'] ?? '') !== '')
+                ->map(fn ($a) => Slack::escape($a['label']).': '.Slack::escape((string) $a['value']));
+            $text = $lines->prepend(Slack::escape($s->form_name))->implode("\n");
+        }
+        foreach (['*', '_', '~'] as $mark) {
+            $q = preg_quote($mark, '/');
+            $text = preg_replace('/(?<![\w'.$q.'])'.$q.'(?=\S)(.+?)(?<=\S)'.$q.'(?![\w'.$q.'])/u', '$1', $text);
+        }
+
+        return Str::limit($text, 1500);
     }
 
     /** The form's own message when it has one; otherwise the form name as a header, the answers, then who sent it and when. */
