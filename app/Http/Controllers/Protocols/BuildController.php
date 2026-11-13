@@ -29,7 +29,6 @@ class BuildController extends Controller
         return view('protocols.manage.index', [
             'protocols' => $protocols,
             'categories' => ProtocolCategory::ordered(),
-            'used' => ProtocolVersion::whereNotNull('protocol_category_id')->distinct()->pluck('protocol_category_id')->all(),
         ]);
     }
 
@@ -224,7 +223,7 @@ class BuildController extends Controller
         $data = $request->validate(['name' => 'required|string|max:60|unique:protocol_categories,name']);
         $category = ProtocolCategory::create(['name' => trim($data['name']), 'position' => (int) ProtocolCategory::max('position') + 1]);
 
-        return back()->with('status', "Added the {$category->name} category.");
+        return redirect(route('supervisor.settings').'#protocol-categories')->with('status', "Added the {$category->name} category.");
     }
 
     public function updateCategory(Request $request, ProtocolCategory $category)
@@ -235,17 +234,17 @@ class BuildController extends Controller
         ]);
         $category->update(['name' => trim($data['name']), 'position' => $data['position']]);
 
-        return back()->with('status', "Saved the {$category->name} category. Approved protocols keep the name they were approved with.");
+        return redirect(route('supervisor.settings').'#protocol-categories')->with('status', "Saved the {$category->name} category. Approved protocols keep the name they were approved with.");
     }
 
     public function destroyCategory(ProtocolCategory $category)
     {
         if (ProtocolVersion::where('protocol_category_id', $category->id)->exists()) {
-            return back()->with('error', "A protocol is in {$category->name}, so it can't be deleted.");
+            return redirect(route('supervisor.settings').'#protocol-categories')->with('error', "A protocol is in {$category->name}, so it can't be deleted.");
         }
         $category->delete();
 
-        return back()->with('status', "Deleted the {$category->name} category.");
+        return redirect(route('supervisor.settings').'#protocol-categories')->with('status', "Deleted the {$category->name} category.");
     }
 
     private function formData(?Protocol $protocol, ProtocolVersion $version): array

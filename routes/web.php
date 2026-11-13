@@ -79,13 +79,15 @@ Route::middleware('auth')->group(function () {
             Route::post('/manage/{protocol}/submit', [ProtocolBuildController::class, 'submit'])->name('manage.submit');
             Route::post('/manage/{protocol}/withdraw', [ProtocolBuildController::class, 'withdraw'])->name('manage.withdraw');
             Route::delete('/manage/{protocol}/draft', [ProtocolBuildController::class, 'discard'])->name('manage.discard');
-            Route::post('/categories', [ProtocolBuildController::class, 'storeCategory'])->name('categories.store');
-            Route::put('/categories/{category}', [ProtocolBuildController::class, 'updateCategory'])->name('categories.update');
-            Route::delete('/categories/{category}', [ProtocolBuildController::class, 'destroyCategory'])->name('categories.destroy');
             Route::get('/imports', [ProtocolImportController::class, 'index'])->name('imports');
             Route::post('/imports', [ProtocolImportController::class, 'store'])->middleware('throttle:10,1')->name('imports.store');
             Route::post('/imports/{import}/retry', [ProtocolImportController::class, 'retry'])->name('imports.retry');
             Route::delete('/imports/{import}', [ProtocolImportController::class, 'destroy'])->name('imports.destroy');
+        });
+        Route::middleware('permission:settings')->group(function () {
+            Route::post('/categories', [ProtocolBuildController::class, 'storeCategory'])->name('categories.store');
+            Route::put('/categories/{category}', [ProtocolBuildController::class, 'updateCategory'])->name('categories.update');
+            Route::delete('/categories/{category}', [ProtocolBuildController::class, 'destroyCategory'])->name('categories.destroy');
         });
         Route::middleware('permission:protocols_approve')->group(function () {
             Route::get('/approvals', [ProtocolApprovalController::class, 'index'])->name('approvals');

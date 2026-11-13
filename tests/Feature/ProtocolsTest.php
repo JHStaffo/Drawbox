@@ -316,10 +316,19 @@ class ProtocolsTest extends TestCase
     public function test_categories_and_sample_seeder(): void
     {
         $builder = $this->builder();
-        $this->actingAs($builder)->post('/protocols/categories', ['name' => 'Trauma'])->assertSessionHas('status');
+        $admin = User::factory()->role('admin')->create();
+        // Categories are managed in Admin > Settings.
+        $this->actingAs($builder)->post('/protocols/categories', ['name' => 'Trauma'])->assertForbidden();
+        $this->actingAs($admin)->get('/supervisor/settings')->assertOk()->assertSee('Protocol categories')->assertSee('Cardiac Arrest');
+        $this->actingAs($admin)->post('/protocols/categories', ['name' => 'Trauma'])
+            ->assertRedirect(route('supervisor.settings').'#protocol-categories')->assertSessionHas('status');
+        $this->actingAs($admin)->post('/protocols/categories', ['name' => 'Trauma'])->assertSessionHasErrors('name');
         $trauma = ProtocolCategory::where('name', 'Trauma')->first();
-        $this->actingAs($builder)->put('/protocols/categories/'.$trauma->id, ['name' => 'Trauma & Burns', 'position' => 9]);
+        $this->actingAs($admin)->put('/protocols/categories/'.$trauma->id, ['name' => 'Trauma & Burns', 'position' => 9]);
         $this->assertStringContainsString('name from Trauma to Trauma & Burns', AuditLog::latest('id')->first()->description);
+        $this->actingAs($admin)->delete('/protocols/categories/'.$trauma->id)->assertSessionHas('status');
+        $this->assertNull($trauma->fresh());
+        $this->assertDatabaseHas('audit_logs', ['action' => 'protocols.categories.destroy']);
 
         $this->seed(ProtocolSampleSeeder::class);
         $v = ProtocolVersion::first();

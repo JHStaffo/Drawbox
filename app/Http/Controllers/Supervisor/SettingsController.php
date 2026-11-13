@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Supervisor;
 use App\Http\Controllers\Controller;
 use App\Models\LiftRule;
 use App\Models\PermissionProfile;
+use App\Models\ProtocolCategory;
+use App\Models\ProtocolVersion;
 use App\Models\ScopeItem;
 use App\Models\Setting;
 use App\Services\ProtocolImport\AnthropicKey;
@@ -26,6 +28,8 @@ class SettingsController extends Controller
             'expiryReminderEnabled' => (bool) Setting::get('expiry_reminder_enabled'),
             'profiles' => PermissionProfile::ordered(),
             'newsMinDollars' => (int) Setting::get('news_min_cents') / 100,
+            'protocolCategories' => ProtocolCategory::ordered(),
+            'usedCategories' => ProtocolVersion::whereNotNull('protocol_category_id')->distinct()->pluck('protocol_category_id')->all(),
             'anthropicKey' => app(AnthropicKey::class),
         ]);
     }

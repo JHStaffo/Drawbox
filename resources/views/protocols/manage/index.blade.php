@@ -70,34 +70,5 @@
         @endif
     </div>
 
-    <div class="card" style="max-width:720px">
-        <h2>Categories</h2>
-        <p class="hint">The chapters of the book, in this order. Approved protocols keep the category name they were approved with.</p>
-        <div class="table-wrap"><table>
-            <tr><th>Order</th><th>Name</th><th></th></tr>
-            @foreach ($categories as $c)
-                <tr>
-                    <td colspan="2">
-                        <form method="post" action="{{ route('protocols.categories.update', $c) }}" class="row-actions" style="margin:0;flex-wrap:nowrap">@csrf @method('put')
-                            <input type="number" name="position" value="{{ $c->position }}" min="0" max="999" style="width:80px" aria-label="Order">
-                            <input type="text" name="name" value="{{ $c->name }}" required maxlength="60" aria-label="Name">
-                            <button class="btn btn-small btn-outline" type="submit">Save</button>
-                        </form>
-                    </td>
-                    <td>
-                        @unless (in_array($c->id, $used))
-                            <form method="post" action="{{ route('protocols.categories.destroy', $c) }}" onsubmit="return confirm('Delete the {{ addslashes($c->name) }} category?')">@csrf @method('delete')
-                                <button class="btn btn-small btn-outline" type="submit">Delete</button>
-                            </form>
-                        @endunless
-                    </td>
-                </tr>
-            @endforeach
-        </table></div>
-        <form method="post" action="{{ route('protocols.categories.store') }}" class="row-actions mt">@csrf
-            <input type="text" name="name" placeholder="New category, e.g. Trauma" required maxlength="60" style="max-width:320px" aria-label="New category">
-            <button class="btn btn-small" type="submit">Add category</button>
-        </form>
-    </div>
 </div>
 @endsection
