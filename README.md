@@ -37,7 +37,7 @@ The Protocols menu holds the protocol book. Each protocol is a flowchart (boxes 
 
 Every change is a version. Builders (Build protocols) save drafts and send them for approval; the Medical Director (Medical Director permission) approves by typing their name, or sends it back with a note. Team Members (Protocol book) only ever see the approved version, which stays in the book while a revision is worked on, and approved versions are never edited. The book can be opened whole, by category, by age group (Infant, Pediatric, Adult) or one protocol at a time, searched, and printed one protocol per page. All three permissions start on the Admin profile only. `ProtocolVersion::toApi()` is the shape the future mobile API will serve.
 
-`php artisan db:seed --class=ProtocolSampleSeeder` loads the Cardiac Arrest protocol as a draft example.
+`php artisan db:seed --class=ProtocolSampleSeeder` loads the Cardiac Arrest protocol as a draft example. `php artisan protocols:load-sample` does the same, or, when Cardiac Arrest already exists, puts the arranged sample into its draft (starting a new version if it is approved, taking it back if it is waiting for approval) and keeps links builders set on its boxes.
 
 ## Wellness
 

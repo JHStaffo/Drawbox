@@ -239,6 +239,41 @@ class ProtocolsTest extends TestCase
         $this->assertStringContainsString('layout from arranged by hand to automatic', AuditLog::latest('id')->first()->description);
     }
 
+    public function test_load_sample_command_handles_every_state(): void
+    {
+        $builder = $this->builder();
+        $md = $this->medicalDirector();
+
+        // Nothing yet: adds it as a draft.
+        $this->artisan('protocols:load-sample')->assertSuccessful();
+        $this->assertSame('manual', ProtocolVersion::first()->chart['layout']);
+
+        // An approved Cardiac Arrest on the old automatic layout, with a link set by a builder.
+        Protocol::query()->delete();
+        $chart = json_decode($this->payload()['chart'], true);
+        $chart['nodes'][] = ['id' => 'n16', 'type' => 'exit', 'text' => 'EXIT to ROSC', 'link' => null];
+        $this->actingAs($builder)->post('/protocols/manage', $this->payload(['title' => 'ROSC']));
+        $rosc = Protocol::first();
+        $chart['nodes'][3]['link'] = $rosc->id;
+        $this->actingAs($builder)->post('/protocols/manage', $this->payload(['chart' => json_encode($chart)]));
+        $arrest = Protocol::orderByDesc('id')->first();
+        $this->actingAs($builder)->post("/protocols/manage/{$arrest->id}/submit");
+        $this->actingAs($md)->post('/protocols/approvals/'.$arrest->openVersion()->id.'/approve', ['signature' => 'Dr. Morgan', 'confirm' => 1]);
+
+        $this->artisan('protocols:load-sample')->expectsOutputToContain('Started version 2 as a draft')->assertSuccessful();
+        $draft = $arrest->fresh()->openVersion();
+        $this->assertSame([2, 'draft', 'manual', '4.1'], [$draft->version, $draft->status, $draft->chart['layout'], $draft->number]);
+        $this->assertSame($rosc->id, collect($draft->boxes())->firstWhere('id', 'n16')['link'], 'Links set by builders are kept');
+        $this->assertSame(1, $arrest->fresh()->approved->version, 'The approved version stays in the book');
+        $this->assertSame('system.protocol-sample', AuditLog::latest('id')->first()->action);
+
+        // Sent for approval: taken back and replaced, still one draft.
+        $this->actingAs($builder)->post("/protocols/manage/{$arrest->id}/submit");
+        $this->artisan('protocols:load-sample')->expectsOutputToContain('Replaced the flowchart and sections of version 2 (Waiting for approval)')->assertSuccessful();
+        $this->assertSame('draft', $draft->fresh()->status);
+        $this->assertSame(2, $arrest->versions()->count());
+    }
+
     public function test_box_text_is_escaped_in_the_chart(): void
     {
         $chart = ProtocolChart::clean(['nodes' => [['id' => 'n1', 'type' => 'step', 'text' => '<script>alert(1)</script> "quoted" **bold**']], 'edges' => []]);
