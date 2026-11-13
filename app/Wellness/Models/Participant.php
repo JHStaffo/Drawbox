@@ -17,7 +17,7 @@ class Participant extends Model
     {
         return [
             'joined_at' => 'datetime', 'consent_at' => 'datetime', 'withdrawn_at' => 'datetime',
-            'manual_device_until' => 'date',
+            'manual_device_until' => 'date', 'sync_notice_at' => 'datetime',
         ];
     }
 

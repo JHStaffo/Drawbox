@@ -45,6 +45,8 @@ class Setting extends Model
         'wellness_inbody_min_days' => '28',
         'wellness_inbody_fat_drop' => '1.0',
         'wellness_inbody_muscle_gain' => '1.0',
+        // The iCloud link to the shared Apple Health Shortcut, shown on the Devices page.
+        'wellness_shortcut_url' => '',
         'scope_scene_types' => "House\nApartment with elevator\nApartment without elevator\nNursing facility\nAssisted living\nHospital\nDialysis center\nDoctor's office",
         'scope_destination_types' => "Hospital\nNursing facility\nAssisted living\nHouse\nApartment with elevator\nApartment without elevator\nDialysis center\nDoctor's office",
     ];

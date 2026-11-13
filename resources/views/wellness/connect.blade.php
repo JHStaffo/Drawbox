@@ -7,6 +7,10 @@
 
 @section('content')
 <div class="stack">
+    @foreach ($stale as $s)
+        <div class="flash flash-error">{{ $s['source_label'] }} hasn't synced since {{ \Carbon\Carbon::parse($s['at'])->format('l, M j \a\t g:i A') }}. Run the Fast Track Pulse shortcut once by hand to see what's wrong, and check the tips below.</div>
+    @endforeach
+
     @if ($newToken)
         <div class="card locker-banner">
             <h2>Your new sync key</h2>
@@ -19,15 +23,28 @@
         <div class="card">
             <h2>Apple Watch / Apple Health</h2>
             <p>An Apple Shortcut on your iPhone sends each day's steps, sleep and exercise minutes from Apple Health to Pulse. Apple doesn't let websites read Apple Health directly, so this goes through your phone.</p>
+            <h3>Set it up once (about 5 minutes)</h3>
             <ol class="steps">
-                <li>Make a sync key below.</li>
-                <li>Install the Fast Track Pulse Shortcut on your iPhone and paste in the key. (The Shortcut and step-by-step instructions are coming soon.)</li>
-                <li>Allow it to read Steps, Sleep and Exercise Minutes when it asks.</li>
+                <li>
+                    Make a sync key, then copy it.
+                    <form method="post" action="{{ route('wellness.connect.store') }}" class="row-actions">@csrf
+                        <input type="text" name="name" placeholder="Apple Health Shortcut" maxlength="60" style="max-width:260px">
+                        <button class="btn btn-small" type="submit">Make a sync key</button>
+                    </form>
+                </li>
+                <li>
+                    On your iPhone, open this page and tap
+                    @if ($shortcutUrl)
+                        <a class="btn btn-small" href="{{ $shortcutUrl }}" target="_blank" rel="noopener">Get the Fast Track Pulse shortcut</a>,
+                    @else
+                        <strong>Get the Fast Track Pulse shortcut</strong> (the link appears here once it's ready),
+                    @endif
+                    then tap Add Shortcut. Paste your sync key when it asks.
+                </li>
+                <li>Run the shortcut once. Tap Allow when it asks to read Steps, Sleep and Exercise Minutes, and Allow when it asks to connect to {{ parse_url($syncUrl, PHP_URL_HOST) }}. It shows a message with what it sent.</li>
+                <li>In Shortcuts, tap Automation, then New Automation, then Time of Day. Pick 9:00 PM, Daily, and Run Immediately. Choose the Fast Track Pulse shortcut.</li>
             </ol>
-            <form method="post" action="{{ route('wellness.connect.store') }}" class="row-actions">@csrf
-                <input type="text" name="name" placeholder="Apple Health Shortcut" maxlength="60" style="max-width:260px">
-                <button class="btn btn-small" type="submit">Make a sync key</button>
-            </form>
+            <p class="hint">Each night it sends that day's totals and the day before, so a night your phone missed is caught up the next night. Steps from your iPhone and Apple Watch aren't counted twice.</p>
         </div>
         <div class="card">
             <h2>Fitbit</h2>
@@ -39,6 +56,17 @@
                 <p class="hint">Nothing has synced from a device yet.</p>
             @endforelse
         </div>
+    </div>
+
+    <div class="card">
+        <h2>If your data isn't showing up</h2>
+        <ul class="steps">
+            <li><strong>Nothing synced last night:</strong> make sure the automation in Shortcuts is on and set to Run Immediately. Your phone has to be on, but it can be locked.</li>
+            <li><strong>"Your key doesn't work" or "Unauthenticated":</strong> make a new sync key here, then open the shortcut, tap the first Text box and paste the new key.</li>
+            <li><strong>Steps look low:</strong> open the Health app, tap Steps, then Data Sources & Access, and make sure your Apple Watch is on the list.</li>
+            <li><strong>No sleep:</strong> turn on Sleep in the Health app (or Sleep Focus) and wear your watch to bed. Sleep counts toward the day you wake up.</li>
+            <li>If we don't hear from your device for 2 days, we'll email you a reminder.</li>
+        </ul>
     </div>
 
     <div class="card">

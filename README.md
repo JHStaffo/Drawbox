@@ -54,6 +54,7 @@ The Wellness menu is its own module (`app/Wellness`, `routes/wellness.php`, tabl
 - **Adjustments:** from a participant's page, with a reason; they're new ledger rows, never edits, and daily points still stay within 8.
 - **Test period:** points before the official start date (Wellness settings, default January 1, 2027) don't count toward prizes.
 - **API:** `/api/v1` for phone apps and the Apple Health Shortcut, documented in [docs/api.md](docs/api.md). Team Members make sync keys under Wellness > Devices.
+- **Apple Health:** a Shortcut on each iPhone sends steps, sleep and exercise to `POST /api/v1/wellness/apple-health` every night. Build and share it once with [docs/apple-health-shortcut.md](docs/apple-health-shortcut.md), then paste its iCloud link into Wellness settings so the Devices page offers it. `wellness:sync-check` runs daily at 10 AM and emails anyone whose device hasn't synced in 2 days, once per gap.
 
 ## Run locally
 

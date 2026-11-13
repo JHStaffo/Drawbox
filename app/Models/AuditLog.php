@@ -138,6 +138,8 @@ class AuditLog extends Model
         'api.wellness.join' => 'Joined Wellness (app)',
         'api.wellness.days.update' => 'Logged wellness (app)',
         'api.wellness.readings' => 'Wellness device sync',
+        'api.wellness.apple-health' => 'Apple Health sync',
+        'system.wellness-sync-check' => 'Wellness sync reminders',
         'system.expire' => 'Draws expired',
         'system.notify' => 'New-draw emails sent',
         'system.remind' => 'Expiry reminders sent',

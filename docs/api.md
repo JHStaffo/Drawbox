@@ -25,7 +25,7 @@ There are two kinds of token:
 | Token | Made by | Can |
 | --- | --- | --- |
 | App token (`wellness`) | `POST /auth/token` | Everything below |
-| Sync key (`wellness:import`) | Wellness > Devices > Make a sync key | Only `POST /wellness/readings` |
+| Sync key (`wellness:import`) | Wellness > Devices > Make a sync key | Only `POST /wellness/readings` and `POST /wellness/apple-health` |
 
 ## Endpoints
 
@@ -39,6 +39,7 @@ There are two kinds of token:
 | `GET /wellness/days/{day}` | One day |
 | `PUT /wellness/days/{day}` | Typed-in values for a day, e.g. `{"meals": 3, "water_oz": 64, "meal_plan": 1}`. A `null` clears a value. Steps, sleep and workout only if typing them is allowed (testing setting or an exception) |
 | `POST /wellness/readings` | Device data (below) |
+| `POST /wellness/apple-health` | The Apple Health Shortcut's simpler form of device data (below) |
 | `GET /wellness/leaderboard?period=week\|month\|quarter\|year` | Names, points and ranks only |
 | `GET /wellness/submissions` | Their visits, InBody scans and weigh-ins, with status, points and any reason it was sent back |
 | `POST /wellness/submissions` | Multipart form: `activity` (a rule key such as `dentist`), `day`, `note` (photo or PDF, up to 10 MB, needed for visits and InBody), `body_fat_pct` and `muscle_lb` for InBody, `comment`, and `fix` (the id of a sent-back submission being corrected). Weigh-ins score right away; the rest wait for review |
@@ -70,3 +71,23 @@ POST /wellness/readings
 ```
 
 Metrics: `steps`, `sleep_minutes` (the night ending that morning), `exercise_minutes`, `water_oz`. Up to 200 readings per call. Days in the future or in a closed week are skipped with a reason, `future` or `closed`, and the rest are saved. Every sync is in the audit log.
+
+## Apple Health Shortcut
+
+`POST /wellness/apple-health` takes flat fields, as JSON or a form, the way an iOS Shortcut builds them. It answers with a `message` the Shortcut shows as a notification.
+
+```http
+POST /wellness/apple-health
+Authorization: Bearer <sync key>
+Accept: application/json
+{"day": "2026-12-09", "steps": "10,422", "sleep_hours": "6.9 hr", "exercise_minutes": 34}
+→ 200 {"message": "Pulse: Today 10,422 steps, 6.9 h sleep, 34 min exercise. 3 of 8 points so far.", "days": [...]}
+```
+
+- `day`: `yyyy-MM-dd`, `today` or `yesterday`. Leave it out for today.
+- `steps`, `exercise_minutes`, `water_oz`, and sleep as `sleep_minutes` or `sleep_hours` (`7.5`, `7:30` or `7 hr 30 min`). Commas and units are ignored.
+- The same fields with a `yesterday_` prefix save the day before `day` in the same call.
+- Blank and zero values are skipped, so a Shortcut that finds no data never wipes out a real value.
+- Saved with source `apple_health`, the same as `POST /wellness/readings`.
+
+How to build the Shortcut is in [apple-health-shortcut.md](apple-health-shortcut.md).
