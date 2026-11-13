@@ -16,6 +16,9 @@ use App\Http\Controllers\FormController;
 use App\Http\Controllers\FormReportController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PickUpController;
+use App\Http\Controllers\Protocols\ApprovalController as ProtocolApprovalController;
+use App\Http\Controllers\Protocols\BookController as ProtocolBookController;
+use App\Http\Controllers\Protocols\BuildController as ProtocolBuildController;
 use App\Http\Controllers\ScopeController;
 use App\Http\Controllers\Supervisor\AwardController;
 use App\Http\Controllers\Supervisor\DashboardController;
@@ -59,6 +62,38 @@ Route::middleware('auth')->group(function () {
         Route::get('/forms', [FormController::class, 'index'])->name('forms');
         Route::get('/forms/{form}', [FormController::class, 'show'])->name('forms.show');
         Route::post('/forms/{form}', [FormController::class, 'store'])->middleware('throttle:30,1')->name('forms.store');
+    });
+
+    // Protocols: builders write drafts, the Medical Director approves them, everyone with access reads the book.
+    Route::prefix('protocols')->name('protocols.')->group(function () {
+        Route::middleware('permission:protocols_build')->group(function () {
+            Route::get('/manage', [ProtocolBuildController::class, 'index'])->name('manage');
+            Route::get('/manage/new', [ProtocolBuildController::class, 'create'])->name('manage.create');
+            Route::post('/manage', [ProtocolBuildController::class, 'store'])->name('manage.store');
+            Route::post('/manage/preview', [ProtocolBuildController::class, 'preview'])->name('manage.preview');
+            Route::get('/manage/{protocol}', [ProtocolBuildController::class, 'edit'])->name('manage.edit');
+            Route::put('/manage/{protocol}', [ProtocolBuildController::class, 'update'])->name('manage.update');
+            Route::post('/manage/{protocol}/revise', [ProtocolBuildController::class, 'revise'])->name('manage.revise');
+            Route::post('/manage/{protocol}/submit', [ProtocolBuildController::class, 'submit'])->name('manage.submit');
+            Route::post('/manage/{protocol}/withdraw', [ProtocolBuildController::class, 'withdraw'])->name('manage.withdraw');
+            Route::delete('/manage/{protocol}/draft', [ProtocolBuildController::class, 'discard'])->name('manage.discard');
+            Route::post('/categories', [ProtocolBuildController::class, 'storeCategory'])->name('categories.store');
+            Route::put('/categories/{category}', [ProtocolBuildController::class, 'updateCategory'])->name('categories.update');
+            Route::delete('/categories/{category}', [ProtocolBuildController::class, 'destroyCategory'])->name('categories.destroy');
+        });
+        Route::middleware('permission:protocols_approve')->group(function () {
+            Route::get('/approvals', [ProtocolApprovalController::class, 'index'])->name('approvals');
+            Route::get('/approvals/{version}', [ProtocolApprovalController::class, 'show'])->name('approvals.show');
+            Route::post('/approvals/{version}/approve', [ProtocolApprovalController::class, 'approve'])->name('approvals.approve');
+            Route::post('/approvals/{version}/return', [ProtocolApprovalController::class, 'sendBack'])->name('approvals.return');
+            Route::post('/{protocol}/retire', [ProtocolApprovalController::class, 'retire'])->whereNumber('protocol')->name('retire');
+        });
+        Route::get('/versions/{version}', [ProtocolBookController::class, 'version'])->name('version');
+        Route::middleware('permission:protocols')->group(function () {
+            Route::get('/', [ProtocolBookController::class, 'index'])->name('index');
+            Route::get('/book', [ProtocolBookController::class, 'book'])->name('book');
+            Route::get('/{protocol}', [ProtocolBookController::class, 'show'])->whereNumber('protocol')->name('show');
+        });
     });
 
     // Draw Box pages keep their /supervisor addresses.

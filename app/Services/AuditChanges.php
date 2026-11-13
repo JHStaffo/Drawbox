@@ -36,6 +36,7 @@ class AuditChanges
         \App\Models\FormField::class => ['label' => 'question', 'type' => 'type', 'options' => 'choices', 'option_list_id' => 'shared list', 'help' => 'help text', 'required' => 'required', 'allow_other' => 'Other choice'],
         \App\Models\OptionList::class => ['name' => 'name', 'allow_add' => 'people can add'],
         \App\Models\OptionListItem::class => ['name' => 'name', 'active' => 'offered'],
+        \App\Models\ProtocolCategory::class => ['name' => 'name', 'position' => 'order'],
         ScopeItem::class => ['name' => 'name', 'level' => 'level of care', 'note' => 'message'],
         \App\Wellness\Models\Participant::class => ['status' => 'status', 'manual_device_until' => 'typing in device data allowed until', 'exception_note' => 'exception note'],
         LiftRule::class => [
@@ -160,6 +161,7 @@ class AuditChanges
             $model instanceof PermissionProfile => ($model->getOriginal('name') ?? $model->name).' profile',
             $model instanceof \App\Models\OptionList => ($model->getOriginal('name') ?? $model->name).' list',
             $model instanceof \App\Models\OptionListItem => '"'.($model->getOriginal('name') ?? $model->name).'" on '.($model->list?->name ?? 'a list'),
+            $model instanceof \App\Models\ProtocolCategory => ($model->getOriginal('name') ?? $model->name).' protocol category',
             $model instanceof \App\Models\Form => ($model->getOriginal('name') ?? $model->name).' form',
             $model instanceof \App\Wellness\Models\Participant => ($model->user?->name ?? 'Team Member')."'s wellness enrollment",
             $model instanceof \App\Models\FormField => '"'.($model->getOriginal('label') ?? $model->label).'" on the '.($model->form?->name ?? 'form').' form',
