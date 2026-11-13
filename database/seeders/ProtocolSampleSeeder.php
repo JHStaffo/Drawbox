@@ -19,10 +19,20 @@ class ProtocolSampleSeeder extends Seeder
     public function run(): void
     {
         if (ProtocolVersion::where('title', 'Cardiac Arrest')->exists()) {
-            $this->command?->info('A Cardiac Arrest protocol already exists; nothing added.');
+            $this->command?->info('A Cardiac Arrest protocol already exists; nothing added. Use php artisan protocols:load-sample to update it.');
 
             return;
         }
+        $version = new ProtocolVersion(self::content() + ['version' => 1, 'title' => 'Cardiac Arrest', 'revised_label' => 'Revised 2020', 'status' => 'draft']);
+        $version->search_text = $version->buildSearchText();
+        Protocol::create()->versions()->save($version);
+
+        $this->command?->info('Added the Cardiac Arrest protocol as a draft. Send it for approval from Protocols > Build protocols.');
+    }
+
+    /** The sample's category, ages, flowchart (arranged to match the printed page) and sections. */
+    public static function content(): array
+    {
         $category = ProtocolCategory::firstOrCreate(['name' => 'Cardiac Arrest'], ['position' => 1]);
 
         $box = fn (string $id, string $type, string $text, array $badges = []) => compact('id', 'type', 'text', 'badges') + ['link' => null];
@@ -166,21 +176,12 @@ __**Torsades**__: Administer **Magnesium sulfate 50 mg/kg IV/IO in 100 mL NS** o
 TXT],
         ];
 
-        $protocol = Protocol::create();
-        $version = new ProtocolVersion([
-            'version' => 1,
-            'title' => 'Cardiac Arrest',
+        return [
             'protocol_category_id' => $category->id,
             'category_name' => $category->name,
             'ages' => ['infant', 'pediatric', 'adult'],
             'chart' => ProtocolChart::clean($chart),
             'sections' => $sections,
-            'revised_label' => 'Revised 2020',
-            'status' => 'draft',
-        ]);
-        $version->search_text = $version->buildSearchText();
-        $protocol->versions()->save($version);
-
-        $this->command?->info('Added the Cardiac Arrest protocol as a draft. Send it for approval from Protocols > Build protocols.');
+        ];
     }
 }

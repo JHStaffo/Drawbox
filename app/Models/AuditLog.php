@@ -101,6 +101,7 @@ class AuditLog extends Model
         'protocols.approvals.approve' => 'Approved a protocol (Medical Director)',
         'protocols.approvals.return' => 'Sent a protocol back (Medical Director)',
         'protocols.retire' => 'Retired or restored a protocol',
+        'system.protocol-sample' => 'Loaded the sample protocol (server)',
         'wellness.join' => 'Joined Wellness',
         'wellness.withdraw' => 'Left Wellness',
         'wellness.log.save' => 'Logged wellness',
