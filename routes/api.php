@@ -33,6 +33,11 @@ Route::prefix('v1')->name('api.')->group(function () {
                     Route::get('/days/{day}', [WellnessApiController::class, 'day'])->name('day');
                     Route::put('/days/{day}', [WellnessApiController::class, 'updateDay'])->name('days.update');
                     Route::get('/leaderboard', [WellnessApiController::class, 'leaderboard'])->name('leaderboard');
+                    Route::get('/submissions', [WellnessApiController::class, 'submissions'])->name('submissions');
+                    Route::post('/submissions', [WellnessApiController::class, 'storeSubmission'])->middleware('throttle:20,1')->name('submissions.store');
+                    Route::post('/submissions/{submission}/withdraw', [WellnessApiController::class, 'withdrawSubmission'])->name('submissions.withdraw');
+                    Route::get('/awards', [WellnessApiController::class, 'awards'])->name('awards');
+                    Route::put('/awards/{award}/brand', [WellnessApiController::class, 'chooseBrand'])->name('awards.brand');
                 });
             });
         });

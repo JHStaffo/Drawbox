@@ -40,6 +40,11 @@ There are two kinds of token:
 | `PUT /wellness/days/{day}` | Typed-in values for a day, e.g. `{"meals": 3, "water_oz": 64, "meal_plan": 1}`. A `null` clears a value. Steps, sleep and workout only if typing them is allowed (testing setting or an exception) |
 | `POST /wellness/readings` | Device data (below) |
 | `GET /wellness/leaderboard?period=week\|month\|quarter\|year` | Names, points and ranks only |
+| `GET /wellness/submissions` | Their visits, InBody scans and weigh-ins, with status, points and any reason it was sent back |
+| `POST /wellness/submissions` | Multipart form: `activity` (a rule key such as `dentist`), `day`, `note` (photo or PDF, up to 10 MB, needed for visits and InBody), `body_fat_pct` and `muscle_lb` for InBody, `comment`, and `fix` (the id of a sent-back submission being corrected). Weigh-ins score right away; the rest wait for review |
+| `POST /wellness/submissions/{id}/withdraw` | Withdraw one still waiting for review |
+| `GET /wellness/awards` | Their weekly rewards and the gift card choices |
+| `PUT /wellness/awards/{id}/brand` | Pick a gift card: `{"brand": "Target"}` |
 
 Until the Team Member has signed up, only `/me`, `/wellness/rules` and `/wellness/join` work. Show the agreement from the website's sign-up page and the rules before calling join.
 

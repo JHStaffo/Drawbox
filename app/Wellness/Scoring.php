@@ -60,7 +60,9 @@ class Scoring
 
         $values = $this->bestValues($user, $day);
         $rows = [];
-        $left = self::dailyMax();
+        // Adjustments on the day count toward the daily maximum too.
+        $adjusted = (int) Point::where('user_id', $user->id)->where('day', $day)->where('category', 'daily')->where('kind', '!=', 'earned')->sum('points');
+        $left = max(0, self::dailyMax() - $adjusted);
         foreach (Rule::forDay($day)->filter(fn (Rule $r) => $r->isDaily()) as $rule) {
             $points = min($rule->pointsFor($values[$rule->metric]['value'] ?? null), $left);
             if ($points > 0) {
@@ -79,7 +81,7 @@ class Scoring
             }
         });
 
-        return array_sum(array_column($rows, 'points'));
+        return array_sum(array_column($rows, 'points')) + $adjusted;
     }
 
     /** A day's daily-habit points as they stand in the ledger, adjustments included. */

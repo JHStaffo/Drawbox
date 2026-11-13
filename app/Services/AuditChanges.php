@@ -61,6 +61,12 @@ class AuditChanges
         'wellness_grace_days' => 'Wellness: days after a week ends that it stays open',
         'wellness_official_start' => 'Wellness: official start date',
         'wellness_manual_device' => 'Wellness: anyone can type in steps, sleep and workout',
+        'wellness_submit_days' => 'Wellness: days back an activity can be submitted',
+        'wellness_weekly_reward_cents' => 'Wellness: weekly reward',
+        'wellness_gift_brands' => 'Wellness: gift card choices',
+        'wellness_inbody_min_days' => 'Wellness: InBody days between scans',
+        'wellness_inbody_fat_drop' => 'Wellness: InBody body fat drop',
+        'wellness_inbody_muscle_gain' => 'Wellness: InBody muscle gain (lb)',
     ];
 
     private bool $recording = false;
@@ -134,7 +140,8 @@ class AuditChanges
         $label = self::SETTINGS[$setting->key] ?? $setting->key;
         $show = fn ($v) => match (true) {
             $setting->key === 'expiry_reminder_enabled', str_starts_with($setting->key, 'news_hide_'), in_array($setting->key, ['wellness_enabled', 'wellness_manual_device'], true) => $v ? 'on' : 'off',
-            $setting->key === 'news_min_cents' => money((int) $v),
+            in_array($setting->key, ['news_min_cents', 'wellness_weekly_reward_cents'], true) => money((int) $v),
+            $setting->key === 'wellness_gift_brands' => str_replace("\n", ', ', (string) $v),
             default => (string) $v,
         };
         if ($show($old) !== $show($setting->value)) {

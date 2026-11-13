@@ -43,7 +43,7 @@
                 @php($wellnessOn = \App\Wellness\Wellness::enabled())
                 @php($wellnessUse = $wellnessOn && \App\Wellness\Wellness::canUse($u))
                 @php($wellnessJoined = $wellnessUse && app(\App\Wellness\Wellness::class)->participant($u)?->isActive())
-                @if ($wellnessUse || ($wellnessOn && $u->hasPermission('wellness_admin')) || $u->hasPermission('wellness_settings'))
+                @if ($wellnessUse || ($wellnessOn && $u->hasAnyPermission('wellness_admin', 'wellness_review')) || $u->hasPermission('wellness_settings'))
                     <details class="nav-menu">
                         <summary @class(['active' => request()->routeIs('wellness*')])>Wellness</summary>
                         <div class="nav-drop">
@@ -54,11 +54,16 @@
                             @if ($wellnessJoined)
                                 <a href="{{ route('wellness') }}" @class(['active' => request()->routeIs('wellness')])>My Wellness</a>
                                 <a href="{{ route('wellness.log') }}" @class(['active' => request()->routeIs('wellness.log')])>Log a day</a>
+                                <a href="{{ route('wellness.activities') }}" @class(['active' => request()->routeIs('wellness.activities')])>Activities and rewards</a>
                                 <a href="{{ route('wellness.leaderboard') }}" @class(['active' => request()->routeIs('wellness.leaderboard')])>Leaderboard</a>
                                 <a href="{{ route('wellness.connect') }}" @class(['active' => request()->routeIs('wellness.connect')])>Devices</a>
                                 <a href="{{ route('wellness.rules') }}" @class(['active' => request()->routeIs('wellness.rules')])>Rules and privacy</a>
                             @endif
+                            @if ($wellnessOn && $u->hasPermission('wellness_review'))
+                                <a href="{{ route('wellness.admin.review') }}" @class(['active' => request()->routeIs('wellness.admin.review')])>Review queue</a>
+                            @endif
                             @if ($wellnessOn && $u->hasPermission('wellness_admin'))
+                                <a href="{{ route('wellness.admin.rewards') }}" @class(['active' => request()->routeIs('wellness.admin.rewards')])>Rewards</a>
                                 <a href="{{ route('wellness.admin.participants') }}" @class(['active' => request()->routeIs('wellness.admin.participants')])>Participants</a>
                                 <a href="{{ route('wellness.admin.rules') }}" @class(['active' => request()->routeIs('wellness.admin.rules')])>Point rules</a>
                             @endif

@@ -139,6 +139,71 @@ class WellnessApiController extends Controller
         return response()->json($leaderboard->standings($period));
     }
 
+    public function submissions(Request $request)
+    {
+        return response()->json(['submissions' => \App\Wellness\Models\Submission::where('user_id', $request->user()->id)->latest('id')->limit(200)->get()->map(fn ($s) => self::submission($s))]);
+    }
+
+    /** Multipart: activity, day, note (file), body_fat_pct and muscle_lb for InBody, comment, fix (a sent-back submission's id). */
+    public function storeSubmission(Request $request, \App\Wellness\Submissions $submissions)
+    {
+        $data = $request->validate([
+            'activity' => 'required|string', 'day' => 'required|date_format:Y-m-d', 'note' => 'nullable|'.\App\Wellness\Submissions::NOTE_RULE,
+            'body_fat_pct' => 'nullable', 'muscle_lb' => 'nullable', 'comment' => 'nullable|string|max:500', 'fix' => 'nullable|integer',
+        ]);
+        $fixing = isset($data['fix']) ? \App\Wellness\Models\Submission::find($data['fix']) : null;
+        $s = $submissions->submit($request->user(), $data['activity'], $data['day'], $request->file('note'),
+            ['body_fat_pct' => $data['body_fat_pct'] ?? null, 'muscle_lb' => $data['muscle_lb'] ?? null], $data['comment'] ?? null, $fixing);
+        audit_note(($s->status === 'approved' ? 'Recorded a ' : 'Sent for review a ').\App\Wellness\Submissions::describe($s).' from the app'.($s->status === 'approved' ? ": {$s->points} points." : '.'));
+
+        return response()->json(['submission' => self::submission($s)], 201);
+    }
+
+    public function withdrawSubmission(Request $request, \App\Wellness\Models\Submission $submission, \App\Wellness\Submissions $submissions)
+    {
+        abort_unless($submission->user_id === $request->user()->id, 404);
+        $submissions->withdraw($submission);
+        audit_note('Withdrew a '.\App\Wellness\Submissions::describe($submission).' from the app.');
+
+        return response()->json(['submission' => self::submission($submission->fresh())]);
+    }
+
+    public function awards(Request $request)
+    {
+        return response()->json([
+            'brands' => \App\Wellness\Rewards::brands(),
+            'awards' => \App\Wellness\Models\Award::where('user_id', $request->user()->id)->latest('period_start')->get()->map(fn ($a) => self::award($a)),
+        ]);
+    }
+
+    public function chooseBrand(Request $request, \App\Wellness\Models\Award $award, \App\Wellness\Rewards $rewards)
+    {
+        $brand = $request->validate(['brand' => 'required|string'])['brand'];
+        $rewards->chooseBrand($award, $request->user(), $brand);
+        audit_note("Picked {$brand} for the ".$award->label().' on the app.');
+
+        return response()->json(['award' => self::award($award->fresh())]);
+    }
+
+    private static function submission(\App\Wellness\Models\Submission $s): array
+    {
+        return [
+            'id' => $s->id, 'activity' => $s->activity, 'day' => substr($s->day, 0, 10), 'status' => $s->status, 'status_label' => $s->statusLabel(),
+            'points' => $s->status === 'approved' ? $s->points : null, 'points_note' => $s->points_note, 'reject_reason' => $s->reject_reason,
+            'has_note' => (bool) $s->note_path, 'resubmission_of' => $s->resubmission_of, 'sent_at' => $s->created_at->toIso8601String(),
+            'reviewed_at' => $s->reviewed_at?->toIso8601String(),
+        ];
+    }
+
+    private static function award(\App\Wellness\Models\Award $a): array
+    {
+        return [
+            'id' => $a->id, 'kind' => $a->kind, 'from' => $a->period_start->toDateString(), 'to' => $a->period_end->toDateString(),
+            'points' => $a->points, 'value_cents' => $a->value_cents, 'test_period' => $a->test_period, 'brand' => $a->brand,
+            'status' => $a->status, 'status_label' => $a->statusLabel(), 'sent_at' => $a->sent_at?->toIso8601String(),
+        ];
+    }
+
     private function requireParticipant(Request $request): void
     {
         if (! $this->wellness->participant($request->user())?->isActive()) {

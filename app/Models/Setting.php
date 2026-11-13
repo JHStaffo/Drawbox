@@ -34,6 +34,15 @@ class Setting extends Model
         'wellness_official_start' => '2027-01-01',
         // While on, everyone may type steps, sleep and workout in by hand (testing, before wearables sync).
         'wellness_manual_device' => '1',
+        // How far back a visit, InBody scan or weigh-in can be submitted, in days.
+        'wellness_submit_days' => '60',
+        'wellness_weekly_reward_cents' => '1000',
+        'wellness_gift_brands' => "Amazon\nTarget\nWalmart\nStarbucks\nChick-fil-A\nVisa",
+        // An InBody scan qualifies when, compared with the last approved scan at least this many days earlier,
+        // body fat drops by at least the first number (percentage points) or skeletal muscle rises by the second (lb).
+        'wellness_inbody_min_days' => '28',
+        'wellness_inbody_fat_drop' => '1.0',
+        'wellness_inbody_muscle_gain' => '1.0',
         'scope_scene_types' => "House\nApartment with elevator\nApartment without elevator\nNursing facility\nAssisted living\nHospital\nDialysis center\nDoctor's office",
         'scope_destination_types' => "Hospital\nNursing facility\nAssisted living\nHouse\nApartment with elevator\nApartment without elevator\nDialysis center\nDoctor's office",
     ];

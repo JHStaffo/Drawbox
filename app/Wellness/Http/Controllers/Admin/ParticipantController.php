@@ -36,6 +36,40 @@ class ParticipantController extends Controller
         ]);
     }
 
+    /** One Team Member's points ledger, submissions and rewards, for questions and disputes. */
+    public function show(Participant $participant)
+    {
+        $user = $participant->user;
+        abort_unless($user, 404);
+
+        return view('wellness.admin.participant', [
+            'participant' => $participant,
+            'user' => $user,
+            'points' => Point::with('rule')->where('user_id', $user->id)->orderByDesc('day')->orderByDesc('id')->limit(400)->get(),
+            'submissions' => \App\Wellness\Models\Submission::with('reviewer')->where('user_id', $user->id)->latest('id')->get(),
+            'awards' => \App\Wellness\Models\Award::where('user_id', $user->id)->latest('period_start')->get(),
+            'adjusters' => User::whereIn('id', Point::where('user_id', $user->id)->whereNotNull('created_by')->pluck('created_by'))->pluck('name', 'id'),
+            'names' => \App\Wellness\Models\Rule::pluck('name', 'key'),
+        ]);
+    }
+
+    public function adjust(Request $request, Participant $participant, \App\Wellness\Adjustments $adjustments)
+    {
+        $data = $request->validate([
+            'day' => 'required|date',
+            'category' => 'required|in:daily,other',
+            'points' => 'required|integer|between:-1000,1000',
+            'reason' => 'required|string|max:255',
+        ], ['reason.required' => 'Every adjustment needs a reason.']);
+        $user = $participant->user;
+        $point = $adjustments->add($user, $data['day'], $data['category'], (int) $data['points'], trim($data['reason']), $request->user());
+        $signed = ($point->points > 0 ? '+' : '').$point->points;
+        $kind = $data['category'] === 'daily' ? 'daily-habit' : 'other-activity';
+        audit_note("Adjusted {$user->name}'s {$kind} points for ".Calendar::date($point->day)->format('M j, Y')." by {$signed}. Reason: {$point->reason}");
+
+        return back()->with('status', "Adjusted {$user->name}'s points by {$signed}.");
+    }
+
     /** Give one Team Member Wellness for testing, without changing their permission profile. */
     public function addTester(Request $request)
     {

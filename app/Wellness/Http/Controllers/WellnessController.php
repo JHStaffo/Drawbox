@@ -28,6 +28,8 @@ class WellnessController extends Controller
         return view('wellness.dashboard', [
             'summary' => $this->progress->summary($user),
             'participant' => $participant,
+            'pendingCount' => \App\Wellness\Models\Submission::where('user_id', $user->id)->where('status', 'pending')->count(),
+            'toPick' => \App\Wellness\Models\Award::where('user_id', $user->id)->where('status', 'pending')->whereNull('brand')->count(),
         ]);
     }
 

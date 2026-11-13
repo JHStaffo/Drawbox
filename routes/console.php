@@ -47,6 +47,15 @@ Artisan::command('pulse:slack-retry', function (\App\Services\Forms $forms) {
     $this->info("Posted {$count} submission(s).");
 })->purpose('Try again to post form submissions Slack did not take');
 
+Artisan::command('wellness:close-weeks', function (\App\Wellness\Rewards $rewards) {
+    $count = $rewards->closeWeeks();
+    if ($count) {
+        AuditLog::record('system.wellness-weeks', "{$count} Team Member(s) earned the weekly Wellness gift card and were emailed.");
+    }
+    $this->info("Created {$count} weekly reward(s).");
+})->purpose('Give the weekly Wellness reward for weeks that have closed');
+
+Schedule::command('wellness:close-weeks')->dailyAt('06:00');
 Schedule::command('drawbox:expire')->everyFifteenMinutes();
 Schedule::command('drawbox:notify')->everyTwoHours();
 Schedule::command('drawbox:remind')->hourly();
