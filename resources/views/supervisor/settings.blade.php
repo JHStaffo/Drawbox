@@ -44,6 +44,32 @@
 </form>
 
 @php($levels = \App\Models\ScopeItem::LEVELS)
+<form class="card" id="anthropic" method="post" action="{{ route('supervisor.settings.anthropic') }}" style="max-width:640px">@csrf @method('put')
+    <h2>Protocol import: Anthropic API key</h2>
+    <p class="hint">Protocols &gt; Build protocols &gt; Import uses Claude to read uploaded PDFs and photos. Create a key at console.anthropic.com under API keys and paste it here. It's checked with Anthropic before it's saved, and stored encrypted.</p>
+    @if ($anthropicKey->source() === 'settings')
+        <p><span class="pill pill-green">Saved</span> {{ $anthropicKey->masked() }}</p>
+    @elseif ($anthropicKey->source() === 'env')
+        <p><span class="pill pill-green">From the server's .env file</span> {{ $anthropicKey->masked() }}. A key saved here is used instead.</p>
+    @else
+        <p><span class="pill">Not set</span> Protocol import is off until a key is added.</p>
+    @endif
+    <div class="field">
+        <label for="anthropic_api_key">{{ $anthropicKey->source() ? 'Replace with a new key' : 'API key' }}</label>
+        <input id="anthropic_api_key" type="password" name="anthropic_api_key" placeholder="sk-ant-..." autocomplete="off" required maxlength="300">
+        @error('anthropic_api_key')<div class="error">{{ $message }}</div>@enderror
+    </div>
+    <div class="row-actions">
+        <button class="btn" type="submit">Check and save</button>
+        @if ($anthropicKey->source() === 'settings')
+            <button class="btn btn-outline" type="submit" form="anthropic-remove">Remove key</button>
+        @endif
+    </div>
+</form>
+@if ($anthropicKey->source() === 'settings')
+    <form id="anthropic-remove" method="post" action="{{ route('supervisor.settings.anthropic.destroy') }}" onsubmit="return confirm('Remove the Anthropic API key? Protocol import stops until a key is added again.')">@csrf @method('delete')</form>
+@endif
+
 <div class="card" id="scope">
     <h2>Scope Check: equipment and meds ({{ $scopeItems->count() }})</h2>
     <p class="hint">What dispatchers can tick on the Scope Check tab. A call needs the highest level of care of anything ticked, and the message shows with the result.</p>

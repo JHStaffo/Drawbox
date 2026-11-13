@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\PermissionProfile;
 use App\Models\Protocol;
 use App\Models\ProtocolCategory;
 use App\Models\ProtocolImport;
+use App\Models\Setting;
 use App\Models\User;
+use App\Services\ProtocolImport\AnthropicKey;
 use App\Services\ProtocolImport\ClaudeProtocolReader;
 use App\Services\ProtocolImport\ProtocolImporter;
 use App\Services\ProtocolImport\ProtocolReader;
@@ -181,7 +184,7 @@ class ProtocolImportTest extends TestCase
         $this->assertSame(0, ProtocolImport::count());
 
         $this->reader->ready = false;
-        $this->actingAs($user)->get('/protocols/imports')->assertSee('ANTHROPIC_API_KEY');
+        $this->actingAs($user)->get('/protocols/imports')->assertSee('An admin adds it in');
         $this->actingAs($user)->post('/protocols/imports', ['files' => [$this->pdf(1)]])->assertSessionHas('error');
         $this->assertSame(0, ProtocolImport::count());
     }
@@ -199,6 +202,45 @@ class ProtocolImportTest extends TestCase
         };
         $check(ClaudeProtocolReader::schema());
         $this->assertFalse((new ClaudeProtocolReader(null))->ready());
+    }
+
+    public function test_admins_save_the_api_key_in_settings(): void
+    {
+        $this->app->instance(AnthropicKey::class, new class extends AnthropicKey
+        {
+            public function check(string $key): void
+            {
+                if ($key === 'sk-ant-bad') {
+                    throw new \RuntimeException('Anthropic turned that key down.');
+                }
+            }
+        });
+        $admin = User::factory()->role('admin')->create();
+        $keys = app(AnthropicKey::class);
+        config(['services.anthropic.key' => null]);
+        $this->actingAs($admin)->get('/supervisor/settings')->assertOk()->assertSee('Not set');
+
+        $this->actingAs($admin)->put('/supervisor/settings/anthropic', ['anthropic_api_key' => 'xoxb-nope'])->assertSessionHasErrors('anthropic_api_key');
+        $this->actingAs($admin)->put('/supervisor/settings/anthropic', ['anthropic_api_key' => 'sk-ant-bad'])->assertSessionHasErrors(['anthropic_api_key' => 'Anthropic turned that key down.']);
+        $this->assertNull($keys->get());
+
+        $this->actingAs($admin)->put('/supervisor/settings/anthropic', ['anthropic_api_key' => 'sk-ant-api03-goodkey1234'])->assertSessionHas('status');
+        $this->assertSame('sk-ant-api03-goodkey1234', $keys->get());
+        $this->assertStringNotContainsString('goodkey', Setting::get('anthropic_api_key'), 'stored encrypted');
+        $this->assertSame('sk-ant-…1234', $keys->masked());
+        $log = AuditLog::where('action', 'supervisor.settings.anthropic')->latest('id')->first();
+        $this->assertStringContainsString('sk-ant-…1234', $log->description);
+        $this->assertStringNotContainsString('goodkey', $log->description);
+        $this->actingAs($admin)->get('/supervisor/settings')->assertSee('sk-ant-…1234')->assertDontSee('goodkey');
+        $this->assertTrue((new ClaudeProtocolReader(app(AnthropicKey::class)->get()))->ready());
+
+        config(['services.anthropic.key' => 'sk-ant-fromenv9999']);
+        $this->assertSame('settings', $keys->source(), 'a saved key wins over .env');
+        $this->actingAs($admin)->delete('/supervisor/settings/anthropic')->assertRedirect();
+        $this->assertSame('env', $keys->source());
+        $this->assertDatabaseHas('audit_logs', ['action' => 'supervisor.settings.anthropic.destroy']);
+
+        $this->actingAs($this->builder())->put('/supervisor/settings/anthropic', ['anthropic_api_key' => 'sk-ant-x'])->assertForbidden();
     }
 }
 

@@ -101,6 +101,8 @@ class AuditLog extends Model
         'protocols.approvals.approve' => 'Approved a protocol (Medical Director)',
         'protocols.approvals.return' => 'Sent a protocol back (Medical Director)',
         'protocols.retire' => 'Retired or restored a protocol',
+        'supervisor.settings.anthropic' => 'Saved the Anthropic API key',
+        'supervisor.settings.anthropic.destroy' => 'Removed the Anthropic API key',
         'protocols.imports.store' => 'Uploaded protocols to import',
         'protocols.imports.retry' => 'Restarted a protocol import',
         'protocols.imports.destroy' => 'Cancelled or removed a protocol import',
