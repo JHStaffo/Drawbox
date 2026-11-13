@@ -10,6 +10,12 @@
 
 @section('content')
 <div class="stack">
+    @if ($toPick)
+        <div class="card locker-banner row-actions">
+            <strong>You earned {{ $toPick === 1 ? 'a gift card' : $toPick.' gift cards' }}!</strong>
+            <a class="btn btn-small" href="{{ route('wellness.activities') }}">Pick your card</a>
+        </div>
+    @endif
     <div class="grid grid-4">
         <div class="card">
             <div class="stat-label">Today</div>
@@ -76,7 +82,10 @@
             <a class="btn btn-outline btn-small" href="{{ route('wellness.connect') }}">Set up a device</a>
         </div>
         <div class="card">
-            <h2>Leaderboard</h2>
+            <h2>Extra points</h2>
+            <p>Check-ups, dentist and eye visits, self-care visits, InBody scans and weigh-ins count toward the monthly, quarterly and annual prizes.@if ($pendingCount) You have {{ $pendingCount }} waiting for review.@endif</p>
+            <a class="btn btn-outline btn-small" href="{{ route('wellness.activities') }}">Send in an activity</a>
+            <h2 class="mt">Leaderboard</h2>
             <p>See how you stack up this week, month, quarter and year.</p>
             <a class="btn btn-outline btn-small" href="{{ route('wellness.leaderboard') }}">Open the leaderboard</a>
             <form method="post" action="{{ route('wellness.withdraw') }}" class="mt" onsubmit="return confirm('Leave the wellness program? Your points so far are kept.')">@csrf

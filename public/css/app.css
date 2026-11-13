@@ -400,3 +400,6 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .token-input { font-family: ui-monospace, monospace; }
 .agree-card { max-width: 760px; }
 .agree-card h3 { margin-top: 1em; }
+.review-item { border-left: 6px solid var(--teal); }
+.review-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.review-head h2 { margin-bottom: .2em; }

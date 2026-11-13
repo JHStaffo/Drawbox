@@ -18,7 +18,7 @@
                 @foreach ($participants as $p)
                     @php($syncs = ($last[$p->user_id] ?? collect())->whereNotIn('source', ['manual', 'admin']))
                     <tr>
-                        <td>{{ $p->user->name }}</td>
+                        <td>@if (auth()->user()->hasPermission('wellness_admin'))<a href="{{ route('wellness.admin.participant', $p) }}">{{ $p->user->name }}</a>@else{{ $p->user->name }}@endif</td>
                         <td>@if ($p->isActive())<span class="pill pill-green">In</span>@else<span class="pill">Left {{ $p->withdrawn_at?->format('M j') }}</span>@endif</td>
                         <td>{{ $p->joined_at->format('M j, Y') }}<div class="hint">Rules {{ $p->consent_version }}</div></td>
                         <td class="num">{{ (int) ($week[$p->user_id] ?? 0) }} / {{ $target }}</td>
