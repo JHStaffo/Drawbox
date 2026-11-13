@@ -12,10 +12,15 @@
         @if ($waiting->isEmpty())
             <p class="empty">Nothing is waiting.</p>
         @else
+            <form method="post" action="{{ route('protocols.approvals.batch') }}" id="batch">@csrf
             <div class="table-wrap"><table>
-                <tr><th>Protocol</th><th>Change</th><th>Sent</th><th></th></tr>
+                <tr>
+                    <th style="width:36px"><input type="checkbox" id="select-all" aria-label="Select all"></th>
+                    <th>Protocol</th><th>Change</th><th>Sent</th><th></th>
+                </tr>
                 @foreach ($waiting as $v)
                     <tr>
+                        <td><input type="checkbox" name="versions[]" value="{{ $v->id }}" class="pick" aria-label="Select {{ $v->fullTitle() }}" @checked(in_array($v->id, old('versions', [])))></td>
                         <td>{{ $v->fullTitle() }}<div class="hint">{{ $v->category_name ?? 'No category' }} · {{ $v->agesLabel() }}</div></td>
                         <td>{{ $v->protocol->approved ? 'Revision (version '.$v->version.' replaces '.$v->protocol->approved->version.')' : 'New protocol' }}</td>
                         <td>{{ $v->submitted_at?->format('M j, Y g:i A') }}<div class="hint">{{ $v->submitter?->name }}</div></td>
@@ -23,6 +28,31 @@
                     </tr>
                 @endforeach
             </table></div>
+            <div class="batch-approve mt">
+                <h3 style="margin:0 0 6px">Approve the ones you ticked</h3>
+                <p class="hint" style="margin-top:0">Open each with Review first. One signature approves every ticked protocol, and each one goes in the book right away. To send one back, open it with Review.</p>
+                <label class="check"><input type="checkbox" name="confirm" value="1" @checked(old('confirm'))> I have reviewed every ticked protocol and approve them as Medical Director.</label>
+                <div class="field mt">
+                    <label for="batch-signature">Type your name to sign</label>
+                    <input id="batch-signature" type="text" name="signature" value="{{ old('signature') }}" maxlength="120" placeholder="{{ auth()->user()->name }}" style="max-width:320px">
+                </div>
+                <button class="btn" type="submit" id="batch-button" disabled>Approve selected</button>
+            </div>
+            </form>
+            <script>
+            (function () {
+                var all = document.getElementById('select-all'), picks = [].slice.call(document.querySelectorAll('#batch .pick')), button = document.getElementById('batch-button');
+                function update() {
+                    var n = picks.filter(function (p) { return p.checked; }).length;
+                    all.checked = n === picks.length; all.indeterminate = n > 0 && n < picks.length;
+                    button.disabled = n === 0;
+                    button.textContent = n === 0 ? 'Approve selected' : n === picks.length && n > 1 ? 'Approve all ' + n : 'Approve ' + n + ' selected';
+                }
+                all.addEventListener('change', function () { picks.forEach(function (p) { p.checked = all.checked; }); update(); });
+                picks.forEach(function (p) { p.addEventListener('change', update); });
+                update();
+            })();
+            </script>
         @endif
     </div>
 

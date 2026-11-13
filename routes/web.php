@@ -88,6 +88,7 @@ Route::middleware('auth')->group(function () {
         });
         Route::middleware('permission:protocols_approve')->group(function () {
             Route::get('/approvals', [ProtocolApprovalController::class, 'index'])->name('approvals');
+            Route::post('/approvals/batch', [ProtocolApprovalController::class, 'approveMany'])->name('approvals.batch');
             Route::get('/approvals/{version}', [ProtocolApprovalController::class, 'show'])->name('approvals.show');
             Route::post('/approvals/{version}/approve', [ProtocolApprovalController::class, 'approve'])->name('approvals.approve');
             Route::post('/approvals/{version}/return', [ProtocolApprovalController::class, 'sendBack'])->name('approvals.return');
