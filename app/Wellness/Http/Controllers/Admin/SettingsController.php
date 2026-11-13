@@ -22,6 +22,7 @@ class SettingsController extends Controller
             'inbodyDays' => Setting::get('wellness_inbody_min_days'),
             'inbodyFat' => Setting::get('wellness_inbody_fat_drop'),
             'inbodyMuscle' => Setting::get('wellness_inbody_muscle_gain'),
+            'shortcutUrl' => Setting::get('wellness_shortcut_url'),
         ]);
     }
 
@@ -36,6 +37,7 @@ class SettingsController extends Controller
             'wellness_inbody_min_days' => 'required_with:wellness_submit_days|integer|min:0|max:365',
             'wellness_inbody_fat_drop' => 'required_with:wellness_submit_days|numeric|min:0|max:20',
             'wellness_inbody_muscle_gain' => 'required_with:wellness_submit_days|numeric|min:0|max:50',
+            'wellness_shortcut_url' => ['sometimes', 'nullable', 'string', 'max:500', 'regex:#^https://#i'],
         ]);
         Setting::put('wellness_enabled', $request->boolean('wellness_enabled') ? '1' : '0');
         Setting::put('wellness_official_start', \Carbon\Carbon::parse($data['wellness_official_start'])->toDateString());
@@ -50,6 +52,10 @@ class SettingsController extends Controller
             Setting::put('wellness_inbody_min_days', (string) $data['wellness_inbody_min_days']);
             Setting::put('wellness_inbody_fat_drop', (string) ($data['wellness_inbody_fat_drop'] + 0));
             Setting::put('wellness_inbody_muscle_gain', (string) ($data['wellness_inbody_muscle_gain'] + 0));
+        }
+
+        if ($request->has('wellness_shortcut_url')) {
+            Setting::put('wellness_shortcut_url', trim((string) ($data['wellness_shortcut_url'] ?? '')));
         }
 
         return back()->with('status', 'Wellness settings saved.');

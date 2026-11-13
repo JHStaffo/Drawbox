@@ -67,6 +67,7 @@ class AuditChanges
         'wellness_inbody_min_days' => 'Wellness: InBody days between scans',
         'wellness_inbody_fat_drop' => 'Wellness: InBody body fat drop',
         'wellness_inbody_muscle_gain' => 'Wellness: InBody muscle gain (lb)',
+        'wellness_shortcut_url' => 'Wellness: Apple Health Shortcut link',
     ];
 
     private bool $recording = false;

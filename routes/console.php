@@ -55,7 +55,16 @@ Artisan::command('wellness:close-weeks', function (\App\Wellness\Rewards $reward
     $this->info("Created {$count} weekly reward(s).");
 })->purpose('Give the weekly Wellness reward for weeks that have closed');
 
+Artisan::command('wellness:sync-check', function (\App\Wellness\SyncCheck $check) {
+    $count = $check->run();
+    if ($count) {
+        AuditLog::record('system.wellness-sync-check', "Emailed {$count} Team Member(s) whose wearable hasn't synced in 2 days.");
+    }
+    $this->info("Sent {$count} sync reminder(s).");
+})->purpose('Email Wellness Team Members whose wearable stopped syncing');
+
 Schedule::command('wellness:close-weeks')->dailyAt('06:00');
+Schedule::command('wellness:sync-check')->dailyAt('10:00');
 Schedule::command('drawbox:expire')->everyFifteenMinutes();
 Schedule::command('drawbox:notify')->everyTwoHours();
 Schedule::command('drawbox:remind')->hourly();

@@ -1,5 +1,6 @@
 <?php
 
+use App\Wellness\Http\Controllers\Api\AppleHealthController;
 use App\Wellness\Http\Controllers\Api\AuthController;
 use App\Wellness\Http\Controllers\Api\MeController;
 use App\Wellness\Http\Controllers\Api\WellnessApiController;
@@ -26,6 +27,8 @@ Route::prefix('v1')->name('api.')->group(function () {
             Route::middleware('wellness.joined')->group(function () {
                 // A sync key from the Devices page can only send readings.
                 Route::post('/readings', [WellnessApiController::class, 'readings'])->middleware('ability:wellness,wellness:import')->name('readings');
+                // The Apple Health Shortcut: flat fields and a message to show on the phone. See docs/apple-health-shortcut.md.
+                Route::post('/apple-health', [AppleHealthController::class, 'store'])->middleware(['ability:wellness,wellness:import', 'throttle:30,1'])->name('apple-health');
 
                 Route::middleware('abilities:wellness')->group(function () {
                     Route::get('/summary', [WellnessApiController::class, 'summary'])->name('summary');

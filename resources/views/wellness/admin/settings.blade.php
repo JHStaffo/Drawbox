@@ -50,6 +50,12 @@
         <div class="field"><label for="wellness_inbody_fat_drop">Body fat down (points)</label><input id="wellness_inbody_fat_drop" type="number" step="0.1" name="wellness_inbody_fat_drop" value="{{ $inbodyFat }}" min="0" max="20" required></div>
         <div class="field"><label for="wellness_inbody_muscle_gain">Muscle up (lb)</label><input id="wellness_inbody_muscle_gain" type="number" step="0.1" name="wellness_inbody_muscle_gain" value="{{ $inbodyMuscle }}" min="0" max="50" required></div>
     </div>
+    <h2 class="mt">Apple Health</h2>
+    <div class="field">
+        <label for="wellness_shortcut_url">Shortcut link</label>
+        <input id="wellness_shortcut_url" type="url" name="wellness_shortcut_url" value="{{ $shortcutUrl }}" maxlength="500" placeholder="https://www.icloud.com/shortcuts/...">
+        <div class="hint">The iCloud link you get from Share, then Copy iCloud Link, on the finished Fast Track Pulse shortcut. Team Members install it from their Devices page. Leave blank until the shortcut is ready.</div>
+    </div>
     <button class="btn" type="submit">Save settings</button>
 </form>
 @endsection

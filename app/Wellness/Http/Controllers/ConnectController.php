@@ -25,7 +25,10 @@ class ConnectController extends Controller
         return view('wellness.connect', [
             'tokens' => $user->tokens()->latest('id')->get(),
             'newToken' => session('new_token'),
-            'lastSync' => $progress->lastSync($user),
+            'lastSync' => $lastSync = $progress->lastSync($user),
+            'stale' => collect($lastSync)->filter(fn ($s) => \Carbon\Carbon::parse($s['at'])->lt(now()->subHours(\App\Wellness\SyncCheck::STALE_HOURS)))->values()->all(),
+            'shortcutUrl' => \App\Models\Setting::get('wellness_shortcut_url'),
+            'syncUrl' => route('api.wellness.apple-health'),
         ]);
     }
 
