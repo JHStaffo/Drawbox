@@ -36,9 +36,20 @@ class Lesson extends Model
 
     public const DEFAULT_PASSING = 80;
 
+    protected static function booted(): void
+    {
+        // Keep the expected time in step with the content (see App\Training\Estimate).
+        static::saving(function (Lesson $lesson) {
+            $e = \App\Training\Estimate::lesson($lesson);
+            $lesson->est_seconds = $e['seconds'];
+            $lesson->est_basis = $e['basis'] ?: null;
+            $lesson->search_text = $lesson->searchText();
+        });
+    }
+
     protected function casts(): array
     {
-        return ['show_answers' => 'boolean', 'shuffle' => 'boolean', 'min_seconds' => 'integer', 'passing_score' => 'integer', 'max_attempts' => 'integer'];
+        return ['est_seconds' => 'integer', 'show_answers' => 'boolean', 'shuffle' => 'boolean', 'min_seconds' => 'integer', 'passing_score' => 'integer', 'max_attempts' => 'integer'];
     }
 
     public function course(): BelongsTo
@@ -49,6 +60,12 @@ class Lesson extends Model
     public function questions(): HasMany
     {
         return $this->hasMany(Question::class)->orderBy('position')->orderBy('id');
+    }
+
+    /** What the reference search looks through: the title, the page text and a file's name. Quiz questions are left out. */
+    public function searchText(): string
+    {
+        return trim($this->title.' '.\App\Training\RichText::text($this->body).' '.($this->file_name ? pathinfo($this->file_name, PATHINFO_FILENAME) : ''));
     }
 
     public function isQuiz(): bool

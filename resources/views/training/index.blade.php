@@ -22,7 +22,7 @@
                         <h3>{{ $a->course->title }}</h3>
                         <div class="hint">
                             @if ($a->due_on)Due {{ $a->due_on->format('M j, Y') }} · @endif
-                            {{ $a->percent }}% done · {{ $a->timeLabel() }}
+                            {{ $a->course->estimateLabel() }} · {{ $a->percent }}% done · {{ $a->timeLabel() }} so far
                             @if ($a->reason)<br>{{ $a->reason }}@endif
                         </div>
                         @include('training.partials.progress', ['percent' => $a->percent])
@@ -32,24 +32,49 @@
         @endif
     </div>
 
-    @if ($done->isNotEmpty())
-        <div class="card">
-            <h2>Completed</h2>
-            <div class="table-wrap"><table>
-                <thead><tr><th>Course</th><th>Completed</th><th class="num">Time</th><th class="num">Quiz grade</th><th></th></tr></thead>
+    <div class="card" id="reference">
+        <h2>Reference library</h2>
+        <p class="hint">Every course you've finished stays here to look back on. Search finds words anywhere in their pages.</p>
+        <form method="get" action="{{ route('training') }}#reference" class="row-actions" role="search">
+            <input type="search" name="q" value="{{ $q }}" placeholder="Search your finished courses, e.g. stair chair" aria-label="Search finished courses" style="flex:1;min-width:220px">
+            <button class="btn" type="submit">Search</button>
+            @if ($q !== '')<a class="btn btn-outline" href="{{ route('training') }}#reference">Clear</a>@endif
+        </form>
+
+        @if ($results !== null)
+            @php($terms = collect(preg_split('/\s+/', $q))->filter(fn ($t) => mb_strlen($t) >= 2))
+            <h3 class="mt">{{ $results->count() }} {{ Str::plural('match', $results->count()) }} for “{{ $q }}”</h3>
+            @forelse ($results as $r)
+                @php($snippet = e($r['snippet']))
+                @foreach ($terms as $t)@php($snippet = preg_replace('/('.preg_quote(e($t), '/').')/iu', '<mark>$1</mark>', $snippet))@endforeach
+                <div class="search-hit">
+                    <a href="{{ route('training.lesson', [$r['assignment'], $r['lesson']]) }}"><strong>{{ $r['lesson']->title }}</strong></a>
+                    <span class="hint">· {{ $r['lesson']->course->title }} · {{ $r['lesson']->typeLabel() }}</span>
+                    <div class="hint">{!! $snippet !!}</div>
+                </div>
+            @empty
+                <p class="empty">Nothing in your finished courses matches. Try fewer or different words.</p>
+            @endforelse
+        @endif
+
+        @if ($done->isEmpty())
+            <p class="empty mt">Courses you finish show up here.</p>
+        @else
+            <div class="table-wrap mt"><table>
+                <thead><tr><th>Course</th><th>Completed</th><th class="num">Your time</th><th class="num">Quiz grade</th><th></th></tr></thead>
                 <tbody>
                 @foreach ($done as $a)
                     <tr>
-                        <td><a href="{{ route('training.course', $a) }}">{{ $a->course->title }}</a>@if ($a->replaced_at)<div class="hint">Assigned again {{ $a->replaced_at->format('M j, Y') }}</div>@endif</td>
+                        <td><a href="{{ route('training.course', $a) }}">{{ $a->course->title }}</a><div class="hint">{{ $a->course->lessons->count() }} {{ Str::plural('lesson', $a->course->lessons->count()) }} · {{ $a->course->estimateLabel() }}</div></td>
                         <td>{{ $a->completed_at->format('M j, Y') }}</td>
                         <td class="num">{{ $a->timeLabel() }}</td>
                         <td class="num">{{ $a->score !== null ? $a->score.'%' : '—' }}</td>
-                        <td>@include('training.partials.status', ['assignment' => $a])</td>
+                        <td>@if ($a->replaced_at)<span class="pill">Assigned again</span>@endif</td>
                     </tr>
                 @endforeach
                 </tbody>
             </table></div>
-        </div>
-    @endif
+        @endif
+    </div>
 </div>
 @endsection

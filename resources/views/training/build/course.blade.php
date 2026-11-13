@@ -3,7 +3,7 @@
 @section('band')
     <p style="margin:0 0 .3em"><a style="color:#fff" href="{{ route('training.courses') }}">Courses</a></p>
     <h1>{{ $course->title }}</h1>
-    <p>{{ $course->statusLabel() }} · {{ $course->lessons->count() }} {{ Str::plural('lesson', $course->lessons->count()) }} · assigned to {{ $assigned }}</p>
+    <p>{{ $course->statusLabel() }} · {{ $course->lessons->count() }} {{ Str::plural('lesson', $course->lessons->count()) }} · {{ $course->estimateLabel() }} · assigned to {{ $assigned }}</p>
 @endsection
 
 @section('content')
@@ -19,7 +19,7 @@
                         <span class="lesson-mark">{{ $i + 1 }}</span>
                         <div class="lesson-main">
                             <a href="{{ route('training.lessons.edit', $l) }}">{{ $l->title }}</a>
-                            <div class="hint">{{ $l->typeLabel() }}
+                            <div class="hint">{{ $l->typeLabel() }} · {{ \App\Training\Estimate::label($l->est_seconds) }}@if ($l->est_basis) ({{ $l->est_basis }})@endif
                                 @if ($l->isQuiz()) · {{ $questionCounts[$l->id] ?? 0 }} {{ Str::plural('question', $questionCounts[$l->id] ?? 0) }} · pass {{ $l->passing() }}%@endif
                                 @if ($l->hasFile()) · {{ $l->file_name ?: 'no file yet' }}@endif
                                 @if ($l->min_seconds) · at least {{ \App\Training\Models\Assignment::duration($l->min_seconds) }}@endif
@@ -33,6 +33,7 @@
                     </li>
                 @endforeach
             </ol>
+            <p class="hint">Expected time is worked out from each lesson's content: 200 words a minute, 2 minutes a PDF page, 1 minute a slide, a video's running time plus 10%, 5 minutes a link, 45 to 75 seconds a quiz question. A minimum time, when longer, wins.</p>
         @endif
         <form method="post" action="{{ route('training.lessons.store', $course) }}" class="field-row mt" style="align-items:end">@csrf
             <div class="field"><label for="lesson-type">Add a lesson</label>

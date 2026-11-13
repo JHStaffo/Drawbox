@@ -336,7 +336,7 @@ class TrainingTest extends TestCase
         $this->actingAs($admin)->get('/training/reports?status=overdue')->assertOk()->assertSee('Casey Report')->assertSee('Overdue');
         $csv = $this->actingAs($admin)->get('/training/reports.csv?course='.$course->id)->assertOk()->streamedContent();
         $this->assertStringContainsString('"Casey Report"', $csv);
-        $this->assertStringContainsString('Overdue,50,10', $csv);
+        $this->assertMatchesRegularExpression('/Overdue,50,\d+,10,/', $csv);
         $this->assertDatabaseHas('audit_logs', ['action' => 'training.reports.csv']);
         $this->actingAs($admin)->get('/training/reports/attempts.csv')->assertOk();
         $this->actingAs($member)->get('/training/reports')->assertForbidden();
@@ -388,5 +388,78 @@ class TrainingTest extends TestCase
         $old = ['Authorization' => 'Bearer '.$member->createToken('Old', ['wellness'])->plainTextToken];
         auth()->forgetGuards();
         $this->getJson('/api/v1/training/assignments', $old)->assertForbidden();
+    }
+
+    public function test_expected_time_is_worked_out_from_the_content(): void
+    {
+        Storage::fake('local');
+        $course = Course::create(['title' => 'Timing', 'status' => 'draft']);
+        $text = $course->lessons()->create(['title' => 'Read', 'type' => 'text', 'position' => 1, 'body' => '<p>'.str_repeat('word ', 400).'</p><img src="/training/images/x.png">']);
+        $this->assertSame(132, $text->est_seconds);
+        $this->assertSame('400 words', $text->est_basis);
+
+        // A PDF counts its pages.
+        Storage::disk('local')->put('training/p.pdf', "%PDF-1.4\n1 0 obj << /Type /Page >>\n2 0 obj << /Type /Page >>\n3 0 obj << /Type /Pages /Count 2 >>");
+        $pdf = $course->lessons()->create(['title' => 'Policy', 'type' => 'pdf', 'position' => 2, 'file_path' => 'training/p.pdf', 'file_name' => 'p.pdf']);
+        $this->assertSame(240, $pdf->est_seconds);
+        $this->assertSame('2 pages', $pdf->est_basis);
+
+        // A PowerPoint counts its slides.
+        $zip = new \ZipArchive;
+        $path = Storage::disk('local')->path('training/deck.pptx');
+        $zip->open($path, \ZipArchive::CREATE);
+        foreach ([1, 2, 3] as $n) {
+            $zip->addFromString("ppt/slides/slide{$n}.xml", '<x/>');
+        }
+        $zip->close();
+        $slides = $course->lessons()->create(['title' => 'Deck', 'type' => 'slides', 'position' => 3, 'file_path' => 'training/deck.pptx', 'file_name' => 'deck.pptx', 'file_size' => filesize($path)]);
+        $this->assertSame(180, $slides->est_seconds);
+
+        // A video reads its running time from the MP4 header (here 2 minutes), plus 10%.
+        $mvhd = "\0\0\0\0".str_repeat("\0", 8).pack('N', 1000).pack('N', 120000).str_repeat("\0", 80);
+        $mp4 = pack('N', 16).'ftypisom'."\0\0\0\0".pack('N', 8 + 8 + strlen($mvhd)).'moov'.pack('N', 8 + strlen($mvhd)).'mvhd'.$mvhd;
+        Storage::disk('local')->put('training/v.mp4', $mp4);
+        $video = $course->lessons()->create(['title' => 'Video', 'type' => 'video', 'position' => 4, 'file_path' => 'training/v.mp4', 'file_name' => 'v.mp4', 'file_size' => strlen($mp4)]);
+        $this->assertSame(132, $video->est_seconds);
+        $this->assertSame('2:00 video', $video->est_basis);
+
+        // A quiz grows with its questions; a minimum time wins when longer.
+        $quiz = $course->lessons()->create(['title' => 'Quiz', 'type' => 'quiz', 'position' => 5]);
+        $quiz->questions()->create(['type' => 'single', 'prompt' => 'A?', 'choices' => [['text' => 'x', 'correct' => true], ['text' => 'y', 'correct' => false]]]);
+        $quiz->questions()->create(['type' => 'multiple', 'prompt' => 'B?', 'choices' => [['text' => 'x', 'correct' => true], ['text' => 'y', 'correct' => true]]]);
+        $this->assertSame(120, $quiz->fresh()->est_seconds);
+        $link = $course->lessons()->create(['title' => 'Link', 'type' => 'link', 'position' => 6, 'url' => 'https://youtu.be/dQw4w9WgXcQ', 'min_seconds' => 600]);
+        $this->assertSame(600, $link->est_seconds);
+
+        $this->assertSame(132 + 240 + 180 + 132 + 120 + 600, $course->estimatedSeconds());
+        $this->assertSame('About 23 min', $course->estimateLabel());
+        $this->actingAs($this->admin())->get('/training/courses')->assertSee('About 23 min');
+    }
+
+    public function test_finished_courses_are_searchable_reference_material(): void
+    {
+        $member = $this->member();
+        $course = $this->course();
+        $course->lessons()->create(['title' => 'Stair chairs', 'type' => 'text', 'position' => 3, 'body' => '<p>Always lock the <strong>stair chair</strong> before tilting it back.</p>']);
+        $other = Course::create(['title' => 'Not finished', 'status' => 'published']);
+        $other->lessons()->create(['title' => 'Secret', 'type' => 'text', 'position' => 1, 'body' => '<p>The stair chair lives in the truck.</p>']);
+        $training = app(Training::class);
+        $a = $training->assign($member, $course, null);
+        $a->update(['completed_at' => now(), 'percent' => 100]);
+        $training->assign($member, $other, null);
+
+        $this->actingAs($member)->get('/training?q=stair+tilting')->assertOk()
+            ->assertSee('1 match')->assertSee('Stair chairs')->assertSee('<mark>tilting</mark>', false)->assertDontSee('Secret');
+        $this->actingAs($member)->get('/training?q=handbook')->assertSee('Welcome');
+        // Quiz questions aren't searched.
+        $this->actingAs($member)->get('/training?q=PPE')->assertSee('0 matches');
+        $this->actingAs($member)->get('/training?q=%25')->assertOk();
+
+        // The lesson still opens after the course is done, with no time counting.
+        $lesson = $course->lessons()->where('title', 'Stair chairs')->first();
+        $this->actingAs($member)->get("/training/a/{$a->id}/lessons/{$lesson->id}")->assertOk()->assertSee('lock the')->assertDontSee('Mark as done');
+
+        // Someone who hasn't finished it finds nothing.
+        $this->actingAs($this->member('Someone Else'))->get('/training?q=stair')->assertDontSee('Stair chairs');
     }
 }

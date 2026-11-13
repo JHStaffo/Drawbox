@@ -15,12 +15,46 @@ class LearnController extends Controller
 {
     public function index(Request $request)
     {
-        $all = Assignment::with('course')->withCount('attempts')->where('user_id', $request->user()->id)->latest('id')->get();
+        $all = Assignment::with('course.lessons')->withCount('attempts')->where('user_id', $request->user()->id)->latest('id')->get();
+        // Each finished course once (the latest time they finished it), kept as reference material.
+        $done = $all->whereNotNull('completed_at')->unique('course_id')->sortBy(fn ($a) => mb_strtolower($a->course->title))->values();
+        $q = trim((string) $request->query('q'));
 
         return view('training.index', [
             'open' => $all->filter(fn ($a) => $a->isOpen())->sortBy(fn ($a) => [$a->due_on?->timestamp ?? PHP_INT_MAX, $a->id])->values(),
-            'done' => $all->whereNotNull('completed_at')->values(),
+            'done' => $done,
+            'q' => $q,
+            'results' => $q !== '' ? self::search($q, $done) : null,
         ]);
+    }
+
+    /**
+     * Lessons of their finished courses that contain every word searched for
+     * (in the lesson's title, its page text or the course title). Quiz questions aren't searched.
+     *
+     * @return \Illuminate\Support\Collection<int, array{lesson: Lesson, assignment: Assignment, snippet: string}>
+     */
+    public static function search(string $q, $done)
+    {
+        $terms = collect(preg_split('/\s+/', mb_strtolower($q)))->filter(fn ($t) => mb_strlen($t) >= 2)->unique()->take(8)->values();
+        if ($terms->isEmpty() || $done->isEmpty()) {
+            return collect();
+        }
+        $byCourse = $done->keyBy('course_id');
+        $query = Lesson::with('course')->whereIn('course_id', $byCourse->keys())->where('type', '!=', 'quiz');
+        foreach ($terms as $term) {
+            $like = '%'.addcslashes($term, '%_\\').'%';
+            $query->where(fn ($w) => $w->where('search_text', 'like', $like)->orWhereHas('course', fn ($c) => $c->where('title', 'like', $like)));
+        }
+
+        return $query->orderBy('course_id')->orderBy('position')->limit(50)->get()->map(function (Lesson $lesson) use ($byCourse, $terms) {
+            $text = (string) $lesson->search_text;
+            $at = $terms->map(fn ($t) => mb_stripos($text, $t))->filter(fn ($p) => $p !== false)->min() ?? 0;
+            $start = max(0, $at - 80);
+            $snippet = ($start > 0 ? '…' : '').mb_substr($text, $start, 240).(mb_strlen($text) > $start + 240 ? '…' : '');
+
+            return ['lesson' => $lesson, 'assignment' => $byCourse[$lesson->course_id], 'snippet' => $snippet];
+        });
     }
 
     public function course(Request $request, Assignment $assignment, Training $training)

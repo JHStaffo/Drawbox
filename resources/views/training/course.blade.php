@@ -2,7 +2,7 @@
 
 @section('band')
     <h1>{{ $course->title }}</h1>
-    <p>@unless ($mine){{ $assignment->user->name }} · @endunless{{ $assignment->percent }}% done · {{ $assignment->timeLabel() }} spent @if ($assignment->due_on)· due {{ $assignment->due_on->format('M j, Y') }}@endif</p>
+    <p>@unless ($mine){{ $assignment->user->name }} · @endunless{{ $course->estimateLabel() }} · {{ $assignment->percent }}% done · {{ $assignment->timeLabel() }} spent @if ($assignment->due_on)· due {{ $assignment->due_on->format('M j, Y') }}@endif</p>
 @endsection
 
 @section('content')
@@ -36,7 +36,7 @@
                     <span @class(['lesson-mark', 'lesson-mark-done' => $p?->completed_at])>{{ $p?->completed_at ? '✓' : $i + 1 }}</span>
                     <div class="lesson-main">
                         <a href="{{ route('training.lesson', [$assignment, $l]) }}">{{ $l->title }}</a>
-                        <div class="hint">{{ $l->typeLabel() }} · {{ \App\Training\Models\Assignment::duration($p?->seconds_spent) }}@if ($l->isQuiz() && $p?->best_score !== null) · best score {{ $p->best_score }}%@endif</div>
+                        <div class="hint">{{ $l->typeLabel() }} · {{ \App\Training\Estimate::label($l->est_seconds) }}@if ($p?->seconds_spent) · you: {{ \App\Training\Models\Assignment::duration($p->seconds_spent) }}@endif @if ($l->isQuiz() && $p?->best_score !== null) · best score {{ $p->best_score }}%@endif</div>
                     </div>
                 </li>
             @endforeach

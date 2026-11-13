@@ -14,6 +14,14 @@ class Question extends Model
 
     public const TYPES = ['single' => 'One answer', 'multiple' => 'Select all that apply', 'true_false' => 'True or false'];
 
+    protected static function booted(): void
+    {
+        // A quiz's expected time depends on its questions.
+        $refresh = fn (Question $q) => $q->lesson?->save();
+        static::saved($refresh);
+        static::deleted($refresh);
+    }
+
     protected function casts(): array
     {
         return ['choices' => 'array'];

@@ -17,6 +17,10 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(AuditChanges::class);
+        $this->app->bind(\App\Training\Generate\CourseWriter::class, fn () => new \App\Training\Generate\ClaudeCourseWriter(
+            app(AnthropicKey::class)->get(),
+            config('services.anthropic.model'),
+        ));
         $this->app->bind(ProtocolReader::class, fn () => new ClaudeProtocolReader(
             app(AnthropicKey::class)->get(),
             config('services.anthropic.model'),

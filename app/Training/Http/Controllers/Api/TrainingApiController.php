@@ -98,7 +98,7 @@ class TrainingApiController extends Controller
     {
         return [
             'id' => $a->id,
-            'course' => ['id' => $a->course->id, 'title' => $a->course->title, 'description' => $a->course->description, 'category' => $a->course->category],
+            'course' => ['id' => $a->course->id, 'title' => $a->course->title, 'description' => $a->course->description, 'category' => $a->course->category, 'estimated_seconds' => $a->course->estimatedSeconds()],
             'status' => $a->status(),
             'percent' => $a->percent,
             'seconds_spent' => $a->seconds_spent,
@@ -123,6 +123,7 @@ class TrainingApiController extends Controller
             'embed_url' => $l->type === 'link' ? $l->embedUrl() : null,
             'file' => $l->file_path ? ['name' => $l->file_name, 'mime' => $l->file_mime, 'size' => $l->file_size, 'url' => $l->signedFileUrl()] : null,
             'min_seconds' => $l->min_seconds,
+            'estimated_seconds' => $l->est_seconds,
             'seconds_spent' => $p?->seconds_spent ?? 0,
             'completed_at' => $p?->completed_at?->toIso8601String(),
             'quiz' => $l->isQuiz() ? [

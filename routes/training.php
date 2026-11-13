@@ -2,6 +2,7 @@
 
 use App\Training\Http\Controllers\AssignController;
 use App\Training\Http\Controllers\BuildController;
+use App\Training\Http\Controllers\GenerateController;
 use App\Training\Http\Controllers\LearnController;
 use App\Training\Http\Controllers\ProfileController;
 use App\Training\Http\Controllers\ReportController;
@@ -45,6 +46,11 @@ Route::middleware('web')->prefix('training')->name('training')->group(function (
             Route::put('/questions/{question}', [BuildController::class, 'updateQuestion'])->name('.questions.update');
             Route::delete('/questions/{question}', [BuildController::class, 'destroyQuestion'])->name('.questions.destroy');
             Route::post('/questions/{question}/move', [BuildController::class, 'moveQuestion'])->name('.questions.move');
+            Route::get('/generate', [GenerateController::class, 'index'])->name('.generate');
+            Route::post('/generate', [GenerateController::class, 'store'])->middleware('throttle:10,1')->name('.generate.store');
+            Route::get('/generate/{generation}', [GenerateController::class, 'show'])->name('.generate.show');
+            Route::post('/generate/{generation}/retry', [GenerateController::class, 'retry'])->name('.generate.retry');
+            Route::delete('/generate/{generation}', [GenerateController::class, 'destroy'])->name('.generate.destroy');
             Route::post('/images', [BuildController::class, 'storeImage'])->middleware('throttle:60,1')->name('.images.store');
         });
 

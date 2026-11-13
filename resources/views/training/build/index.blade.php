@@ -13,6 +13,7 @@
             <div class="field" style="grid-column: span 2"><label for="title">Title</label><input id="title" type="text" name="title" required maxlength="255" placeholder="Employee Handbook"></div>
             <div class="field"><button class="btn" type="submit">Start the course</button></div>
         </form>
+        <p class="hint">Or <a href="{{ route('training.generate') }}">write a course with AI</a>: describe it (or upload your policy) and Claude drafts the pages and quiz for you to review.</p>
     </div>
     <div class="card">
         <h2>All courses</h2>
@@ -20,13 +21,14 @@
             <p class="empty">No courses yet.</p>
         @else
             <div class="table-wrap"><table>
-                <thead><tr><th>Course</th><th>Status</th><th class="num">Lessons</th><th class="num">In progress</th><th class="num">Completed</th><th>Last change</th><th></th></tr></thead>
+                <thead><tr><th>Course</th><th>Status</th><th class="num">Lessons</th><th>Expected</th><th class="num">In progress</th><th class="num">Completed</th><th>Last change</th><th></th></tr></thead>
                 <tbody>
                 @foreach ($courses as $c)
                     <tr>
                         <td><a href="{{ route('training.courses.edit', $c) }}">{{ $c->title }}</a>@if ($c->category)<div class="hint">{{ $c->category }}</div>@endif</td>
                         <td><span @class(['pill', 'pill-green' => $c->status === 'published'])>{{ $c->statusLabel() }}</span></td>
                         <td class="num">{{ $c->lessons_count }}</td>
+                        <td>{{ \App\Training\Estimate::label((int) $c->est_total) }}</td>
                         <td class="num">{{ $c->open_count }}</td>
                         <td class="num">{{ $c->done_count }}</td>
                         <td>{{ $c->updated_at->format('M j, Y') }}</td>

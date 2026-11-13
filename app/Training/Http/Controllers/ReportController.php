@@ -40,11 +40,11 @@ class ReportController extends Controller
 
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Team Member', 'Email', 'Permission profile', 'Course', 'Status', 'Completion %', 'Minutes spent', 'Quiz grade %', 'Quiz attempts', 'Assigned', 'Assigned by', 'Training profile', 'Reason', 'Due', 'Started', 'Completed', 'Reassigned']);
+            fputcsv($out, ['Team Member', 'Email', 'Permission profile', 'Course', 'Status', 'Completion %', 'Expected minutes', 'Minutes spent', 'Quiz grade %', 'Quiz attempts', 'Assigned', 'Assigned by', 'Training profile', 'Reason', 'Due', 'Started', 'Completed', 'Reassigned']);
             foreach ($rows as $a) {
                 fputcsv($out, [
                     $a->user?->name, $a->user?->email, $a->user?->profile?->label(), $a->course?->title, $a->statusLabel(), $a->percent,
-                    round($a->seconds_spent / 60, 1), $a->score, $a->attempts_count, $a->created_at->format('Y-m-d'), $a->assigner?->name ?? 'Automatic',
+                    round($a->course->estimatedSeconds() / 60), round($a->seconds_spent / 60, 1), $a->score, $a->attempts_count, $a->created_at->format('Y-m-d'), $a->assigner?->name ?? 'Automatic',
                     $a->trainingProfile?->name, $a->reason, $a->due_on?->format('Y-m-d'), $a->started_at?->format('Y-m-d H:i'),
                     $a->completed_at?->format('Y-m-d H:i'), $a->replaced_at?->format('Y-m-d H:i'),
                 ]);
@@ -81,7 +81,7 @@ class ReportController extends Controller
             'to' => 'nullable|date',
         ]) + ['course' => null, 'user' => null, 'profile' => null, 'status' => null, 'from' => null, 'to' => null];
 
-        $query = Assignment::with('user.profile.parent', 'course', 'assigner', 'trainingProfile')->withCount(['attempts' => fn ($q) => $q->whereNotNull('submitted_at')]);
+        $query = Assignment::with('user.profile.parent', 'course.lessons', 'assigner', 'trainingProfile')->withCount(['attempts' => fn ($q) => $q->whereNotNull('submitted_at')]);
         $filters['status'] === 'history' ? $query->whereNotNull('replaced_at') : $query->whereNull('replaced_at');
         if ($filters['course']) {
             $query->where('course_id', $filters['course']);
