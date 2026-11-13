@@ -39,6 +39,12 @@ class PermissionProfile extends Model
             'protocols_build' => 'Build protocols (write drafts and send them for approval)',
             'protocols_approve' => 'Medical Director (approve, send back or retire protocols)',
         ],
+        'Wellness' => [
+            'wellness' => 'Wellness (join, log, see their own progress and the leaderboard)',
+            'wellness_review' => 'Wellness review (exceptions now; attendance notes and appeals later)',
+            'wellness_admin' => 'Wellness admin (Team Members in the program and point rules)',
+            'wellness_settings' => 'Wellness settings (turn the module on or off, dates and grace period)',
+        ],
         'Admin' => [
             'team_members' => 'Team Members',
             'settings' => 'Settings',

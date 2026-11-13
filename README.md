@@ -39,6 +39,17 @@ Every change is a version. Builders (Build protocols) save drafts and send them 
 
 `php artisan db:seed --class=ProtocolSampleSeeder` loads the Cardiac Arrest protocol as a draft example.
 
+## Wellness
+
+The Wellness menu is its own module (`app/Wellness`, `routes/wellness.php`, tables starting `wellness_`). It only reads `users`, and nothing outside it reads its tables. Wellness settings can turn it off, which hides its menu, pages and API without touching the rest of Pulse.
+
+- **Scoring:** up to 8 daily-habit points a day (meals 1 each up to 3, sleep 6 h, workout 30 min, 10,000 steps, 64 oz water, meal plan), 56 a Sunday to Saturday week. Readings are stored per day, metric and source. The best value per metric counts once, so a watch and a typed entry are never added together. Days can change until the grace period after their week (3 days by default), then they lock.
+- **Rules** (Wellness > Point rules) are versioned. A change starts on a date you pick, today or later, and earlier days keep the rule they were scored under.
+- **Who can use it:** anyone whose permission profile has Wellness, or anyone an admin adds as a tester under Wellness > Participants (no profile change, for trying it with a few people). Other permissions: Wellness review (device exceptions), Wellness admin (participants, testers, rules) and Wellness settings. Admin starts with those three.
+- **Sign-up:** Wellness is opt-in. Until a Team Member agrees on the sign-up page, only that page and the rules open; everything else (and the API) waits.
+- **Test period:** points before the official start date (Wellness settings, default January 1, 2027) don't count toward prizes.
+- **API:** `/api/v1` for phone apps and the Apple Health Shortcut, documented in [docs/api.md](docs/api.md). Team Members make sync keys under Wellness > Devices.
+
 ## Run locally
 
 ```sh
@@ -122,4 +133,6 @@ php artisan config:cache && php artisan route:cache && php artisan view:cache
 - `app/Services/Inventory.php`: envelope counts, odds, manual changes and reset
 - `app/Services/Credits.php`: crediting a call, expiry and reminders
 - `app/Services/Reports.php`: dashboard periods and per-employee totals
+- `app/Wellness/`: the Wellness module (`Scoring.php` for points, `Progress.php` for the dashboard, `Leaderboard.php`)
+- `routes/api.php`: the API for phone apps and device syncs
 - `routes/console.php`: scheduled jobs and the `drawbox:make-admin` command

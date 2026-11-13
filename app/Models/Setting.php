@@ -26,6 +26,14 @@ class Setting extends Model
         'scope_base_crew' => '2',
         // Encrypted Slack bot token (see App\Services\Slack). Empty means not connected.
         'slack_bot_token' => '',
+        // Wellness module (App\Wellness). Turning it off hides the menu, pages and API.
+        'wellness_enabled' => '1',
+        'wellness_daily_max' => '8',
+        'wellness_grace_days' => '3',
+        // Points before this day are the soft-launch test period and don't count toward prizes.
+        'wellness_official_start' => '2027-01-01',
+        // While on, everyone may type steps, sleep and workout in by hand (testing, before wearables sync).
+        'wellness_manual_device' => '1',
         'scope_scene_types' => "House\nApartment with elevator\nApartment without elevator\nNursing facility\nAssisted living\nHospital\nDialysis center\nDoctor's office",
         'scope_destination_types' => "Hospital\nNursing facility\nAssisted living\nHouse\nApartment with elevator\nApartment without elevator\nDialysis center\nDoctor's office",
     ];

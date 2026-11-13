@@ -1,0 +1,67 @@
+# Fast Track Pulse API, version 1
+
+The API is for phone apps and device syncs (the Apple Health Shortcut now, native iPhone and Android apps later). It uses the same sign-in, permissions and scoring as the website, so the numbers always match.
+
+Base URL: `https://drawbox.fasttrackems.com/api/v1`. Send `Accept: application/json` on every request. Dates are `YYYY-MM-DD` in Eastern time.
+
+## Signing in
+
+Apps sign in like the website: email first, then the 6-digit code from the email.
+
+```http
+POST /auth/code
+{"email": "medic@fasttrackems.com"}
+→ 200 {"message": "If that email belongs to a Team Member, a 6-digit code is on its way..."}
+
+POST /auth/token
+{"email": "medic@fasttrackems.com", "code": "123456", "device_name": "Jamie's iPhone"}
+→ 201 {"token": "12|abc...", "user": {...}}
+```
+
+Send the token on every other request as `Authorization: Bearer 12|abc...`. `DELETE /auth/token` signs the app out. Team Members can see and remove their signed-in apps under Wellness > Devices. Sign-in is limited to 6 code requests and 10 token attempts a minute; other calls to 120 a minute.
+
+There are two kinds of token:
+
+| Token | Made by | Can |
+| --- | --- | --- |
+| App token (`wellness`) | `POST /auth/token` | Everything below |
+| Sync key (`wellness:import`) | Wellness > Devices > Make a sync key | Only `POST /wellness/readings` |
+
+## Endpoints
+
+| Method and path | What it does |
+| --- | --- |
+| `GET /me` | The signed-in Team Member, their permissions, and whether they've joined Wellness |
+| `GET /wellness/rules` | Current point rules, daily maximum (8), weekly target (56), grace days, official start date, and the metrics with their units and limits |
+| `POST /wellness/join` | Join with `{"consent": true}` after showing the rules and privacy notice |
+| `GET /wellness/summary` | Today, this week, streak, totals, the last 30 days, and last device sync |
+| `GET /wellness/days?from=&to=` | Each day's habits, values, sources and points (up to 93 days) |
+| `GET /wellness/days/{day}` | One day |
+| `PUT /wellness/days/{day}` | Typed-in values for a day, e.g. `{"meals": 3, "water_oz": 64, "meal_plan": 1}`. A `null` clears a value. Steps, sleep and workout only if typing them is allowed (testing setting or an exception) |
+| `POST /wellness/readings` | Device data (below) |
+| `GET /wellness/leaderboard?period=week\|month\|quarter\|year` | Names, points and ranks only |
+
+Until the Team Member has signed up, only `/me`, `/wellness/rules` and `/wellness/join` work. Show the agreement from the website's sign-up page and the rules before calling join.
+
+Errors: `401` bad or removed token, `403` no Wellness access (profile permission or tester) or wrong token kind, `404` Wellness is turned off, `409` with `"code": "not_joined"` before joining, `422` validation errors in Laravel's usual `{"message", "errors"}` shape.
+
+## Device readings
+
+Each reading is a day's total for one metric. Sending the same day and metric again from the same source replaces the earlier value. If a value also comes from somewhere else, such as a typed entry, the higher one counts, never both.
+
+```http
+POST /wellness/readings
+{
+  "source": "apple_health",
+  "device": "Apple Watch Series 10",
+  "readings": [
+    {"day": "2026-12-09", "metric": "steps", "value": 10422},
+    {"day": "2026-12-09", "metric": "sleep_minutes", "value": 415},
+    {"day": "2026-12-09", "metric": "exercise_minutes", "value": 34},
+    {"day": "2026-12-09", "metric": "water_oz", "value": 70}
+  ]
+}
+→ 200 {"accepted": [{"day": "2026-12-09", "points": 4, "changes": [...]}], "skipped": []}
+```
+
+Metrics: `steps`, `sleep_minutes` (the night ending that morning), `exercise_minutes`, `water_oz`. Up to 200 readings per call. Days in the future or in a closed week are skipped with a reason, `future` or `closed`, and the rest are saved. Every sync is in the audit log.
