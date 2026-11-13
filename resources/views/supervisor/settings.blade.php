@@ -44,6 +44,38 @@
 </form>
 
 @php($levels = \App\Models\ScopeItem::LEVELS)
+    <div class="card" id="protocol-categories" style="max-width:720px">
+        <h2>Protocol categories</h2>
+        <p class="hint">The chapters of the book, in this order. Approved protocols keep the category name they were approved with.</p>
+        <div class="table-wrap"><table>
+            <tr><th>Order</th><th>Name</th><th></th></tr>
+            @foreach ($protocolCategories as $c)
+                <tr>
+                    <td colspan="2">
+                        <form method="post" action="{{ route('protocols.categories.update', $c) }}" class="row-actions" style="margin:0;flex-wrap:nowrap">@csrf @method('put')
+                            <input type="number" name="position" value="{{ $c->position }}" min="0" max="999" style="width:80px" aria-label="Order">
+                            <input type="text" name="name" value="{{ $c->name }}" required maxlength="60" aria-label="Name">
+                            <button class="btn btn-small btn-outline" type="submit">Save</button>
+                        </form>
+                    </td>
+                    <td>
+                        @if (in_array($c->id, $usedCategories))
+                            <span class="hint">In use</span>
+                        @else
+                            <form method="post" action="{{ route('protocols.categories.destroy', $c) }}" onsubmit="return confirm('Delete the {{ addslashes($c->name) }} category?')">@csrf @method('delete')
+                                <button class="btn btn-small btn-outline" type="submit">Delete</button>
+                            </form>
+                        @endif
+                    </td>
+                </tr>
+            @endforeach
+        </table></div>
+        <form method="post" action="{{ route('protocols.categories.store') }}" class="row-actions mt">@csrf
+            <input type="text" name="name" placeholder="New category, e.g. Trauma" required maxlength="60" style="max-width:320px" aria-label="New category">
+            <button class="btn btn-small" type="submit">Add category</button>
+        </form>
+    </div>
+
 <form class="card" id="anthropic" method="post" action="{{ route('supervisor.settings.anthropic') }}" style="max-width:640px">@csrf @method('put')
     <h2>Protocol import: Anthropic API key</h2>
     <p class="hint">Protocols &gt; Build protocols &gt; Import uses Claude to read uploaded PDFs and photos. Create a key at console.anthropic.com under API keys and paste it here. It's checked with Anthropic before it's saved, and stored encrypted.</p>
