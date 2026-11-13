@@ -15,6 +15,7 @@
         <div class="field"><label for="topic">What's the course about?</label><input id="topic" type="text" name="topic" value="{{ old('topic') }}" required maxlength="255" placeholder="Safe patient lifting and stair chair use"></div>
         <div class="field"><label for="audience">Who takes it?</label><input id="audience" type="text" name="audience" value="{{ old('audience') }}" maxlength="500" placeholder="New EMTs and drivers"></div>
         <div class="field"><label for="goals">What should they be able to do afterwards?</label><textarea id="goals" name="goals" rows="3" maxlength="3000" placeholder="Use the stair chair safely, know when to call for a lift assist, protect their back">{{ old('goals') }}</textarea></div>
+        <div class="field"><label for="sections">Sections <span class="hint">(optional, in order, separated by commas)</span></label><input id="sections" type="text" name="sections" value="{{ old('sections') }}" maxlength="1000" placeholder="Regulations, Policies, Procedures, Risks"><div class="hint">Leave blank and Claude groups the pages into sections when the course is long enough.</div></div>
         <div class="field"><label for="details">Anything it must cover <span class="hint">(our rules, steps, phone numbers, examples; paste policy text here)</span></label><textarea id="details" name="details" rows="6" maxlength="60000">{{ old('details') }}</textarea></div>
         <div class="field">
             <label for="source">Build it from a document <span class="hint">(optional)</span></label>

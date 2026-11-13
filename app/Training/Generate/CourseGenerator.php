@@ -102,12 +102,34 @@ class CourseGenerator
                     'file_mime' => 'application/pdf', 'file_size' => Storage::disk('local')->size($path),
                 ]);
             }
-            foreach ($data['lessons'] ?? [] as $lesson) {
+            // Sections by name, in the order they first come up (the ones asked for first, in order, when Claude used them).
+            $sections = [];
+            $section = function (string $name) use ($course, &$sections) {
+                $name = Str::limit(trim($name), 250, '');
+                if ($name === '') {
+                    return null;
+                }
+                $key = mb_strtolower($name);
+
+                return $sections[$key] ??= $course->sections()->create(['title' => $name, 'position' => count($sections) + 1])->id;
+            };
+            $used = collect($data['lessons'] ?? [])->map(fn ($l) => mb_strtolower(trim($l['section'] ?? '')))->filter()->all();
+            foreach ($brief['sections'] ?? [] as $name) {
+                if (in_array(mb_strtolower(trim($name)), $used, true)) {
+                    $section($name);
+                }
+            }
+            $lessons = collect($data['lessons'] ?? [])->map(fn ($l) => $l + ['section_id' => $section($l['section'] ?? '')])->values();
+            $order = array_flip(array_values($sections));
+            $lessons = $lessons->keys()->sortBy(fn ($i) => [$lessons[$i]['section_id'] === null ? -1 : $order[$lessons[$i]['section_id']], $i])
+                ->map(fn ($i) => $lessons[$i])->values();
+            foreach ($lessons as $lesson) {
                 $html = RichText::clean($lesson['html'] ?? '');
                 if ($html === '') {
                     continue;
                 }
                 $course->lessons()->create([
+                    'section_id' => $lesson['section_id'],
                     'title' => Str::limit(trim($lesson['title'] ?? '') ?: 'Lesson '.($position + 1), 250, ''),
                     'type' => 'text',
                     'position' => ++$position,
@@ -117,8 +139,11 @@ class CourseGenerator
 
             $questions = collect($data['questions'] ?? [])->map(fn ($q) => $this->question($q))->filter()->values();
             if ($questions->isNotEmpty()) {
+                // In a sectioned course the quiz gets a section of its own at the end, so it stays last.
+                $quizTitle = Str::limit(trim($data['quiz_title'] ?? '') ?: 'Quiz', 250, '');
                 $quiz = $course->lessons()->create([
-                    'title' => Str::limit(trim($data['quiz_title'] ?? '') ?: 'Quiz', 250, ''),
+                    'section_id' => $sections ? $section('Quiz') : null,
+                    'title' => $quizTitle,
                     'type' => 'quiz',
                     'position' => ++$position,
                     'passing_score' => $brief['passing_score'] ?? Lesson::DEFAULT_PASSING,
@@ -128,6 +153,8 @@ class CourseGenerator
                     $quiz->questions()->create($q + ['position' => $i + 1]);
                 }
             }
+
+            $course->renumber();
 
             return $course;
         });

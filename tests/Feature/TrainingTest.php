@@ -11,6 +11,7 @@ use App\Training\Models\Course;
 use App\Training\Models\Lesson;
 use App\Training\Models\LessonProgress;
 use App\Training\Models\Question;
+use App\Training\Models\Section;
 use App\Training\Models\TrainingProfile;
 use App\Training\RichText;
 use App\Training\Training;
@@ -461,5 +462,67 @@ class TrainingTest extends TestCase
 
         // Someone who hasn't finished it finds nothing.
         $this->actingAs($this->member('Someone Else'))->get('/training?q=stair')->assertDontSee('Stair chairs');
+    }
+
+    public function test_courses_have_named_sections_that_group_lessons(): void
+    {
+        $admin = $this->admin();
+        $course = $this->course();
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/sections", ['title' => 'Regulations'])->assertRedirect();
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/sections", ['title' => 'Policies'])->assertRedirect();
+        [$regs, $pols] = $course->sections()->get()->all();
+        $this->assertSame([1, 2], [$regs->position, $pols->position]);
+        $this->assertStringContainsString('Added the section "Regulations"', AuditLog::where('action', 'training.sections.store')->first()->description);
+
+        // New lessons go at the end of their section; lessons outside any section stay first.
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/lessons", ['title' => 'Hours of service', 'type' => 'text', 'section_id' => $regs->id]);
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/lessons", ['title' => 'Phones', 'type' => 'text', 'section_id' => $pols->id]);
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/lessons", ['title' => 'Speed limits', 'type' => 'text', 'section_id' => $regs->id]);
+        $order = fn () => $course->lessons()->get()->map(fn ($l) => $l->title.'@'.($l->section?->title ?? '-'))->all();
+        $this->assertSame(['Welcome@-', 'Handbook quiz@-', 'Hours of service@Regulations', 'Speed limits@Regulations', 'Phones@Policies'], $order());
+        $this->assertSame([1, 2, 3, 4, 5], $course->lessons()->pluck('position')->all());
+
+        // Another course's section can't be used.
+        $other = Course::create(['title' => 'Other'])->sections()->create(['title' => 'Elsewhere', 'position' => 1]);
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/lessons", ['title' => 'Nope', 'type' => 'text', 'section_id' => $other->id])->assertSessionHasErrors('section_id');
+
+        // Lessons move up and down inside their section only.
+        $speed = Lesson::where('title', 'Speed limits')->first();
+        $this->actingAs($admin)->post("/training/lessons/{$speed->id}/move", ['direction' => 'up']);
+        $this->actingAs($admin)->post("/training/lessons/{$speed->id}/move", ['direction' => 'up']);
+        $this->assertSame(['Welcome@-', 'Handbook quiz@-', 'Speed limits@Regulations', 'Hours of service@Regulations', 'Phones@Policies'], $order());
+
+        // Moving a lesson to another section from its edit page puts it at the end there, and the audit log says so.
+        $quiz = Lesson::where('title', 'Handbook quiz')->first();
+        $this->actingAs($admin)->put("/training/lessons/{$quiz->id}", ['title' => 'Handbook quiz', 'passing_score' => 50, 'max_attempts' => 2, 'section_id' => $pols->id])->assertSessionHas('status');
+        $this->assertSame(['Welcome@-', 'Speed limits@Regulations', 'Hours of service@Regulations', 'Phones@Policies', 'Handbook quiz@Policies'], $order());
+        $this->assertStringContainsString('section from none to Policies', AuditLog::where('action', 'training.lessons.update')->latest('id')->first()->description);
+
+        // Sections reorder (their lessons go with them), rename, and show to Team Members.
+        $this->actingAs($admin)->post("/training/sections/{$pols->id}/move", ['direction' => 'up']);
+        $this->assertSame(['Welcome@-', 'Phones@Policies', 'Handbook quiz@Policies', 'Speed limits@Regulations', 'Hours of service@Regulations'], $order());
+        $this->actingAs($admin)->put("/training/sections/{$regs->id}", ['title' => 'Rules of the road']);
+        $this->assertStringContainsString('name from Regulations to Rules of the road', AuditLog::where('action', 'training.sections.update')->first()->description);
+        $this->actingAs($admin)->get("/training/courses/{$course->id}/edit")->assertOk()->assertSeeInOrder(['Welcome', 'Policies', 'Phones', 'Rules of the road', 'Speed limits']);
+        // The lesson designer lists the whole course on the left to jump between lessons, with a quick add.
+        $this->actingAs($admin)->get('/training/lessons/'.Lesson::where('title', 'Phones')->value('id').'/edit')->assertOk()
+            ->assertSeeInOrder(['builder-nav', 'Welcome', 'Policies', 'Phones', 'Rules of the road', 'Speed limits', 'Hours of service', 'Add a lesson'])
+            ->assertSee('aria-current="page"', false);
+
+        $member = $this->member();
+        $a = app(Training::class)->assign($member, $course->fresh(), $admin);
+        $this->actingAs($member)->get("/training/a/{$a->id}")->assertOk()->assertSeeInOrder(['Welcome', 'Policies', '0 of 2 done', 'Phones', 'Rules of the road', 'Speed limits']);
+        $this->actingAs($member)->get("/training/a/{$a->id}/lessons/".Lesson::where('title', 'Phones')->value('id'))->assertOk()->assertSee('Policies · Lesson 2 of 5');
+        $token = $member->createToken('app', ['training'])->plainTextToken;
+        $json = $this->withToken($token)->getJson("/api/v1/training/assignments/{$a->id}")->assertOk()->json();
+        $this->assertSame(['Policies', 'Rules of the road'], array_column($json['sections'], 'title'));
+        $this->assertSame([null, 'Policies', 'Policies', 'Rules of the road', 'Rules of the road'], array_column($json['lessons'], 'section'));
+
+        // Removing a section keeps its lessons, outside any section.
+        $this->actingAs($admin)->delete("/training/sections/{$pols->id}")->assertRedirect();
+        $this->assertNull(Section::find($pols->id));
+        $this->assertSame(5, $course->lessons()->count());
+        $this->assertSame([1, 2, 3, 4, 5], $course->lessons()->pluck('position')->all());
+        $this->assertStringContainsString('its 2 lessons stay in the course without a section', AuditLog::where('action', 'training.sections.destroy')->first()->description);
     }
 }

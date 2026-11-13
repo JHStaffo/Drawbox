@@ -7,6 +7,7 @@ use App\Training\Models\Assignment;
 use App\Training\Models\Course;
 use App\Training\Models\Lesson;
 use App\Training\Models\Question;
+use App\Training\Models\Section;
 use App\Training\RichText;
 use App\Training\Training;
 use Illuminate\Http\Request;
@@ -44,7 +45,7 @@ class BuildController extends Controller
     public function edit(Course $course)
     {
         return view('training.build.course', [
-            'course' => $course->load('lessons'),
+            'course' => $course->load('lessons', 'sections'),
             'questionCounts' => Question::whereIn('lesson_id', $course->lessons->pluck('id'))->selectRaw('lesson_id, COUNT(*) as n')->groupBy('lesson_id')->pluck('n', 'lesson_id'),
             'categories' => Course::whereNotNull('category')->distinct()->orderBy('category')->pluck('category'),
             'assigned' => Assignment::current()->where('course_id', $course->id)->count(),
@@ -86,14 +87,17 @@ class BuildController extends Controller
         $data = $request->validate([
             'title' => 'required|string|max:255',
             'type' => ['required', Rule::in(array_keys(Lesson::TYPES))],
+            'section_id' => ['nullable', Rule::exists('training_sections', 'id')->where('course_id', $course->id)],
         ]);
+        // Goes at the end of its section; renumber() puts it in place.
         $lesson = $course->lessons()->create($data + [
-            'position' => (int) $course->lessons()->max('position') + 1,
+            'position' => 1000000,
             'passing_score' => $data['type'] === 'quiz' ? Lesson::DEFAULT_PASSING : null,
         ]);
+        $course->renumber();
         $course->update(['updated_by' => $request->user()->id]);
         $training->refreshCourse($course);
-        audit_note("Added the {$lesson->typeLabel()} lesson \"{$lesson->title}\" to {$course->title}.");
+        audit_note("Added the {$lesson->typeLabel()} lesson \"{$lesson->title}\" to {$course->title}".($lesson->section ? " (section {$lesson->section->title})" : '').'.');
 
         return redirect()->route('training.lessons.edit', $lesson)->with('status', 'Lesson added. Fill it in and Save.');
     }
@@ -101,7 +105,7 @@ class BuildController extends Controller
     public function editLesson(Lesson $lesson)
     {
         return view('training.build.lesson', [
-            'lesson' => $lesson->load('course', 'questions'),
+            'lesson' => $lesson->load('course.sections', 'course.lessons', 'questions'),
             'course' => $lesson->course,
             'serverLimitMb' => self::serverLimitMb(),
         ]);
@@ -113,6 +117,7 @@ class BuildController extends Controller
             'title' => 'required|string|max:255',
             'body' => 'nullable|string|max:2000000',
             'min_minutes' => 'nullable|integer|min:0|max:600',
+            'section_id' => ['nullable', Rule::exists('training_sections', 'id')->where('course_id', $lesson->course_id)],
         ];
         if ($lesson->type === 'link') {
             $rules['url'] = 'required|url:https,http|max:1000';
@@ -161,8 +166,16 @@ class BuildController extends Controller
             ];
             $this->deleteFile($old);
         }
+        $sectionId = isset($data['section_id']) ? (int) $data['section_id'] : null;
+        $moved = $request->has('section_id') && $sectionId !== $lesson->section_id;
+        if ($moved) {
+            $update += ['section_id' => $sectionId, 'position' => 1000000];
+        }
         $bodyChanged = ($lesson->body ?? null) !== ($update['body'] ?? null);
         $lesson->update($update);
+        if ($moved) {
+            $lesson->course->renumber();
+        }
         $lesson->course->update(['updated_by' => $request->user()->id]);
         $notes = [];
         if (isset($update['file_name'])) {
@@ -194,10 +207,54 @@ class BuildController extends Controller
     public function moveLesson(Request $request, Lesson $lesson)
     {
         $up = $request->input('direction') === 'up';
-        $this->move($lesson->course->lessons()->get(), $lesson, $up);
+        $this->move($lesson->course->lessons()->where('section_id', $lesson->section_id)->get(), $lesson, $up);
+        $lesson->course->renumber();
         audit_note("Moved the lesson \"{$lesson->title}\" ".($up ? 'up' : 'down')." in {$lesson->course->title}.");
 
         return back();
+    }
+
+    public function storeSection(Request $request, Course $course)
+    {
+        $data = $request->validate(['title' => 'required|string|max:255']);
+        $section = $course->sections()->create($data + ['position' => (int) $course->sections()->max('position') + 1]);
+        $course->update(['updated_by' => $request->user()->id]);
+        audit_note("Added the section \"{$section->title}\" to {$course->title}.");
+
+        return redirect()->to(route('training.courses.edit', $course).'#s'.$section->id)->with('status', "Added the section {$section->title}. Add lessons to it, or move lessons into it from their edit page.");
+    }
+
+    public function updateSection(Request $request, Section $section)
+    {
+        $data = $request->validate(['title' => 'required|string|max:255']);
+        $section->update($data);
+        $section->course->update(['updated_by' => $request->user()->id]);
+
+        return redirect()->to(route('training.courses.edit', $section->course_id).'#s'.$section->id)->with('status', "Saved the section {$section->title}.");
+    }
+
+    public function moveSection(Request $request, Section $section)
+    {
+        $up = $request->input('direction') === 'up';
+        $this->move($section->course->sections()->get(), $section, $up);
+        $section->course->renumber();
+        audit_note("Moved the section \"{$section->title}\" ".($up ? 'up' : 'down')." in {$section->course->title}.");
+
+        return redirect()->to(route('training.courses.edit', $section->course_id).'#s'.$section->id);
+    }
+
+    /** Removes the section only. Its lessons stay in the course, outside any section. */
+    public function destroySection(Request $request, Section $section)
+    {
+        $course = $section->course;
+        $count = $section->lessons()->count();
+        $section->lessons()->update(['section_id' => null, 'position' => 0]);
+        $section->delete();
+        $course->renumber();
+        $course->update(['updated_by' => $request->user()->id]);
+        audit_note("Removed the section \"{$section->title}\" from {$course->title}".($count ? "; its {$count} ".Str::plural('lesson', $count).' stay in the course without a section' : '').'.');
+
+        return redirect()->route('training.courses.edit', $course)->with('status', "Removed the section {$section->title}.");
     }
 
     public function previewLesson(Lesson $lesson)

@@ -29,6 +29,7 @@ class TrainingApiController extends Controller
 
         return response()->json([
             'assignment' => $this->assignment($assignment),
+            'sections' => $assignment->course->sections->map(fn ($s) => ['id' => $s->id, 'title' => $s->title])->values(),
             'lessons' => $training->lessonsWithProgress($assignment)->map(fn (Lesson $l) => $this->lesson($l, $assignment, $training))->values(),
         ]);
     }
@@ -117,6 +118,7 @@ class TrainingApiController extends Controller
         return [
             'id' => $l->id,
             'title' => $l->title,
+            'section' => $l->section_id ? $l->section?->title : null,
             'type' => $l->type,
             'html' => $l->body,
             'url' => $l->url,

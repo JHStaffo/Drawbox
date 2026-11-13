@@ -105,6 +105,9 @@ class ClaudeCourseWriter implements CourseWriter
             }
         }
         $lines[] = '';
+        $lines[] = ! empty($brief['sections'])
+            ? 'Sections, in this order (use these names exactly): '.implode(', ', $brief['sections']).'.'
+            : 'Sections: your choice. Group the lessons into a few named sections if the course has 4 or more lessons; otherwise leave section empty.';
         $lines[] = 'Lessons: '.(! empty($brief['lessons']) ? "about {$brief['lessons']}" : 'as many as the material needs (usually 3 to 6)').'.';
         $lines[] = ! empty($brief['questions'])
             ? "Quiz: {$brief['questions']} questions, written so a Team Member who read the lessons can pass with {$brief['passing_score']}%."
@@ -124,6 +127,8 @@ Accuracy matters more than polish. When a source document is attached, it is the
 
 Each lesson is one page in the course designer, 300 to 900 words, written as HTML using only these tags: h2, h3, p, strong, em, u, ul, ol, li, blockquote, a (href only, https links), br, hr. No other tags, attributes, classes, styles, images or tables. Start each page with a short intro paragraph, use h2/h3 headings to break it up, lists for steps and checklists, and a blockquote for the one thing to remember (start it with <strong>Remember:</strong>) or a safety warning (start it with <strong>Safety:</strong>). End with a short "Key points" h3 and a bulleted list.
 
+Courses can be split into named sections that group the lessons, such as Regulations, Policies, Procedures and Risks for a driving course. Give each lesson its section name (one to four words, Title Case), keep each section's lessons together and in order, and give every lesson in a sectioned course a section. Use an empty string for section when the course has no sections.
+
 Quiz questions check the important points of the lessons, never trivia or trick wording. Types: single (one right answer, 3 or 4 choices), multiple (select all that apply, 4 or 5 choices, at least two right), true_false (choices exactly "True" then "False"). Spread the right answer's position around. Each explanation says in a sentence why the right answer is right and names the lesson it comes from.
 
 category is one or two words, such as Handbook, Clinical, Safety, Driving, Dispatch, Compliance or HR. notes is for the reviewer: anything to confirm, anything in the source you left out and why, or null.
@@ -139,6 +144,7 @@ TXT;
             'description' => $string,
             'category' => $string,
             'lessons' => ['type' => 'array', 'items' => $object([
+                'section' => $string,
                 'title' => $string,
                 'html' => $string,
             ])],

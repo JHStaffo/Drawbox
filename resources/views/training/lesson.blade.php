@@ -1,7 +1,7 @@
 @extends('layouts.app', ['title' => $lesson->title])
 
 @section('band')
-    <p style="margin:0 0 .3em">@if ($preview)<a style="color:#fff" href="{{ route('training.courses.edit', $course) }}">{{ $course->title }}</a> · Preview @else<a style="color:#fff" href="{{ route('training.course', $assignment) }}">{{ $course->title }}</a>@endif · Lesson {{ $number }} of {{ $count }}</p>
+    <p style="margin:0 0 .3em">@if ($preview)<a style="color:#fff" href="{{ route('training.courses.edit', $course) }}">{{ $course->title }}</a> · Preview @else<a style="color:#fff" href="{{ route('training.course', $assignment) }}">{{ $course->title }}</a>@endif @if ($lesson->section) · {{ $lesson->section->title }}@endif · Lesson {{ $number }} of {{ $count }}</p>
     <h1>{{ $lesson->title }}</h1>
 @endsection
 

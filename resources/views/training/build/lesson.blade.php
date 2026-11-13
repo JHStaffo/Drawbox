@@ -9,9 +9,47 @@
 
 @section('content')
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+<div class="builder-layout" id="builder-layout">
+<aside class="builder-nav" id="builder-nav" aria-label="Lessons in this course">
+    <div class="builder-nav-head">
+        <a href="{{ route('training.courses.edit', $course) }}"><strong>{{ $course->title }}</strong></a>
+        <button type="button" class="btn btn-small btn-outline" id="nav-hide" aria-label="Hide the lesson list" title="Hide the lesson list">«</button>
+    </div>
+    <div class="hint">{{ $course->lessons->count() }} {{ Str::plural('lesson', $course->lessons->count()) }} · {{ $course->estimateLabel() }}</div>
+    @php($n = 0)
+    @foreach ($course->lessonGroups(null, true) as $g)
+        @if ($g['section'])<div class="builder-nav-section">{{ $g['section']->title }}</div>@endif
+        <ol class="builder-nav-list">
+            @foreach ($g['lessons'] as $l)
+                @php($n++)
+                <li><a href="{{ route('training.lessons.edit', $l) }}" @class(['current' => $l->id === $lesson->id]) @if ($l->id === $lesson->id) aria-current="page" @endif>
+                    <span class="builder-nav-num">{{ $n }}</span><span class="builder-nav-title">{{ $l->title }}<span class="hint">{{ $l->typeLabel() }} · {{ \App\Training\Estimate::label($l->est_seconds) }}</span></span>
+                </a></li>
+            @endforeach
+            @if ($g['section'] && $g['lessons']->isEmpty())<li class="hint builder-nav-empty">No lessons yet</li>@endif
+        </ol>
+    @endforeach
+    <form method="post" action="{{ route('training.lessons.store', $course) }}" class="builder-nav-add">@csrf
+        <label for="nav-title">Add a lesson</label>
+        <input id="nav-title" type="text" name="title" required maxlength="255" placeholder="Title">
+        <select name="type" aria-label="Kind of lesson">@foreach (\App\Training\Models\Lesson::TYPES as $k => $label)<option value="{{ $k }}">{{ $label }}</option>@endforeach</select>
+        @if ($course->sections->isNotEmpty())
+            <select name="section_id" aria-label="Section"><option value="">No section</option>@foreach ($course->sections as $s)<option value="{{ $s->id }}" @selected($s->id === $lesson->section_id)>{{ $s->title }}</option>@endforeach</select>
+        @endif
+        <button class="btn btn-small" type="submit">Add</button>
+    </form>
+</aside>
+<div class="builder-main">
+<button type="button" class="btn btn-small btn-outline builder-nav-show" id="nav-show" aria-label="Show the lesson list">» Lessons</button>
 <div class="stack">
     <form method="post" action="{{ route('training.lessons.update', $lesson) }}" enctype="multipart/form-data" class="card" id="lesson-form">@csrf @method('put')
         <div class="field"><label for="l-title">Title</label><input id="l-title" type="text" name="title" value="{{ old('title', $lesson->title) }}" required maxlength="255"></div>
+        @if ($course->sections->isNotEmpty())
+            <div class="field"><label for="l-section">Section</label>
+                <select id="l-section" name="section_id" style="max-width:360px"><option value="">No section</option>@foreach ($course->sections as $s)<option value="{{ $s->id }}" @selected((string) old('section_id', $lesson->section_id) === (string) $s->id)>{{ $s->title }}</option>@endforeach</select>
+                <div class="hint">Moving it to another section puts it at the end of that section.</div>
+            </div>
+        @endif
 
         @if ($lesson->hasFile())
             <div class="field">
@@ -87,6 +125,34 @@
         <button class="btn btn-small btn-outline" type="submit">Remove this lesson</button>
     </form>
 </div>
+</div>
+</div>
+
+<script>
+(function () {
+    // The lesson list on the left: hide or show it, remembered on this device.
+    var layout = document.getElementById('builder-layout');
+    function set(hidden) {
+        layout.classList.toggle('nav-hidden', hidden);
+        try { localStorage.setItem('trainingNavHidden', hidden ? '1' : '0'); } catch (e) {}
+    }
+    var saved = null;
+    try { saved = localStorage.getItem('trainingNavHidden'); } catch (e) {}
+    if (saved === '1' || (saved === null && window.matchMedia('(max-width: 900px)').matches)) layout.classList.add('nav-hidden');
+    document.getElementById('nav-hide').addEventListener('click', function () { set(true); });
+    document.getElementById('nav-show').addEventListener('click', function () { set(false); });
+    var current = document.querySelector('.builder-nav a.current');
+    if (current) current.scrollIntoView({ block: 'nearest' });
+
+    // Ask before leaving with unsaved changes (going to another lesson from the list, say).
+    var form = document.getElementById('lesson-form'), dirty = false, leaving = false;
+    form.addEventListener('input', function () { dirty = true; });
+    form.addEventListener('change', function () { dirty = true; });
+    form.addEventListener('submit', function () { leaving = true; });
+    document.addEventListener('designer-change', function () { dirty = true; });
+    window.addEventListener('beforeunload', function (e) { if (dirty && !leaving) { e.preventDefault(); e.returnValue = ''; } });
+})();
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
 <script>
@@ -134,7 +200,8 @@
         input.click();
     }
     // Pasted or dropped pictures arrive as data: addresses; swap each for an uploaded copy.
-    quill.on('text-change', function () {
+    quill.on('text-change', function (d, o, source) {
+        if (source === 'user') document.dispatchEvent(new Event('designer-change'));
         quill.root.querySelectorAll('img[src^="data:"]:not([data-uploading])').forEach(function (img) {
             img.setAttribute('data-uploading', '1');
             fetch(img.src).then(function (r) { return r.blob(); })
