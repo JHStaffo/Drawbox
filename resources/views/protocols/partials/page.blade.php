@@ -14,6 +14,7 @@
     </header>
 
     @if ($v->boxes())
+        <div class="protocol-chart-bar no-print"><button class="btn btn-small btn-outline" type="button" data-chart-full>Open chart full screen</button></div>
         <div class="protocol-chart">
             <pre class="mermaid">{{ $chart::mermaid($v->chart, $linkFor) }}</pre>
         </div>

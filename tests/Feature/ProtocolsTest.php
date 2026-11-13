@@ -126,6 +126,7 @@ class ProtocolsTest extends TestCase
         $this->actingAs($tm)->get('/protocols/1')->assertOk()
             ->assertSee('Cardiac Arrest')
             ->assertSee('Approved by Dr. Morgan')
+            ->assertSee('Open chart full screen')
             ->assertSee('<strong>Torsades</strong>', false)
             ->assertSee('<li>Early recognition</li>', false);
     }

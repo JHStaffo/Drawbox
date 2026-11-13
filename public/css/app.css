@@ -276,6 +276,14 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .other-choice input[type=text] { flex: 1; max-width: 360px; padding: 6px 10px; }
 
 /* Protocols */
+.protocol-chart-bar { display: flex; justify-content: flex-end; margin: -6px 0 6px; }
+.chart-full { position: fixed; inset: 0; z-index: 200; background: #fff; display: flex; flex-direction: column; }
+.chart-full-bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 3px solid var(--red); }
+.chart-full-bar strong { font-family: "Oswald", sans-serif; font-weight: 500; font-size: 1.2rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart-full-bar span { display: flex; gap: 6px; }
+.chart-full-bar .btn-small { min-width: 40px; }
+.chart-full .chart-full-stage { flex: 1; position: relative; overflow: hidden; touch-action: none; margin: 0; cursor: grab; }
+.chart-full-inner { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .nav-count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 9px; background: var(--red); color: #fff; font-size: .75rem; line-height: 18px; text-align: center; font-family: "Inter", sans-serif; }
 .protocol-open-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .protocol-open-row .stat-label { margin-right: 4px; }
