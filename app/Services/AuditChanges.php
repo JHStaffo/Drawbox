@@ -37,6 +37,12 @@ class AuditChanges
         \App\Models\OptionList::class => ['name' => 'name', 'allow_add' => 'people can add'],
         \App\Models\OptionListItem::class => ['name' => 'name', 'active' => 'offered'],
         \App\Models\ProtocolCategory::class => ['name' => 'name', 'position' => 'order'],
+        \App\Training\Models\Course::class => ['title' => 'title', 'description' => 'description', 'category' => 'category', 'status' => 'status', 'due_days' => 'days to finish'],
+        \App\Training\Models\Lesson::class => [
+            'title' => 'title', 'url' => 'link', 'min_seconds' => 'minimum seconds', 'passing_score' => 'passing score',
+            'max_attempts' => 'attempts allowed', 'show_answers' => 'show right answers', 'shuffle' => 'shuffle questions',
+        ],
+        \App\Training\Models\Question::class => ['type' => 'type', 'prompt' => 'question', 'choices' => 'answers', 'explanation' => 'explanation'],
         ScopeItem::class => ['name' => 'name', 'level' => 'level of care', 'note' => 'message'],
         \App\Wellness\Models\Participant::class => ['status' => 'status', 'manual_device_until' => 'typing in device data allowed until', 'exception_note' => 'exception note'],
         LiftRule::class => [
@@ -173,6 +179,9 @@ class AuditChanges
             $model instanceof \App\Models\Form => ($model->getOriginal('name') ?? $model->name).' form',
             $model instanceof \App\Wellness\Models\Participant => ($model->user?->name ?? 'Team Member')."'s wellness enrollment",
             $model instanceof \App\Models\FormField => '"'.($model->getOriginal('label') ?? $model->label).'" on the '.($model->form?->name ?? 'form').' form',
+            $model instanceof \App\Training\Models\Course => 'Course '.($model->getOriginal('title') ?? $model->title),
+            $model instanceof \App\Training\Models\Lesson => 'Lesson "'.($model->getOriginal('title') ?? $model->title).'" in '.($model->course?->title ?? 'a course'),
+            $model instanceof \App\Training\Models\Question => 'A question in the quiz "'.($model->lesson?->title ?? '').'"',
         };
     }
 
@@ -190,13 +199,14 @@ class AuditChanges
     {
         return match (true) {
             $field === 'permissions' => $this->permissions($value),
+            $field === 'choices' => collect(is_string($value) ? (json_decode($value, true) ?? []) : ($value ?? []))->map(fn ($c) => ($c['text'] ?? '').(! empty($c['correct']) ? ' (right)' : ''))->implode(' / ') ?: 'none',
             $value === null || $value === '' => 'none',
             $field === 'permission_profile_id' => PermissionProfile::find($value)?->label() ?? "#{$value}",
             $field === 'parent_id' => PermissionProfile::find($value)?->name ?? "#{$value}",
             $field === 'value_cents' => money((int) $value),
             $field === 'phone' => User::formatPhone($value),
             $field === 'manual_device_until' => \Carbon\Carbon::parse($value)->format('M j, Y'),
-            is_bool($value) || in_array($field, ['active', 'taxable', 'diminishing', 'cash_bonus_allowed', 'cash_bonus', 'is_default', 'hide_winners', 'required', 'allow_other', 'allow_add'], true) => $value ? 'yes' : 'no',
+            is_bool($value) || in_array($field, ['active', 'taxable', 'diminishing', 'cash_bonus_allowed', 'cash_bonus', 'is_default', 'hide_winners', 'required', 'allow_other', 'allow_add', 'show_answers', 'shuffle'], true) => $value ? 'yes' : 'no',
             $field === 'pto_hours' => (string) ($value + 0),
             $field === 'level' => ScopeItem::LEVELS[$value] ?? (string) $value,
             default => (string) $value,

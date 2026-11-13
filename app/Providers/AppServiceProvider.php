@@ -30,6 +30,12 @@ class AppServiceProvider extends ServiceProvider
     {
         // Feed every model save to the audit log's change list.
         Event::listen('eloquent.updated: *', fn ($event, $models) => app(AuditChanges::class)->updated($models[0]));
+        // Training profiles set to go automatically to a permission profile: new Team Members and profile changes.
+        \App\Models\User::saved(function (\App\Models\User $user) {
+            if ($user->wasRecentlyCreated || $user->wasChanged(['permission_profile_id', 'active'])) {
+                app(\App\Training\Training::class)->autoAssign($user, auth()->hasUser() ? auth()->user() : null);
+            }
+        });
         Event::listen('eloquent.created: *', fn ($event, $models) => app(AuditChanges::class)->created($models[0]));
     }
 }

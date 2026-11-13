@@ -1,0 +1,1 @@
+<div @class(['progress', 'progress-done' => $percent >= 100]) role="progressbar" aria-valuenow="{{ $percent }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ $percent }}% complete"><span style="width: {{ $percent }}%"></span></div>

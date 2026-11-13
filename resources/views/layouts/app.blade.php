@@ -51,6 +51,19 @@
                         </div>
                     </details>
                 @endif
+                @if ($u->hasAnyPermission('training', 'training_build', 'training_assign', 'training_reports'))
+                    @php($trainingDue = $u->hasPermission('training') ? \App\Training\Models\Assignment::where('user_id', $u->id)->whereNull('replaced_at')->whereNull('completed_at')->count() : 0)
+                    <details class="nav-menu">
+                        <summary @class(['active' => request()->routeIs('training*')])>Training @if ($trainingDue)<span class="nav-count">{{ $trainingDue }}</span>@endif</summary>
+                        <div class="nav-drop">
+                            @if ($u->hasPermission('training'))<a href="{{ route('training') }}" @class(['active' => request()->routeIs('training', 'training.lesson', 'training.course', 'training.attempt')])>My Training @if ($trainingDue)<span class="nav-count">{{ $trainingDue }}</span>@endif</a>@endif
+                            @if ($u->hasPermission('training_build'))<a href="{{ route('training.courses') }}" @class(['active' => request()->routeIs('training.courses*', 'training.lessons.*')])>Courses</a>@endif
+                            @if ($u->hasPermission('training_assign'))<a href="{{ route('training.assign') }}" @class(['active' => request()->routeIs('training.assign*')])>Assign</a>@endif
+                            @if ($u->hasPermission('training_assign'))<a href="{{ route('training.profiles') }}" @class(['active' => request()->routeIs('training.profiles*')])>Training profiles</a>@endif
+                            @if ($u->hasPermission('training_reports'))<a href="{{ route('training.reports') }}" @class(['active' => request()->routeIs('training.reports*', 'training.progress', 'training.person')])>Reports</a>@endif
+                        </div>
+                    </details>
+                @endif
                 @php($wellnessOn = \App\Wellness\Wellness::enabled())
                 @php($wellnessUse = $wellnessOn && \App\Wellness\Wellness::canUse($u))
                 @php($wellnessJoined = $wellnessUse && app(\App\Wellness\Wellness::class)->participant($u)?->isActive())
