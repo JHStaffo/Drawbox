@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Protocols\ImportController;
 use App\Models\AuditLog;
 use App\Models\PermissionProfile;
 use App\Models\Protocol;
@@ -183,6 +184,7 @@ class ProtocolImportTest extends TestCase
             ->assertSessionHasErrors('files.0');
         $this->assertSame(0, ProtocolImport::count());
 
+        $this->assertGreaterThan(0, ImportController::serverLimitMb());
         $this->reader->ready = false;
         $this->actingAs($user)->get('/protocols/imports')->assertSee('An admin adds it in');
         $this->actingAs($user)->post('/protocols/imports', ['files' => [$this->pdf(1)]])->assertSessionHas('error');
