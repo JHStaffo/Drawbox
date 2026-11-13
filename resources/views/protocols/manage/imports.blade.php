@@ -20,9 +20,6 @@
         <form method="post" action="{{ route('protocols.imports.store') }}" enctype="multipart/form-data">@csrf
             <label for="import-files">One PDF, or up to 10 photos (JPG, PNG or WebP) in page order</label>
             <input id="import-files" type="file" name="files[]" multiple required accept="application/pdf,image/jpeg,image/png,image/webp" @disabled(! $ready)>
-            @if ($serverLimit && $serverLimit < 20)
-                <p class="flash flash-error">This server only accepts uploads up to {{ $serverLimit }} MB. An admin can raise it in cPanel &gt; MultiPHP INI Editor: set upload_max_filesize to 25M and post_max_size to 30M.</p>
-            @endif
             <p class="hint">Up to 20 MB per file. A whole protocol book works too: it reads two pages a minute. Each two pages costs roughly 10 to 30 cents of API use.</p>
             <button class="btn mt" type="submit" @disabled(! $ready)>Upload and import</button>
         </form>
