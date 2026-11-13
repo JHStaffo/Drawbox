@@ -5,9 +5,9 @@ use App\Http\Controllers\Admin\DrawController as AdminDrawController;
 use App\Http\Controllers\Admin\FormAdminController;
 use App\Http\Controllers\Admin\LockerController;
 use App\Http\Controllers\Admin\OptionListController;
+use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\ScopeRuleController;
 use App\Http\Controllers\Admin\SlackController;
-use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DispatchController;
@@ -19,6 +19,7 @@ use App\Http\Controllers\PickUpController;
 use App\Http\Controllers\Protocols\ApprovalController as ProtocolApprovalController;
 use App\Http\Controllers\Protocols\BookController as ProtocolBookController;
 use App\Http\Controllers\Protocols\BuildController as ProtocolBuildController;
+use App\Http\Controllers\Protocols\ImportController as ProtocolImportController;
 use App\Http\Controllers\ScopeController;
 use App\Http\Controllers\Supervisor\AwardController;
 use App\Http\Controllers\Supervisor\DashboardController;
@@ -80,6 +81,10 @@ Route::middleware('auth')->group(function () {
             Route::post('/categories', [ProtocolBuildController::class, 'storeCategory'])->name('categories.store');
             Route::put('/categories/{category}', [ProtocolBuildController::class, 'updateCategory'])->name('categories.update');
             Route::delete('/categories/{category}', [ProtocolBuildController::class, 'destroyCategory'])->name('categories.destroy');
+            Route::get('/imports', [ProtocolImportController::class, 'index'])->name('imports');
+            Route::post('/imports', [ProtocolImportController::class, 'store'])->middleware('throttle:10,1')->name('imports.store');
+            Route::post('/imports/{import}/retry', [ProtocolImportController::class, 'retry'])->name('imports.retry');
+            Route::delete('/imports/{import}', [ProtocolImportController::class, 'destroy'])->name('imports.destroy');
         });
         Route::middleware('permission:protocols_approve')->group(function () {
             Route::get('/approvals', [ProtocolApprovalController::class, 'index'])->name('approvals');
@@ -136,6 +141,8 @@ Route::middleware('auth')->group(function () {
         Route::middleware('permission:settings')->group(function () {
             Route::get('/settings', [SettingsController::class, 'edit'])->name('settings');
             Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
+            Route::put('/settings/anthropic', [SettingsController::class, 'updateAnthropic'])->middleware('throttle:10,1')->name('settings.anthropic');
+            Route::delete('/settings/anthropic', [SettingsController::class, 'destroyAnthropic'])->name('settings.anthropic.destroy');
         });
     });
 

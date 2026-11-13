@@ -10,7 +10,10 @@
     <div class="card">
         <div class="protocol-list-head">
             <h2 style="margin:0">Protocols</h2>
-            <a class="btn" href="{{ route('protocols.manage.create') }}">New protocol</a>
+            <div class="row-actions" style="margin:0">
+                <a class="btn btn-outline" href="{{ route('protocols.imports') }}">Import from PDF or photo</a>
+                <a class="btn" href="{{ route('protocols.manage.create') }}">New protocol</a>
+            </div>
         </div>
         @if ($protocols->isEmpty())
             <p class="empty mt">No protocols yet. Start with New protocol.</p>

@@ -26,6 +26,8 @@ class Setting extends Model
         'scope_base_crew' => '2',
         // Encrypted Slack bot token (see App\Services\Slack). Empty means not connected.
         'slack_bot_token' => '',
+        // Encrypted Anthropic API key for reading uploaded protocols (see App\Services\ProtocolImport\AnthropicKey).
+        'anthropic_api_key' => '',
         // Wellness module (App\Wellness). Turning it off hides the menu, pages and API.
         'wellness_enabled' => '1',
         'wellness_daily_max' => '8',

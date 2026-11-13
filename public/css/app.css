@@ -89,7 +89,7 @@ main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 64px; }
 .btn-big { font-size: 1.3rem; padding: 14px 28px; }
 
 label { display: block; font-weight: 600; font-size: .9rem; margin-bottom: 4px; }
-input[type=text], input[type=search], input[type=email], input[type=number], input[type=date], input[type=datetime-local], input[type=time], input[type=tel], select, textarea {
+input[type=text], input[type=password], input[type=search], input[type=email], input[type=number], input[type=date], input[type=datetime-local], input[type=time], input[type=tel], select, textarea {
   width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; background: #fff; color: var(--ink);
 }
 input:disabled { background: var(--bg); color: var(--muted); }
