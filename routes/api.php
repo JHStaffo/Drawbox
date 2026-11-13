@@ -1,5 +1,6 @@
 <?php
 
+use App\Training\Http\Controllers\Api\TrainingApiController;
 use App\Wellness\Http\Controllers\Api\AppleHealthController;
 use App\Wellness\Http\Controllers\Api\AuthController;
 use App\Wellness\Http\Controllers\Api\MeController;
@@ -16,6 +17,16 @@ Route::prefix('v1')->name('api.')->group(function () {
     Route::middleware(['auth:sanctum', 'throttle:120,1'])->group(function () {
         Route::delete('/auth/token', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('/me', [MeController::class, 'show'])->middleware('abilities:wellness')->name('me');
+
+        // Training: the courses assigned to the signed-in Team Member. See docs/api.md.
+        Route::prefix('training')->name('training.')->middleware(['abilities:training', 'permission:training'])->group(function () {
+            Route::get('/assignments', [TrainingApiController::class, 'assignments'])->name('assignments');
+            Route::get('/assignments/{assignment}', [TrainingApiController::class, 'show'])->name('assignment');
+            Route::post('/assignments/{assignment}/lessons/{lesson}/time', [TrainingApiController::class, 'time'])->name('time');
+            Route::post('/assignments/{assignment}/lessons/{lesson}/done', [TrainingApiController::class, 'done'])->name('done');
+            Route::post('/assignments/{assignment}/lessons/{lesson}/attempts', [TrainingApiController::class, 'startAttempt'])->name('attempts.start');
+            Route::post('/attempts/{attempt}', [TrainingApiController::class, 'submit'])->name('attempts.submit');
+        });
 
         Route::prefix('wellness')->name('wellness.')->middleware(['wellness.enabled', 'wellness.access'])->group(function () {
             // Before signing up, an app can only show the rules and record the Team Member's agreement.

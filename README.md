@@ -56,6 +56,21 @@ The Wellness menu is its own module (`app/Wellness`, `routes/wellness.php`, tabl
 - **API:** `/api/v1` for phone apps and the Apple Health Shortcut, documented in [docs/api.md](docs/api.md). Team Members make sync keys under Wellness > Devices.
 - **Apple Health:** a Shortcut on each iPhone sends steps, sleep and exercise to `POST /api/v1/wellness/apple-health` every night. Build and share it once with [docs/apple-health-shortcut.md](docs/apple-health-shortcut.md), then paste its iCloud link into Wellness settings so the Devices page offers it. `wellness:sync-check` runs daily at 10 AM and emails anyone whose device hasn't synced in 2 days, once per gap.
 
+## Training
+
+The Training menu replaces TalentLMS (and Trainual before it). It lives in `app/Training`, `routes/training.php` and tables starting `training_`.
+
+- **Courses** (Training > Courses, permission Build courses): a course is lessons in order. A lesson is a page from the course designer (a word-processor style editor, Quill 2.0.3 from jsDelivr like Mermaid, so there's still no build step), a PDF, a PowerPoint, a video or audio file, a YouTube/Vimeo/Loom link (played in the page) or other link, a file to download, or a quiz. Every lesson can have designer text above it and a minimum time before "Mark as done" works. The designer's HTML is cleaned on save (`App\Training\RichText`): only formatting, links, pictures and YouTube/Vimeo/Loom players survive. Pictures are uploaded to `storage/app/private/training/images` and served at unguessable addresses.
+- **Files** are stored in `storage/app/private/training` and only served to people who have the course or run training. PowerPoints show in Microsoft's free Office viewer, which fetches the file through a two-hour signed link (so the site must be reachable from the internet, and decks over about 10 MB fall back to a download; a PDF of the deck always shows). Videos stream with seeking. PHP's upload limit decides the biggest file: raise `upload_max_filesize` and `post_max_size` in cPanel > MultiPHP INI Editor for videos.
+- **Quizzes**: one answer, select all that apply (all-or-nothing), or true/false. Each quiz has a passing score (default 80%), attempts allowed (blank = no limit), whether to show the right answers afterwards, and question shuffling. Every submitted attempt keeps a copy of the questions as asked, so editing a quiz never changes a grade on record. A trainer can allow one more attempt to someone who ran out.
+- **Time** is counted in the browser while a lesson is in front and in use (or a video plays), and sent every 15 seconds; ten idle minutes stop the count. Each report adds at most 60 seconds and never more than has passed, so two tabs don't double it. Time reports aren't in the audit log; everything else is.
+- **Completion** is lessons done ÷ lessons in the course; a quiz is done when passed. The course grade is the best score on its quiz (the average with more than one).
+- **Assigning** (Training > Assign, permission Assign training): courses or a training profile, to Team Members and/or everyone on chosen permission profiles, with a due date (or each course's days to finish) and a note. **Reassign** (from a course's Progress page or a Team Member's page) keeps the old assignment and its results as history and starts a fresh one.
+- **Training profiles** are bundles of courses in order (New Hire Orientation, say), separate from permission profiles. One can be given automatically to permission profiles: new Team Members on them, and anyone moved onto them, get its published courses (a main profile includes its sub-profiles), skipping courses they already have. "Give to everyone on its profiles now" catches up existing Team Members.
+- **Reports** (permission Training reports): filter by course, Team Member, position, status and assigned dates; CSV of assignments and of every quiz attempt.
+- Permissions: Training (take courses), Build courses, Assign training, Training reports. Admin starts with all four; tick Training on Team Member (and other profiles) to open it to everyone.
+- **API:** `/api/v1/training/...`, see [docs/api.md](docs/api.md).
+
 ## Run locally
 
 ```sh

@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
         then: function () {
             \Illuminate\Support\Facades\Route::group([], __DIR__.'/../routes/wellness.php');
+            \Illuminate\Support\Facades\Route::group([], __DIR__.'/../routes/training.php');
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {

@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
  */
 class AuthController extends Controller
 {
-    public const APP_ABILITIES = ['wellness'];
+    public const APP_ABILITIES = ['wellness', 'training'];
 
     public function code(Request $request, LoginCodes $codes)
     {

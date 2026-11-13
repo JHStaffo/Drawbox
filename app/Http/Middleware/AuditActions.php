@@ -35,7 +35,7 @@ class AuditActions
         }
 
         // Sign-in and sign-out log themselves with more detail; a builder preview changes nothing.
-        if ($route === 'protocols.manage.preview' || (! $isChange && ! $isExport) || $request->is('login*') || $route === 'logout') {
+        if (in_array($route, ['protocols.manage.preview', 'training.time', 'api.training.time'], true) || (! $isChange && ! $isExport) || $request->is('login*') || $route === 'logout') {
             return $response;
         }
         if (! $request->user() && ! $request->attributes->has('audit')) {

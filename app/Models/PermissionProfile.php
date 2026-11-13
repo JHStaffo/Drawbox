@@ -39,6 +39,12 @@ class PermissionProfile extends Model
             'protocols_build' => 'Build protocols (write drafts and send them for approval)',
             'protocols_approve' => 'Medical Director (approve, send back or retire protocols)',
         ],
+        'Training' => [
+            'training' => 'Training (take the courses assigned to them)',
+            'training_build' => 'Build courses (lessons, files, course designer and quizzes)',
+            'training_assign' => 'Assign training (assign and reassign courses, training profiles, allow more quiz attempts)',
+            'training_reports' => 'Training reports (progress, time spent, grades and CSV)',
+        ],
         'Wellness' => [
             'wellness' => 'Wellness (join, log, see their own progress and the leaderboard)',
             'wellness_review' => 'Wellness review (exceptions now; attendance notes and appeals later)',

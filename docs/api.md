@@ -24,7 +24,7 @@ There are two kinds of token:
 
 | Token | Made by | Can |
 | --- | --- | --- |
-| App token (`wellness`) | `POST /auth/token` | Everything below |
+| App token (`wellness`, `training`) | `POST /auth/token` | Everything below. Tokens made before Training was added have only `wellness`; sign in again for Training |
 | Sync key (`wellness:import`) | Wellness > Devices > Make a sync key | Only `POST /wellness/readings` and `POST /wellness/apple-health` |
 
 ## Endpoints
@@ -50,6 +50,19 @@ There are two kinds of token:
 Until the Team Member has signed up, only `/me`, `/wellness/rules` and `/wellness/join` work. Show the agreement from the website's sign-up page and the rules before calling join.
 
 Errors: `401` bad or removed token, `403` no Wellness access (profile permission or tester) or wrong token kind, `404` Wellness is turned off, `409` with `"code": "not_joined"` before joining, `422` validation errors in Laravel's usual `{"message", "errors"}` shape.
+
+## Training
+
+Needs the Training permission on the Team Member's profile. Lessons are `text`, `pdf`, `slides`, `video`, `audio`, `link`, `file` or `quiz`. `html` is the course designer's page (already cleaned; pictures are paths like `/training/images/...` on the same host). File links are signed and work for two hours without the token, so a player can open them directly.
+
+| Method and path | What it does |
+| --- | --- |
+| `GET /training/assignments` | Their current courses: status (`not_started`, `in_progress`, `overdue`, `completed`), percent, seconds spent, quiz grade, due date |
+| `GET /training/assignments/{id}` | The course with each lesson: `html`, `file` (`name`, `mime`, `size`, `url`), `embed_url` for YouTube/Vimeo/Loom links, `min_seconds`, time spent, `completed_at`, and for quizzes `passing_score`, `best_score`, attempts `used`/`allowed`/`left` |
+| `POST /training/assignments/{id}/lessons/{lesson}/time` | `{"seconds": 15}` while the lesson is open and in use. Each report adds at most 60 seconds and no more than has passed since the last one |
+| `POST /training/assignments/{id}/lessons/{lesson}/done` | Finish a non-quiz lesson (`422` with a message if its minimum time isn't reached) |
+| `POST /training/assignments/{id}/lessons/{lesson}/attempts` | Start (or resume) a quiz attempt. Returns the questions in order with choices as `{index, text}`, never the answers |
+| `POST /training/attempts/{id}` | Submit `{"answers": {"<question id>": 0, "<question id>": [0, 2]}}`. Returns score, passed, and per-question results (with right answers when the quiz shows them) |
 
 ## Device readings
 
