@@ -31,6 +31,14 @@ Three permissions control it: Forms (fill out and send), Form reports (Dispatch 
 
 Shared lists (Admin > Shared lists, under the Forms and Slack permission) hold choices that grow over time, starting with Facilities. A "Shared list" question lets people pick an entry or type a new one, which is added to the list (matched ignoring capitals and extra spaces) unless the list is set to pick-only. Admins can bulk-add, rename, hide and remove entries; past submissions keep their own copy of the answer.
 
+## Protocols
+
+The Protocols menu holds the protocol book. Each protocol is a flowchart (boxes and arrows, drawn in the browser by Mermaid from a CDN, so there's still no build step) plus color-coded sections like Goals, Treatment, Special Considerations and Pediatrics. Boxes have a type (red action, white step, yes/no diamond, blue "Treatment per", yellow note, green Exit, black Transport), optional level badges (E, A, I, P, the pediatric stroller, M for Medical Control) and can open another protocol. Arrows go one way, both ways, or are a dotted line with no arrowhead, with an optional label (YES, NO, or anything). Mermaid lays the chart out automatically; when that doesn't line up, "Arrange boxes myself" in the builder switches the chart to hand placement: boxes are dragged in the preview (starting from where Mermaid put them) and each arrow can leave and enter a chosen side. Hand-arranged charts are drawn by `public/js/protocol-chart.js` with square-cornered lines. Text takes `**bold**`, `__underline__` and `- ` bullets; everything else is escaped.
+
+Every change is a version. Builders (Build protocols) save drafts and send them for approval; the Medical Director (Medical Director permission) approves by typing their name, or sends it back with a note. Team Members (Protocol book) only ever see the approved version, which stays in the book while a revision is worked on, and approved versions are never edited. The book can be opened whole, by category, by age group (Infant, Pediatric, Adult) or one protocol at a time, searched, and printed one protocol per page. All three permissions start on the Admin profile only. `ProtocolVersion::toApi()` is the shape the future mobile API will serve.
+
+`php artisan db:seed --class=ProtocolSampleSeeder` loads the Cardiac Arrest protocol as a draft example. `php artisan protocols:load-sample` does the same, or, when Cardiac Arrest already exists, puts the arranged sample into its draft (starting a new version if it is approved, taking it back if it is waiting for approval) and keeps links builders set on its boxes.
+
 ## Wellness
 
 The Wellness menu is its own module (`app/Wellness`, `routes/wellness.php`, tables starting `wellness_`). It only reads `users`, and nothing outside it reads its tables. Wellness settings can turn it off, which hides its menu, pages and API without touching the rest of Pulse.

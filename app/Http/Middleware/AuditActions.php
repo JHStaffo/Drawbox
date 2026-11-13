@@ -34,8 +34,8 @@ class AuditActions
             return $response;
         }
 
-        // Sign-in and sign-out log themselves with more detail.
-        if ((! $isChange && ! $isExport) || $request->is('login*') || $route === 'logout') {
+        // Sign-in and sign-out log themselves with more detail; a builder preview changes nothing.
+        if ($route === 'protocols.manage.preview' || (! $isChange && ! $isExport) || $request->is('login*') || $route === 'logout') {
             return $response;
         }
         if (! $request->user() && ! $request->attributes->has('audit')) {

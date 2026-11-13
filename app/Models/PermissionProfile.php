@@ -34,6 +34,11 @@ class PermissionProfile extends Model
             'forms' => 'Forms (fill out and send)',
             'form_reports' => 'Form reports (every submission, totals and CSV)',
         ],
+        'Protocols' => [
+            'protocols' => 'Protocol book (read approved protocols)',
+            'protocols_build' => 'Build protocols (write drafts and send them for approval)',
+            'protocols_approve' => 'Medical Director (approve, send back or retire protocols)',
+        ],
         'Wellness' => [
             'wellness' => 'Wellness (join, log, see their own progress and the leaderboard)',
             'wellness_review' => 'Wellness review (exceptions now; attendance notes and appeals later)',

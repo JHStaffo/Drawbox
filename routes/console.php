@@ -39,6 +39,43 @@ Artisan::command('drawbox:make-admin {email} {name}', function (string $email, s
     $this->info("{$user->name} <{$user->email}> is an admin.");
 })->purpose('Create or promote an admin account');
 
+Artisan::command('protocols:load-sample', function () {
+    // Puts the arranged Cardiac Arrest sample into a draft, whatever state the protocol is in.
+    // The Medical Director still has to approve it before Team Members see it.
+    $existing = \App\Models\ProtocolVersion::where('title', 'Cardiac Arrest')->latest('id')->first()?->protocol;
+    if (! $existing) {
+        (new \Database\Seeders\ProtocolSampleSeeder)->run();
+        AuditLog::record('system.protocol-sample', 'Loaded the Cardiac Arrest sample as a new draft protocol from the server command line.');
+        $this->info('Added the Cardiac Arrest protocol as a draft. Send it for approval from Protocols > Build protocols.');
+
+        return;
+    }
+
+    $content = \Database\Seeders\ProtocolSampleSeeder::content();
+    $draft = $existing->openVersion();
+    $from = $draft ? "version {$draft->version} ({$draft->statusLabel()})" : null;
+    // Keep any links the builders set on boxes the sample also has (like Exit to ROSC).
+    $links = collect(($draft ?? $existing->approved ?? $existing->latest)->boxes())->pluck('link', 'id');
+    $content['chart']['nodes'] = array_map(fn ($n) => ['link' => $links[$n['id']] ?? $n['link']] + $n, $content['chart']['nodes']);
+
+    if ($draft) {
+        $draft->update($content + ['status' => 'draft', 'submitted_at' => null, 'submitted_by' => null]);
+    } else {
+        $base = $existing->approved ?? $existing->latest;
+        $draft = $existing->versions()->create($content + [
+            ...$base->only(['number', 'title', 'revised_label']),
+            'version' => $existing->versions()->max('version') + 1,
+            'status' => 'draft',
+        ]);
+    }
+    $draft->update(['search_text' => $draft->fresh()->buildSearchText()]);
+
+    $where = $from ? "replaced the flowchart and sections of {$from}" : "started version {$draft->version} as a draft";
+    AuditLog::record('system.protocol-sample', "Loaded the arranged Cardiac Arrest sample from the server command line: {$where}.");
+    $this->info(ucfirst($where).'. Open Protocols > Build protocols to check it and send it for approval.'
+        .($existing->approved ? " Version {$existing->approved->version} stays in the book until then." : ''));
+})->purpose('Load the arranged Cardiac Arrest sample protocol as a draft');
+
 Artisan::command('pulse:slack-retry', function (\App\Services\Forms $forms) {
     $count = $forms->retryFailed();
     if ($count) {
