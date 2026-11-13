@@ -174,6 +174,8 @@ class ProtocolVersion extends Model
             'category' => $this->category_name,
             'ages' => array_values($this->ages ?? []),
             'chart' => [
+                // auto: lay the boxes out yourself; manual: each box has the x and y of its center.
+                'layout' => $this->chart['layout'] ?? 'auto',
                 'boxes' => array_map(fn ($b) => [
                     'id' => $b['id'],
                     'type' => $b['type'],
@@ -181,9 +183,12 @@ class ProtocolVersion extends Model
                     'badges' => $b['badges'] ?? [],
                     // Only links to protocols in the book; anything else would be a dead end.
                     'links_to' => in_array($b['link'] ?? null, $links, true) ? $b['link'] : null,
+                    'x' => $b['x'] ?? null,
+                    'y' => $b['y'] ?? null,
                 ], $this->boxes()),
                 'arrows' => array_map(fn ($e) => [
                     'from' => $e['from'], 'to' => $e['to'], 'label' => $e['label'] ?? null, 'style' => $e['style'] ?? 'one',
+                    'from_side' => $e['from_side'] ?? 'auto', 'to_side' => $e['to_side'] ?? 'auto',
                 ], $this->arrows()),
             ],
             'sections' => array_map(fn ($s) => [

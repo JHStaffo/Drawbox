@@ -122,7 +122,12 @@
                     </div>
                 </div>
                 <div class="builder-preview">
-                    <div class="stat-label">Preview</div>
+                    <div class="builder-preview-bar">
+                        <span class="stat-label">Preview</span>
+                        <button type="button" class="btn btn-small btn-outline" id="layout-toggle"></button>
+                        <button type="button" class="btn btn-small btn-outline" id="wide-toggle">Wide preview</button>
+                    </div>
+                    <p class="hint" id="layout-hint"></p>
                     <div id="preview"><p class="empty">Add a box to see the flowchart.</p></div>
                 </div>
             </div>
@@ -161,6 +166,7 @@
     var BADGES = @json(PV::BADGES);
     var COLORS = @json(PV::COLORS);
     var PRESETS = @json(PV::SECTION_PRESETS);
+    var SIDES = { auto: 'Nearest side', top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' };
     var PROTOCOLS = @json($others->map(fn ($o) => ['id' => $o->protocol_id, 'title' => $o->fullTitle()])->values());
     var chart = @json(old('chart') ? json_decode(old('chart'), true) : $version->chart) || { nodes: [], edges: [] };
     var sections = @json(old('sections') ? json_decode(old('sections'), true) : $version->sections) || [];
@@ -245,6 +251,12 @@
                 el('select', { 'aria-label': 'To', onchange: function (e) { a.to = e.target.value; changed(); } }, options(names, a.to, 'To…')),
                 el('input', { type: 'text', list: 'arrow-labels', maxlength: 30, placeholder: 'Label', value: a.label || '', 'aria-label': 'Label', oninput: function (e) { a.label = e.target.value; changed(true); } }),
                 el('button', { type: 'button', class: 'btn btn-small btn-outline', title: 'Remove arrow', text: '✕', onclick: function () { chart.edges.splice(i, 1); renderArrows(); changed(); } }),
+                chart.layout === 'manual' ? el('div', { class: 'builder-arrow-sides' }, [
+                    el('span', { class: 'hint', text: 'Leaves' }),
+                    el('select', { 'aria-label': 'Leaves from side', onchange: function (e) { a.from_side = e.target.value; changed(); } }, options(SIDES, a.from_side || 'auto')),
+                    el('span', { class: 'hint', text: 'enters' }),
+                    el('select', { 'aria-label': 'Enters on side', onchange: function (e) { a.to_side = e.target.value; changed(); } }, options(SIDES, a.to_side || 'auto')),
+                ]) : null,
             ]));
         });
     }
@@ -301,6 +313,15 @@
                 if (mine !== seq) return;
                 var box = document.getElementById('preview');
                 box.innerHTML = html;
+                // A hand-arranged chart is drawn here so its boxes can be dragged.
+                var drawn = box.querySelector('.pchart');
+                if (drawn && window.ProtocolChart) {
+                    drawn.dataset.drawn = '1';
+                    window.ProtocolChart.render(drawn, JSON.parse(drawn.dataset.chart), { editable: true, onMove: function (id, x, y) {
+                        var n = chart.nodes.find(function (b) { return b.id === id; });
+                        if (n) { n.x = x; n.y = y; sync(); }
+                    } });
+                }
                 if (window.drawProtocolCharts) window.drawProtocolCharts(box);
             });
     }
@@ -309,6 +330,11 @@
         var max = chart.nodes.reduce(function (m, n) { return Math.max(m, parseInt(n.id.slice(1), 10) || 0); }, 0);
         var last = chart.nodes[chart.nodes.length - 1];
         var node = { id: 'n' + (max + 1), type: 'step', text: '', badges: [], link: null };
+        if (chart.layout === 'manual') {
+            // New boxes go under the lowest one; drag them into place.
+            node.x = last ? last.x : 300;
+            node.y = chart.nodes.reduce(function (m, n) { return Math.max(m, n.y || 0); }, 0) + 110;
+        }
         chart.nodes.push(node);
         if (last) chart.edges.push({ from: last.id, to: node.id, label: null, style: 'one' });
         renderAll();
@@ -325,6 +351,39 @@
         sync();
     });
 
+    // Layout: automatic (Mermaid) or arranged by hand in the preview.
+    var layoutButton = document.getElementById('layout-toggle'), layoutHint = document.getElementById('layout-hint');
+    function showLayout() {
+        var manual = chart.layout === 'manual';
+        layoutButton.textContent = manual ? 'Use automatic layout' : 'Arrange boxes myself';
+        layoutHint.textContent = manual
+            ? 'Drag boxes in the preview to move them. Pick which side each arrow leaves and enters in the Arrows list.'
+            : 'Pulse places the boxes for you. If they don\'t line up well, choose Arrange boxes myself and drag them.';
+    }
+    layoutButton.addEventListener('click', function () {
+        if (chart.layout === 'manual') {
+            if (!confirm('Go back to the automatic layout? Your box positions and arrow sides will be cleared.')) return;
+            chart.layout = 'auto';
+            chart.nodes.forEach(function (n) { delete n.x; delete n.y; });
+            chart.edges.forEach(function (a) { delete a.from_side; delete a.to_side; });
+        } else {
+            var svg = document.querySelector('#preview .protocol-chart svg');
+            var at = svg && window.ProtocolChart ? window.ProtocolChart.mermaidPositions(svg) : {};
+            chart.nodes.forEach(function (n, i) {
+                var p = at[n.id] || { x: 300, y: 60 + i * 110 };
+                n.x = p.x; n.y = p.y;
+            });
+            chart.layout = 'manual';
+        }
+        showLayout(); renderArrows(); changed();
+    });
+    document.getElementById('wide-toggle').addEventListener('click', function () {
+        var grid = document.querySelector('.builder-grid');
+        grid.classList.toggle('builder-wide');
+        this.textContent = grid.classList.contains('builder-wide') ? 'Side-by-side' : 'Wide preview';
+        changed();
+    });
+    showLayout();
     renderAll();
 })();
 </script>

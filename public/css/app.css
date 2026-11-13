@@ -307,7 +307,26 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .protocol-chart { overflow-x: auto; margin: 0 0 18px; }
 .protocol-chart pre.mermaid { margin: 0; background: none; text-align: center; font-family: inherit; white-space: pre; color: transparent; min-height: 40px; }
 .protocol-chart pre.mermaid[data-processed] { color: inherit; white-space: normal; }
-.protocol-chart svg { max-width: 100%; height: auto; }
+.protocol-chart pre.mermaid svg { max-width: 100%; height: auto; }
+.pchart { margin: 0 auto; }
+.pchart-sizer { position: relative; margin: 0 auto; }
+.pchart-canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; font-size: 14px; line-height: 1.3; }
+.pchart-lines { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.pchart-label { position: absolute; background: #fff; font-size: 13px; font-weight: 600; padding: 0 3px; line-height: 1.3; white-space: nowrap; }
+.pbox { position: absolute; left: 0; top: 0; width: max-content; box-sizing: border-box; display: flex; align-items: center; justify-content: center; max-width: 230px; padding: 8px 12px; border: 2px solid #333; background: #fff; color: #111; text-align: center; }
+.pbox .pn { justify-content: center; }
+.pbox.t_action { background: #ed1c24; border-color: #b5121a; color: #fff; }
+.pbox.t_reference { background: #66d9ff; border-color: #2a9fc9; }
+.pbox.t_note { background: #ffe699; border-color: #e0b84a; }
+.pbox.t_exit { background: #92d050; border-color: #5f9a2a; }
+.pbox.t_terminal { background: #111; border-color: #111; color: #fff; }
+.pbox.t_decision { border: 0; background: none; padding: 26px 30px; min-width: 120px; min-height: 84px; }
+.pbox.t_decision .pbox-label { position: relative; max-width: 130px; }
+.pdiamond { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.pdiamond polygon { fill: #fff; stroke: #111; stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.pchart-editable .pbox { cursor: grab; user-select: none; touch-action: none; }
+.pchart-editable .pbox:hover { outline: 2px dashed var(--teal); outline-offset: 3px; }
+.pbox-dragging { opacity: .85; outline: 2px solid var(--teal) !important; z-index: 5; cursor: grabbing; }
 .protocol-chart .pn { display: flex; align-items: stretch; gap: 6px; text-align: center; line-height: 1.3; }
 .protocol-chart .pt { align-self: center; padding: 2px 4px; }
 .protocol-chart .t_action .pt, .protocol-chart .t_terminal .pt { color: #fff; }
@@ -342,6 +361,13 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .builder-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
 .builder-preview { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
 .builder-preview .protocol-page { padding: 12px; }
+.builder-preview-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+.builder-preview-bar .stat-label { margin-right: auto; }
+#layout-hint { margin: 0 0 8px; }
+.builder-wide { grid-template-columns: 1fr; }
+.builder-wide .builder-preview { position: static; max-height: none; order: -1; }
+.builder-arrow-sides { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; margin-top: -2px; }
+.builder-arrow-sides select { width: auto; padding: 4px 8px; }
 .builder-row { border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 10px; display: grid; gap: 8px; }
 .builder-row-head { display: flex; gap: 8px; align-items: center; }
 .builder-row-head select, .builder-row-head input { flex: 1; min-width: 0; }
@@ -370,7 +396,7 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
   .protocol-meta { justify-content: flex-start; }
   .protocol-section-label { flex-basis: 30px; }
   /* Full-size chart that scrolls sideways, instead of shrinking the text to nothing. */
-  .protocol-chart svg { width: 820px !important; max-width: none !important; }
+  .protocol-chart pre.mermaid svg { width: 820px !important; max-width: none !important; }
   .protocol-chart-hint { display: block; }
 }
 .protocol-chart-hint { display: none; color: var(--muted); font-size: .8rem; margin: -10px 0 12px; }

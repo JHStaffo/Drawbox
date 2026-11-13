@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Protocol;
 use App\Models\ProtocolCategory;
 use App\Models\ProtocolVersion;
+use App\Support\ProtocolChart;
 use Illuminate\Database\Seeder;
 
 /**
@@ -25,47 +26,79 @@ class ProtocolSampleSeeder extends Seeder
         $category = ProtocolCategory::firstOrCreate(['name' => 'Cardiac Arrest'], ['position' => 1]);
 
         $box = fn (string $id, string $type, string $text, array $badges = []) => compact('id', 'type', 'text', 'badges') + ['link' => null];
-        $arrow = fn (string $from, string $to, ?string $label = null, string $style = 'one') => compact('from', 'to', 'label', 'style');
+        $sides = [
+            'n1>n2' => ['bottom', 'top'],
+            'n1>n3' => ['right', 'left'],
+            'n3>n4' => ['right', 'left'],
+            'n3>n6' => ['bottom', 'top'],
+            'n6>n7' => ['left', 'right'],
+            'n6>n8' => ['right', 'left'],
+            'n6>n9' => ['bottom', 'top'],
+            'n7>n10' => ['bottom', 'top'],
+            'n10>n11' => ['left', 'right'],
+            'n10>n12' => ['bottom', 'top'],
+            'n12>n13' => ['bottom', 'top'],
+            'n13>n14' => ['left', 'right'],
+            'n13>n15' => ['bottom', 'top'],
+            'n15>n16' => ['left', 'right'],
+            'n15>n17' => ['bottom', 'top'],
+            'n17>n10' => ['right', 'right'],
+            'n17>n22' => ['bottom', 'left'],
+            'n8>n18' => ['bottom', 'top'],
+            'n18>n19' => ['bottom', 'top'],
+            'n19>n20' => ['right', 'left'],
+            'n19>n21' => ['bottom', 'top'],
+            'n21>n23' => ['bottom', 'top'],
+            'n23>n24' => ['right', 'left'],
+            'n23>n25' => ['bottom', 'top'],
+            'n25>n26' => ['right', 'left'],
+            'n25>n18' => ['left', 'left'],
+            'n25>n22' => ['bottom', 'top'],
+            'n22>n28' => ['right', 'left'],
+        ];
+        $arrow = fn (string $from, string $to, ?string $label = null, string $style = 'one') => compact('from', 'to', 'label', 'style')
+            + ['from_side' => $sides["{$from}>{$to}"][0] ?? 'auto', 'to_side' => $sides["{$from}>{$to}"][1] ?? 'auto'];
         $cpr = "**Resume CPR**\nFor 2 minutes\n(5 cycles)";
         $epi = "**Epinephrine**\n**1 mg IV/IO**\nRepeat every\n3-5 minutes";
         $defib = "**Continue CPR**\n**Defibrillate once** at\nappropriate setting";
 
+        // Arranged by hand to match the printed protocol.
         $chart = [
+            'layout' => 'manual',
             'nodes' => [
-                $box('n1', 'decision', 'Pulse?'),
-                $box('n2', 'exit', "**EXIT** to APPROPRIATE\nProtocol"),
-                $box('n3', 'action', "**High Quality CPR**\n**Apply AED/Defibrillator**\nas soon as possible"),
-                $box('n4', 'reference', "Treatment per\nAirway/Oxygenation/Ventilation\nProtocol"),
-                $box('n5', 'note', "Only Paramedics can\nintubate patients 12\nyears old and younger"),
-                $box('n6', 'decision', 'Shockable?'),
-                $box('n9', 'step', "Vascular\nAccess as\nneeded", ['A', 'I', 'P']),
-                $box('n7', 'action', $cpr),
-                $box('n10', 'decision', "Adequate\nBLS airway?"),
-                $box('n11', 'step', "Secure\nadvanced\nairway", ['A', 'I', 'P']),
-                $box('n12', 'step', $epi, ['A', 'I', 'P', 'peds']),
-                $box('n13', 'decision', "Non Shockable\nRhythm?"),
-                $box('n14', 'step', "Move to\nShockable"),
-                $box('n15', 'decision', 'Pulse?'),
-                $box('n16', 'exit', "**EXIT** to ROSC\nProtocol"),
-                $box('n17', 'action', $cpr),
-                $box('n8', 'step', $defib),
-                $box('n18', 'action', $cpr),
-                $box('n19', 'decision', "Adequate\nBLS airway?"),
-                $box('n20', 'step', "Secure\nadvanced\nairway", ['A', 'I', 'P']),
-                $box('n21', 'step', $epi, ['A', 'I', 'P', 'peds']),
-                $box('n23', 'decision', "Shockable\nrhythm?"),
-                $box('n24', 'step', "Move to\nNon Shockable"),
-                $box('n25', 'action', $defib),
-                $box('n26', 'step', "**Amiodarone**\n**300 mg IV/IO**\nRepeat once\n**150 mg IV/IO**", ['I', 'P', 'peds']),
-                $box('n27', 'note', "See Notes for additional medications for the following conditions/patients:\n\nSecondary Antiarrhythmic\nDialysis/Renal pts\nTorsades de pointes"),
-                $box('n22', 'step', 'Contact Medical Control', ['M']),
-                $box('n28', 'terminal', 'Transport'),
+                $box('n1', 'decision', 'Pulse?') + ['x' => 230, 'y' => 200],
+                $box('n2', 'exit', "**EXIT** to APPROPRIATE\nProtocol") + ['x' => 230, 'y' => 340],
+                $box('n3', 'action', "**High Quality CPR**\n**Apply AED/Defibrillator**\nas soon as possible") + ['x' => 610, 'y' => 200],
+                $box('n4', 'reference', "Treatment per\nAirway/Oxygenation/Ventilation\nProtocol") + ['x' => 980, 'y' => 200],
+                $box('n5', 'note', "Only Paramedics can\nintubate patients 12\nyears old and younger") + ['x' => 980, 'y' => 300],
+                $box('n6', 'decision', 'Shockable?') + ['x' => 610, 'y' => 460],
+                $box('n9', 'step', "Vascular\nAccess as\nneeded", ['A', 'I', 'P']) + ['x' => 610, 'y' => 610],
+                $box('n7', 'action', $cpr) + ['x' => 350, 'y' => 460],
+                $box('n10', 'decision', "Adequate\nBLS airway?") + ['x' => 350, 'y' => 610],
+                $box('n11', 'step', "Secure\nadvanced\nairway", ['A', 'I', 'P']) + ['x' => 150, 'y' => 610],
+                $box('n12', 'step', $epi, ['A', 'I', 'P', 'peds']) + ['x' => 350, 'y' => 790],
+                $box('n13', 'decision', "Non Shockable\nRhythm?") + ['x' => 350, 'y' => 950],
+                $box('n14', 'step', "Move to\nShockable") + ['x' => 150, 'y' => 950],
+                $box('n15', 'decision', 'Pulse?') + ['x' => 350, 'y' => 1130],
+                $box('n16', 'exit', "**EXIT** to ROSC\nProtocol") + ['x' => 140, 'y' => 1130],
+                $box('n17', 'action', $cpr) + ['x' => 350, 'y' => 1270],
+                $box('n8', 'step', $defib) + ['x' => 850, 'y' => 460],
+                $box('n18', 'action', $cpr) + ['x' => 850, 'y' => 580],
+                $box('n19', 'decision', "Adequate\nBLS airway?") + ['x' => 850, 'y' => 720],
+                $box('n20', 'step', "Secure\nadvanced\nairway", ['A', 'I', 'P']) + ['x' => 1080, 'y' => 720],
+                $box('n21', 'step', $epi, ['A', 'I', 'P', 'peds']) + ['x' => 850, 'y' => 900],
+                $box('n23', 'decision', "Shockable\nrhythm?") + ['x' => 850, 'y' => 1080],
+                $box('n24', 'step', "Move to\nNon Shockable") + ['x' => 1070, 'y' => 1080],
+                $box('n25', 'action', $defib) + ['x' => 850, 'y' => 1230],
+                $box('n26', 'step', "**Amiodarone**\n**300 mg IV/IO**\nRepeat once\n**150 mg IV/IO**", ['I', 'P', 'peds']) + ['x' => 1100, 'y' => 1230],
+                $box('n27', 'note', "See Notes for additional medications for the following conditions/patients:\n\nSecondary Antiarrhythmic\nDialysis/Renal pts\nTorsades de pointes") + ['x' => 600, 'y' => 1120],
+                $box('n22', 'step', 'Contact Medical Control', ['M']) + ['x' => 670, 'y' => 1360],
+                $box('n28', 'terminal', 'Transport') + ['x' => 960, 'y' => 1360],
             ],
             'edges' => [
                 $arrow('n1', 'n2', 'YES'),
                 $arrow('n1', 'n3', 'NO'),
                 $arrow('n3', 'n4', null, 'both'),
-                $arrow('n4', 'n5', null, 'line'),
                 $arrow('n3', 'n6'),
                 $arrow('n6', 'n7', 'NO'),
                 $arrow('n6', 'n8', 'YES'),
@@ -90,7 +123,6 @@ class ProtocolSampleSeeder extends Seeder
                 $arrow('n25', 'n26', null, 'both'),
                 $arrow('n25', 'n18'),
                 $arrow('n25', 'n22'),
-                $arrow('n26', 'n27', null, 'line'),
                 $arrow('n22', 'n28'),
             ],
         ];
@@ -141,7 +173,7 @@ TXT],
             'protocol_category_id' => $category->id,
             'category_name' => $category->name,
             'ages' => ['infant', 'pediatric', 'adult'],
-            'chart' => $chart,
+            'chart' => ProtocolChart::clean($chart),
             'sections' => $sections,
             'revised_label' => 'Revised 2020',
             'status' => 'draft',

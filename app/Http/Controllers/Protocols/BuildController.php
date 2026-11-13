@@ -276,11 +276,20 @@ class BuildController extends Controller
         $oldBoxes = collect($old->boxes())->keyBy('id');
         $newBoxes = collect($new->boxes())->keyBy('id');
         $short = fn (array $b) => '"'.mb_strimwidth(str_replace("\n", ' ', $b['text']), 0, 60, '…').'"';
+        $layout = fn (ProtocolVersion $v) => ($v->chart['layout'] ?? 'auto') === 'manual' ? 'arranged by hand' : 'automatic';
+        if ($layout($old) !== $layout($new)) {
+            $parts[] = "layout from {$layout($old)} to {$layout($new)}";
+        }
+        $moved = 0;
         foreach ($newBoxes as $id => $box) {
             $was = $oldBoxes->get($id);
+            if ($was && (($was['x'] ?? null) !== ($box['x'] ?? null) || ($was['y'] ?? null) !== ($box['y'] ?? null))) {
+                $moved++;
+            }
+            $place = ['x' => null, 'y' => null];
             if (! $was) {
                 $parts[] = 'added box '.$short($box);
-            } elseif ($was != $box) {
+            } elseif (array_merge($was, $place) != array_merge($box, $place)) {
                 $diff = [];
                 if ($was['text'] !== $box['text']) {
                     $diff[] = 'text from '.$short($was).' to '.$short($box);
@@ -299,6 +308,9 @@ class BuildController extends Controller
         }
         foreach ($oldBoxes->diffKeys($newBoxes) as $box) {
             $parts[] = 'removed box '.$short($box);
+        }
+        if ($moved && $layout($old) === $layout($new)) {
+            $parts[] = "box positions ({$moved} ".($moved === 1 ? 'box' : 'boxes').' moved)';
         }
         if ($old->arrows() != $new->arrows()) {
             $parts[] = 'arrows from '.count($old->arrows()).' to '.count($new->arrows()).' (connections changed)';
