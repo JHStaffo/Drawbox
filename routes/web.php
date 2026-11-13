@@ -72,6 +72,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/manage/new', [ProtocolBuildController::class, 'create'])->name('manage.create');
             Route::post('/manage', [ProtocolBuildController::class, 'store'])->name('manage.store');
             Route::post('/manage/preview', [ProtocolBuildController::class, 'preview'])->name('manage.preview');
+            Route::post('/manage/recategorize', [ProtocolBuildController::class, 'recategorize'])->name('manage.recategorize');
             Route::get('/manage/{protocol}', [ProtocolBuildController::class, 'edit'])->name('manage.edit');
             Route::put('/manage/{protocol}', [ProtocolBuildController::class, 'update'])->name('manage.update');
             Route::post('/manage/{protocol}/revise', [ProtocolBuildController::class, 'revise'])->name('manage.revise');

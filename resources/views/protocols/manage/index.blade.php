@@ -18,11 +18,22 @@
         @if ($protocols->isEmpty())
             <p class="empty mt">No protocols yet. Start with New protocol.</p>
         @else
+            <form method="post" action="{{ route('protocols.manage.recategorize') }}" id="bulk">@csrf
+            <div class="bulk-bar mt" id="bulk-bar">
+                <span id="bulk-count" class="hint">Tick protocols to move them to another category.</span>
+                <select name="protocol_category_id" aria-label="New category" id="bulk-category" required disabled>
+                    <option value="" selected disabled>Pick a category</option>
+                    <option value="none">No category</option>
+                    @foreach ($categories as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach
+                </select>
+                <button class="btn btn-small" type="submit" id="bulk-button" disabled>Move to category</button>
+            </div>
             <div class="table-wrap mt"><table>
-                <tr><th>Protocol</th><th>Category</th><th>In the book</th><th>Being worked on</th><th>Last change</th></tr>
+                <tr><th style="width:36px"><input type="checkbox" id="select-all" aria-label="Select all"></th><th>Protocol</th><th>Category</th><th>In the book</th><th>Being worked on</th><th>Last change</th></tr>
                 @foreach ($protocols as $p)
                     @php($latest = $p->latest)
                     <tr>
+                        <td><input type="checkbox" class="pick" name="protocols[]" value="{{ $p->id }}" aria-label="Select {{ $latest?->fullTitle() }}"></td>
                         <td><a href="{{ route('protocols.manage.edit', $p) }}">{{ $latest?->fullTitle() }}</a></td>
                         <td>{{ $latest?->category_name ?? '—' }}<div class="hint">{{ $latest?->agesLabel() }}</div></td>
                         <td>
@@ -39,6 +50,23 @@
                     </tr>
                 @endforeach
             </table></div>
+            </form>
+            <p class="hint mt">Drafts move right away. An approved protocol gets a new draft in the new category, and the book shows the new category once the Medical Director approves it. Protocols waiting for approval are left alone.</p>
+            <script>
+            (function () {
+                var all = document.getElementById('select-all'), picks = [].slice.call(document.querySelectorAll('#bulk .pick')),
+                    count = document.getElementById('bulk-count'), select = document.getElementById('bulk-category'), button = document.getElementById('bulk-button');
+                function update() {
+                    var n = picks.filter(function (p) { return p.checked; }).length;
+                    all.checked = n > 0 && n === picks.length; all.indeterminate = n > 0 && n < picks.length;
+                    select.disabled = button.disabled = n === 0;
+                    count.textContent = n === 0 ? 'Tick protocols to move them to another category.' : n + (n === 1 ? ' protocol' : ' protocols') + ' selected. Move to:';
+                }
+                all.addEventListener('change', function () { picks.forEach(function (p) { p.checked = all.checked; }); update(); });
+                picks.forEach(function (p) { p.addEventListener('change', update); });
+                update();
+            })();
+            </script>
         @endif
     </div>
 
