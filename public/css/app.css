@@ -274,3 +274,22 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .token:hover { border-color: var(--teal); }
 .token code { color: var(--teal); font-weight: 600; margin-right: 4px; }
 .other-choice input[type=text] { flex: 1; max-width: 360px; padding: 6px 10px; }
+
+/* Wellness */
+.week-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.week-day { display: flex; flex-direction: column; align-items: center; padding: 8px 2px; border-radius: 10px; background: var(--bg); text-decoration: none; color: var(--navy); }
+.week-day:hover { outline: 2px solid var(--teal); }
+.week-day-name { font-family: "Oswald", sans-serif; text-transform: uppercase; font-size: .8rem; color: var(--muted); }
+.week-day-points { font-family: "Oswald", sans-serif; font-size: 1.4rem; min-height: 1.6rem; font-variant-numeric: tabular-nums; }
+.week-day-full { background: var(--teal); color: #fff; }
+.week-day-full .week-day-name { color: #dff1f8; }
+.week-day-today { box-shadow: inset 0 0 0 2px var(--navy); }
+.week-day-future { opacity: .45; pointer-events: none; }
+.history-chart { width: 100%; height: auto; display: block; }
+.history-chart .bar { fill: #9cc9dc; }
+.history-chart .bar-full { fill: var(--teal); }
+.history-chart .axis { stroke: var(--line); stroke-width: 1; }
+.row-me td { background: #f2f9fc; font-weight: 600; }
+.token-input { font-family: ui-monospace, monospace; }
+.agree-card { max-width: 760px; }
+.agree-card h3 { margin-top: 1em; }

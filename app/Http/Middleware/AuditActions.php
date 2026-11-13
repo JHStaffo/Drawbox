@@ -28,7 +28,8 @@ class AuditActions
         $isExport = $route && str_ends_with($request->path(), '.csv');
 
         if ($response->getStatusCode() === 429) {
-            AuditLog::record('login.throttled', 'Too many attempts at '.$request->path().'.', $request->user(), $request->session()->get('login_email') ?? $request->input('email'));
+            $email = ($request->hasSession() ? $request->session()->get('login_email') : null) ?? $request->input('email');
+            AuditLog::record('login.throttled', 'Too many attempts at '.$request->path().'.', $request->user(), is_string($email) ? $email : null);
 
             return $response;
         }
