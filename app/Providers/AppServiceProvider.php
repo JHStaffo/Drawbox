@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\AuditChanges;
+use App\Services\ProtocolImport\AnthropicKey;
 use App\Services\ProtocolImport\ClaudeProtocolReader;
 use App\Services\ProtocolImport\ProtocolReader;
 use Illuminate\Support\Facades\Event;
@@ -17,7 +18,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(AuditChanges::class);
         $this->app->bind(ProtocolReader::class, fn () => new ClaudeProtocolReader(
-            config('services.anthropic.key'),
+            app(AnthropicKey::class)->get(),
             config('services.anthropic.model'),
         ));
     }

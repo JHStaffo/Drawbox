@@ -10,7 +10,12 @@
     <div class="card" style="max-width:720px">
         <h2>Upload</h2>
         @unless ($ready)
-            <p class="flash flash-error">Importing needs an Anthropic API key. Add <code>ANTHROPIC_API_KEY=...</code> to the <code>.env</code> file on the server, then run <code>php artisan optimize</code>.</p>
+            <p class="flash flash-error">Importing needs an Anthropic API key. An admin adds it in
+                @if (auth()->user()->hasPermission('settings'))
+                    <a href="{{ route('supervisor.settings') }}#anthropic">Admin &gt; Settings</a>.
+                @else
+                    Admin &gt; Settings.
+                @endif</p>
         @endunless
         <form method="post" action="{{ route('protocols.imports.store') }}" enctype="multipart/form-data">@csrf
             <label for="import-files">One PDF, or up to 10 photos (JPG, PNG or WebP) in page order</label>

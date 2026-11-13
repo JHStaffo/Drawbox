@@ -141,6 +141,8 @@ Route::middleware('auth')->group(function () {
         Route::middleware('permission:settings')->group(function () {
             Route::get('/settings', [SettingsController::class, 'edit'])->name('settings');
             Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
+            Route::put('/settings/anthropic', [SettingsController::class, 'updateAnthropic'])->middleware('throttle:10,1')->name('settings.anthropic');
+            Route::delete('/settings/anthropic', [SettingsController::class, 'destroyAnthropic'])->name('settings.anthropic.destroy');
         });
     });
 
