@@ -40,6 +40,28 @@
                         </div>
                     </details>
                 @endif
+                @php($wellnessOn = \App\Wellness\Wellness::enabled())
+                @if (($wellnessOn && $u->hasAnyPermission('wellness', 'wellness_admin')) || $u->hasPermission('wellness_settings'))
+                    <details class="nav-menu">
+                        <summary @class(['active' => request()->routeIs('wellness*')])>Wellness</summary>
+                        <div class="nav-drop">
+                            @if ($wellnessOn && $u->hasPermission('wellness'))
+                                <a href="{{ route('wellness') }}" @class(['active' => request()->routeIs('wellness')])>My Wellness</a>
+                                <a href="{{ route('wellness.log') }}" @class(['active' => request()->routeIs('wellness.log')])>Log a day</a>
+                                <a href="{{ route('wellness.leaderboard') }}" @class(['active' => request()->routeIs('wellness.leaderboard')])>Leaderboard</a>
+                                <a href="{{ route('wellness.connect') }}" @class(['active' => request()->routeIs('wellness.connect')])>Devices</a>
+                                <a href="{{ route('wellness.rules') }}" @class(['active' => request()->routeIs('wellness.rules')])>Rules and privacy</a>
+                            @endif
+                            @if ($wellnessOn && $u->hasPermission('wellness_admin'))
+                                <a href="{{ route('wellness.admin.participants') }}" @class(['active' => request()->routeIs('wellness.admin.participants')])>Participants</a>
+                                <a href="{{ route('wellness.admin.rules') }}" @class(['active' => request()->routeIs('wellness.admin.rules')])>Point rules</a>
+                            @endif
+                            @if ($u->hasPermission('wellness_settings'))
+                                <a href="{{ route('wellness.admin.settings') }}" @class(['active' => request()->routeIs('wellness.admin.settings')])>Wellness settings</a>
+                            @endif
+                        </div>
+                    </details>
+                @endif
                 @if ($u->hasAnyPermission('team_members', 'settings', 'audit_log', 'profiles', 'manage_forms'))
                     <details class="nav-menu">
                         <summary @class(['active' => request()->routeIs('admin.users*', 'supervisor.settings', 'admin.audit', 'admin.profiles*', 'admin.forms*', 'admin.lists*', 'admin.slack*')])>Admin</summary>

@@ -37,6 +37,7 @@ class AuditChanges
         \App\Models\OptionList::class => ['name' => 'name', 'allow_add' => 'people can add'],
         \App\Models\OptionListItem::class => ['name' => 'name', 'active' => 'offered'],
         ScopeItem::class => ['name' => 'name', 'level' => 'level of care', 'note' => 'message'],
+        \App\Wellness\Models\Participant::class => ['status' => 'status', 'manual_device_until' => 'typing in device data allowed until', 'exception_note' => 'exception note'],
         LiftRule::class => [
             'scene_type' => 'scene', 'destination_type' => 'destination', 'min_weight_lbs' => 'min weight',
             'min_steps' => 'min steps', 'crew' => 'crew', 'note' => 'note',
@@ -55,6 +56,11 @@ class AuditChanges
         'scope_base_crew' => 'Scope check: usual ideal crew',
         'scope_scene_types' => 'Scope check: scene types',
         'scope_destination_types' => 'Scope check: destination types',
+        'wellness_enabled' => 'Wellness module',
+        'wellness_daily_max' => 'Wellness: most daily-habit points a day',
+        'wellness_grace_days' => 'Wellness: days after a week ends that it stays open',
+        'wellness_official_start' => 'Wellness: official start date',
+        'wellness_manual_device' => 'Wellness: anyone can type in steps, sleep and workout',
     ];
 
     private bool $recording = false;
@@ -127,7 +133,7 @@ class AuditChanges
         }
         $label = self::SETTINGS[$setting->key] ?? $setting->key;
         $show = fn ($v) => match (true) {
-            $setting->key === 'expiry_reminder_enabled', str_starts_with($setting->key, 'news_hide_') => $v ? 'on' : 'off',
+            $setting->key === 'expiry_reminder_enabled', str_starts_with($setting->key, 'news_hide_'), in_array($setting->key, ['wellness_enabled', 'wellness_manual_device'], true) => $v ? 'on' : 'off',
             $setting->key === 'news_min_cents' => money((int) $v),
             default => (string) $v,
         };
@@ -155,6 +161,7 @@ class AuditChanges
             $model instanceof \App\Models\OptionList => ($model->getOriginal('name') ?? $model->name).' list',
             $model instanceof \App\Models\OptionListItem => '"'.($model->getOriginal('name') ?? $model->name).'" on '.($model->list?->name ?? 'a list'),
             $model instanceof \App\Models\Form => ($model->getOriginal('name') ?? $model->name).' form',
+            $model instanceof \App\Wellness\Models\Participant => ($model->user?->name ?? 'Team Member')."'s wellness enrollment",
             $model instanceof \App\Models\FormField => '"'.($model->getOriginal('label') ?? $model->label).'" on the '.($model->form?->name ?? 'form').' form',
         };
     }
@@ -178,6 +185,7 @@ class AuditChanges
             $field === 'parent_id' => PermissionProfile::find($value)?->name ?? "#{$value}",
             $field === 'value_cents' => money((int) $value),
             $field === 'phone' => User::formatPhone($value),
+            $field === 'manual_device_until' => \Carbon\Carbon::parse($value)->format('M j, Y'),
             is_bool($value) || in_array($field, ['active', 'taxable', 'diminishing', 'cash_bonus_allowed', 'cash_bonus', 'is_default', 'hide_winners', 'required', 'allow_other', 'allow_add'], true) => $value ? 'yes' : 'no',
             $field === 'pto_hours' => (string) ($value + 0),
             $field === 'level' => ScopeItem::LEVELS[$value] ?? (string) $value,

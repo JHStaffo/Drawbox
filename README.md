@@ -31,6 +31,16 @@ Three permissions control it: Forms (fill out and send), Form reports (Dispatch 
 
 Shared lists (Admin > Shared lists, under the Forms and Slack permission) hold choices that grow over time, starting with Facilities. A "Shared list" question lets people pick an entry or type a new one, which is added to the list (matched ignoring capitals and extra spaces) unless the list is set to pick-only. Admins can bulk-add, rename, hide and remove entries; past submissions keep their own copy of the answer.
 
+## Wellness
+
+The Wellness menu is its own module (`app/Wellness`, `routes/wellness.php`, tables starting `wellness_`). It only reads `users`, and nothing outside it reads its tables. Wellness settings can turn it off, which hides its menu, pages and API without touching the rest of Pulse.
+
+- **Scoring:** up to 8 daily-habit points a day (meals 1 each up to 3, sleep 6 h, workout 30 min, 10,000 steps, 64 oz water, meal plan), 56 a Sunday to Saturday week. Readings are stored per day, metric and source. The best value per metric counts once, so a watch and a typed entry are never added together. Days can change until the grace period after their week (3 days by default), then they lock.
+- **Rules** (Wellness > Point rules) are versioned. A change starts on a date you pick, today or later, and earlier days keep the rule they were scored under.
+- **Permissions:** Wellness (join and log), Wellness review (device exceptions), Wellness admin (participants, rules) and Wellness settings. Admin starts with the last three. Nobody can join until their profile gets Wellness.
+- **Test period:** points before the official start date (Wellness settings, default January 1, 2027) don't count toward prizes.
+- **API:** `/api/v1` for phone apps and the Apple Health Shortcut, documented in [docs/api.md](docs/api.md). Team Members make sync keys under Wellness > Devices.
+
 ## Run locally
 
 ```sh
@@ -114,4 +124,6 @@ php artisan config:cache && php artisan route:cache && php artisan view:cache
 - `app/Services/Inventory.php`: envelope counts, odds, manual changes and reset
 - `app/Services/Credits.php`: crediting a call, expiry and reminders
 - `app/Services/Reports.php`: dashboard periods and per-employee totals
+- `app/Wellness/`: the Wellness module (`Scoring.php` for points, `Progress.php` for the dashboard, `Leaderboard.php`)
+- `routes/api.php`: the API for phone apps and device syncs
 - `routes/console.php`: scheduled jobs and the `drawbox:make-admin` command
