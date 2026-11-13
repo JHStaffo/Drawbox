@@ -26,6 +26,7 @@ class SettingsController extends Controller
             'drawDelayHours' => Setting::get('draw_delay_hours') + 0,
             'lockerPickupDays' => Setting::get('locker_pickup_days'),
             'expiryReminderEnabled' => (bool) Setting::get('expiry_reminder_enabled'),
+            'trainingEmailsEnabled' => (bool) Setting::get('training_emails_enabled'),
             'profiles' => PermissionProfile::ordered(),
             'newsMinDollars' => (int) Setting::get('news_min_cents') / 100,
             'protocolCategories' => ProtocolCategory::ordered(),
@@ -40,6 +41,7 @@ class SettingsController extends Controller
             'draw_window_days' => 'required|integer|min:1|max:365',
             'draw_delay_hours' => 'nullable|numeric|min:0|max:72',
             'expiry_reminder_enabled' => 'boolean',
+            'training_emails_enabled' => 'boolean',
             'locker_pickup_days' => 'required|integer|min:1|max:90',
             'news_hide' => 'array',
             'news_min_dollars' => 'nullable|numeric|min:0|max:100000',
@@ -51,6 +53,9 @@ class SettingsController extends Controller
         }
         Setting::put('locker_pickup_days', (string) $data['locker_pickup_days']);
         Setting::put('expiry_reminder_enabled', $request->boolean('expiry_reminder_enabled') ? '1' : '0');
+        if ($request->has('training_emails_enabled')) {
+            Setting::put('training_emails_enabled', $request->boolean('training_emails_enabled') ? '1' : '0');
+        }
         foreach (PermissionProfile::all() as $profile) {
             $profile->update(['hide_winners' => (bool) ($data['news_hide'][$profile->id] ?? false)]);
         }

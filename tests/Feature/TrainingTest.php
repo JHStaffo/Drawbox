@@ -17,6 +17,7 @@ use App\Training\RichText;
 use App\Training\Training;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -524,5 +525,125 @@ class TrainingTest extends TestCase
         $this->assertSame(5, $course->lessons()->count());
         $this->assertSame([1, 2, 3, 4, 5], $course->lessons()->pluck('position')->all());
         $this->assertStringContainsString('its 2 lessons stay in the course without a section', AuditLog::where('action', 'training.sections.destroy')->first()->description);
+    }
+
+    public function test_published_courses_change_only_when_a_new_version_is_published(): void
+    {
+        Notification::fake();
+        $admin = $this->admin();
+        $member = $this->member();
+        $course = Course::create(['title' => 'Driving', 'status' => 'draft']);
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/lessons", ['title' => 'Phones', 'type' => 'text']);
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/lessons", ['title' => 'Speed', 'type' => 'text']);
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/lessons", ['title' => 'Quiz', 'type' => 'quiz']);
+        [$phones, $speed, $quiz] = $course->lessons()->get()->all();
+        // Before the first publish, edits apply straight away.
+        $this->actingAs($admin)->put("/training/lessons/{$phones->id}", ['title' => 'Phones', 'body' => '<p>No texting.</p>']);
+        $this->assertSame('<p>No texting.</p>', $phones->fresh()->body);
+        $this->actingAs($admin)->post("/training/lessons/{$quiz->id}/questions", ['type' => 'true_false', 'prompt' => 'Texting is fine?', 'true_false' => 'false']);
+
+        // Publishing makes version 1.
+        $this->actingAs($admin)->put("/training/courses/{$course->id}", ['title' => 'Driving', 'status' => 'published'])->assertSessionHas('status');
+        $course->refresh();
+        $this->assertSame(1, $course->version);
+        $this->assertSame(['added', 'added', 'added'], array_column($course->versions()->first()->changes, 'kind'));
+
+        $a = app(Training::class)->assign($member, $course, $admin);
+        foreach ([$phones, $speed] as $l) {
+            app(Training::class)->finishLesson($a, $l);
+        }
+        $attempt = app(Training::class)->startAttempt($a, $quiz);
+        app(Training::class)->submit($attempt, [$quiz->questions()->first()->id => [1]]);
+        $this->assertSame(1, $a->fresh()->completed_version);
+
+        // Now edits wait: a changed page, a changed quiz, a new lesson and a removed one.
+        $this->actingAs($admin)->put("/training/lessons/{$phones->id}", ['title' => 'Phones and radios', 'body' => '<p>No texting or radio while moving.</p>'])->assertRedirect();
+        $draft = Lesson::where('draft_of', $phones->id)->firstOrFail();
+        $this->assertSame('<p>No texting.</p>', $phones->fresh()->body);
+        $this->assertSame('<p>No texting or radio while moving.</p>', $draft->body);
+        $this->actingAs($admin)->get("/training/lessons/{$phones->id}/edit")->assertRedirect("/training/lessons/{$draft->id}/edit");
+        $this->actingAs($admin)->post("/training/lessons/{$quiz->id}/questions", ['type' => 'true_false', 'prompt' => 'Radio while moving is fine?', 'true_false' => 'false']);
+        $this->assertSame(1, $quiz->questions()->count());
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/lessons", ['title' => 'Night driving', 'type' => 'text']);
+        $night = Lesson::where('title', 'Night driving')->first();
+        $this->assertTrue($night->pending_add);
+        $this->actingAs($admin)->delete("/training/lessons/{$speed->id}")->assertSessionHas('status');
+        $this->assertTrue($speed->fresh()->pending_remove);
+        $this->assertSame(['changed', 'changed', 'added', 'removed'], collect($course->fresh()->pendingChanges())->pluck('kind')->sort(fn ($x, $y) => array_search($x, ['changed', 'added', 'removed']) <=> array_search($y, ['changed', 'added', 'removed']))->values()->all());
+
+        // Team Members still see version 1, and can't open unpublished rows.
+        $this->actingAs($member)->get("/training/a/{$a->id}")->assertOk()->assertSee('Speed')->assertDontSee('Night driving')->assertDontSee('Phones and radios');
+        $this->actingAs($member)->get("/training/a/{$a->id}/lessons/{$phones->id}")->assertSee('No texting.')->assertDontSee('radio while moving');
+        $this->actingAs($member)->get("/training/a/{$a->id}/lessons/{$draft->id}")->assertNotFound();
+        $this->actingAs($member)->get("/training/a/{$a->id}/lessons/{$night->id}")->assertNotFound();
+        $this->assertSame(100, $a->fresh()->percent);
+        $this->actingAs($admin)->get("/training/courses/{$course->id}/edit")->assertOk()->assertSee('Unpublished changes (4)')->assertSee('Publish version 2');
+
+        // Discarding throws a pending edit away.
+        $this->actingAs($admin)->put("/training/lessons/{$night->id}", ['title' => 'Night driving', 'body' => '<p>Use high beams.</p>']);
+        $this->assertTrue($night->fresh()->pending_add);
+
+        // Publish version 2.
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/publish", ['note' => 'New radio rule.'])->assertSessionHas('status');
+        $course->refresh();
+        $this->assertSame(2, $course->version);
+        $this->assertSame('<p>No texting or radio while moving.</p>', $phones->fresh()->body);
+        $this->assertSame('Phones and radios', $phones->fresh()->title);
+        $this->assertSame(2, $phones->fresh()->changed_in);
+        $this->assertSame(2, $quiz->questions()->count());
+        $this->assertNull(Lesson::find($speed->id));
+        $this->assertSame(0, Lesson::whereNotNull('draft_of')->count());
+        $this->assertSame(['Phones and radios', 'Quiz', 'Night driving'], $course->lessons()->pluck('title')->all());
+        $this->assertStringContainsString('Published version 2 of Driving: Added: Night driving; Changed: Phones and radios, Quiz; Removed: Speed. Note: New radio rule.', AuditLog::where('action', 'training.courses.publish')->first()->description);
+        // Their completion stands, and the course tells them what changed.
+        $this->assertNotNull($a->fresh()->completed_at);
+        $this->actingAs($member)->get("/training/a/{$a->id}")->assertOk()->assertSee('Updated since you finished it')->assertSee('New radio rule.')->assertSee('Night driving');
+
+        // Each visit to a version is recorded: first and last time.
+        $view = \App\Training\Models\VersionView::where('user_id', $member->id)->where('version', 2)->firstOrFail();
+        $this->travel(2)->hours();
+        $this->actingAs($member)->get("/training/a/{$a->id}/lessons/{$phones->id}")->assertOk();
+        $view->refresh();
+        $this->assertSame(2, $view->views);
+        $this->assertTrue($view->last_viewed_at->gt($view->first_viewed_at));
+        $this->assertSame(0, \App\Training\Models\VersionView::where('user_id', $admin->id)->count());
+        $this->actingAs($admin)->get("/training/courses/{$course->id}/versions")->assertOk()->assertSee('Who has looked at version 2')->assertSee('Terry Member')->assertSee('New radio rule.');
+
+        // Training emails are off by default: the update is marked handled and never sent.
+        $this->artisan('training:update-emails')->assertSuccessful();
+        Notification::assertNothingSent();
+        $this->assertSame(2, $a->fresh()->notified_version);
+
+        // With them on, the next update is emailed once.
+        $this->actingAs($admin)->put('/supervisor/settings', ['draw_window_days' => 7, 'locker_pickup_days' => 7, 'training_emails_enabled' => '1'])->assertSessionHas('status');
+        $this->actingAs($admin)->put("/training/lessons/{$night->id}", ['title' => 'Night driving', 'body' => '<p>Dim for oncoming traffic.</p>']);
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/publish");
+        $this->artisan('training:update-emails')->assertSuccessful();
+        Notification::assertSentTo($member, \App\Notifications\TrainingCoursesUpdated::class);
+        Notification::assertCount(1);
+        $this->artisan('training:update-emails')->assertSuccessful();
+        Notification::assertCount(1);
+    }
+
+    public function test_pending_edits_can_be_discarded_and_removals_kept(): void
+    {
+        $admin = $this->admin();
+        $course = Course::create(['title' => 'Policies', 'status' => 'draft']);
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/lessons", ['title' => 'Uniform', 'type' => 'text']);
+        $lesson = $course->lessons()->first();
+        $this->actingAs($admin)->put("/training/lessons/{$lesson->id}", ['title' => 'Uniform', 'body' => '<p>Navy shirt.</p>']);
+        $this->actingAs($admin)->put("/training/courses/{$course->id}", ['title' => 'Policies', 'status' => 'published']);
+
+        $this->actingAs($admin)->put("/training/lessons/{$lesson->id}", ['title' => 'Uniform', 'body' => '<p>Red shirt.</p>']);
+        $draft = $lesson->fresh()->draft;
+        $this->actingAs($admin)->get("/training/lessons/{$draft->id}/edit")->assertOk()->assertSee('Discard changes')->assertSee('builder-nav');
+        $this->actingAs($admin)->delete("/training/lessons/{$draft->id}")->assertRedirect("/training/lessons/{$lesson->id}/edit");
+        $this->assertNull(Lesson::find($draft->id));
+        $this->assertSame('<p>Navy shirt.</p>', $lesson->fresh()->body);
+
+        $this->actingAs($admin)->delete("/training/lessons/{$lesson->id}");
+        $this->actingAs($admin)->post("/training/lessons/{$lesson->id}/keep")->assertSessionHas('status');
+        $this->assertFalse($lesson->fresh()->pending_remove);
+        $this->actingAs($admin)->post("/training/courses/{$course->id}/publish")->assertSessionHas('error', 'There are no unpublished changes.');
     }
 }

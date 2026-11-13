@@ -115,6 +115,19 @@ Schedule::command('drawbox:remind')->hourly();
 Schedule::command('pulse:slack-retry')->everyFiveMinutes();
 Schedule::command('protocols:import')->everyMinute()->withoutOverlapping(30);
 Schedule::command('training:generate')->everyMinute()->withoutOverlapping(30);
+Schedule::command('training:update-emails')->dailyAt('08:00');
+
+Artisan::command('training:update-emails', function (\App\Training\Versions $versions) {
+    // Tells Team Members once a day about updates to courses they finished (when training emails are on in Settings).
+    $counts = $versions->sendUpdateNotices();
+    if ($counts['sent']) {
+        AuditLog::record('system.training-update-emails', "Emailed {$counts['sent']} Team Member(s) about updates to courses they finished.");
+    }
+    if ($counts['skipped']) {
+        AuditLog::record('system.training-update-emails', "Training emails are off in Settings, so {$counts['skipped']} course update notice(s) were not sent.");
+    }
+    $this->info("Sent {$counts['sent']} update email(s); {$counts['skipped']} skipped.");
+})->purpose('Email Team Members about updates to training courses they finished');
 
 Artisan::command('training:generate', function (\App\Training\Generate\CourseGenerator $generator) {
     // Writes courses asked for under Training > Courses > Write a course with AI.

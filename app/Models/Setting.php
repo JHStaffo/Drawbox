@@ -18,6 +18,8 @@ class Setting extends Model
         'draw_window_days' => '7',
         'draw_delay_hours' => '2',
         'expiry_reminder_enabled' => '1',
+        // Training emails (course update notices). Off until the courses are all in, so nobody gets a flood.
+        'training_emails_enabled' => '0',
         'locker_pickup_days' => '7',
         'news_hide_dispatcher' => '0',
         'news_hide_supervisor' => '0',

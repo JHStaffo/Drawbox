@@ -10,6 +10,15 @@
     @if ($assignment->replaced_at)
         <div class="flash flash-error">This course was assigned again on {{ $assignment->replaced_at->format('M j, Y') }}. @if ($mine)Open the new one from <a href="{{ route('training') }}">My Training</a>.@endif</div>
     @endif
+    @if ($updatedSince)
+        <div class="card version-note">
+            <h2>Updated since you finished it</h2>
+            <p>You finished version {{ $updatedSince }}. It's now version {{ $course->version }}; lessons marked <span class="pill pill-amber">Updated</span> are new or changed. Your completion still counts.</p>
+            @foreach ($updates as $v)
+                <p class="mt"><strong>Version {{ $v->number }}, {{ $v->published_at->format('M j, Y') }}</strong>@if ($v->summary()) · {{ $v->summary() }}@endif @if ($v->note)<br>{{ $v->note }}@endif</p>
+            @endforeach
+        </div>
+    @endif
     <div class="card">
         <div class="row-actions" style="justify-content:space-between">
             @include('training.partials.status', ['assignment' => $assignment])
@@ -42,7 +51,7 @@
                     <li>
                         <span @class(['lesson-mark', 'lesson-mark-done' => $p?->completed_at])>{{ $p?->completed_at ? '✓' : $n }}</span>
                         <div class="lesson-main">
-                            <a href="{{ route('training.lesson', [$assignment, $l]) }}">{{ $l->title }}</a>
+                            <a href="{{ route('training.lesson', [$assignment, $l]) }}">{{ $l->title }}</a>@if ($updatedSince && $l->changed_in > $updatedSince) <span class="pill pill-amber">Updated</span>@endif
                             <div class="hint">{{ $l->typeLabel() }} · {{ \App\Training\Estimate::label($l->est_seconds) }}@if ($p?->seconds_spent) · you: {{ \App\Training\Models\Assignment::duration($p->seconds_spent) }}@endif @if ($l->isQuiz() && $p?->best_score !== null) · best score {{ $p->best_score }}%@endif</div>
                         </div>
                     </li>

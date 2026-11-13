@@ -36,6 +36,8 @@ Route::middleware('web')->prefix('training')->name('training')->group(function (
             Route::get('/courses/{course}/edit', [BuildController::class, 'edit'])->name('.courses.edit');
             Route::put('/courses/{course}', [BuildController::class, 'update'])->name('.courses.update');
             Route::delete('/courses/{course}', [BuildController::class, 'destroy'])->name('.courses.destroy');
+            Route::post('/courses/{course}/publish', [BuildController::class, 'publishChanges'])->name('.courses.publish');
+            Route::get('/courses/{course}/versions', [BuildController::class, 'versions'])->name('.courses.versions');
             Route::post('/courses/{course}/sections', [BuildController::class, 'storeSection'])->name('.sections.store');
             Route::put('/sections/{section}', [BuildController::class, 'updateSection'])->name('.sections.update');
             Route::delete('/sections/{section}', [BuildController::class, 'destroySection'])->name('.sections.destroy');
@@ -44,6 +46,7 @@ Route::middleware('web')->prefix('training')->name('training')->group(function (
             Route::get('/lessons/{lesson}/edit', [BuildController::class, 'editLesson'])->name('.lessons.edit');
             Route::put('/lessons/{lesson}', [BuildController::class, 'updateLesson'])->name('.lessons.update');
             Route::delete('/lessons/{lesson}', [BuildController::class, 'destroyLesson'])->name('.lessons.destroy');
+            Route::post('/lessons/{lesson}/keep', [BuildController::class, 'keepLesson'])->name('.lessons.keep');
             Route::post('/lessons/{lesson}/move', [BuildController::class, 'moveLesson'])->name('.lessons.move');
             Route::get('/lessons/{lesson}/preview', [BuildController::class, 'previewLesson'])->name('.lessons.preview');
             Route::post('/lessons/{lesson}/questions', [BuildController::class, 'storeQuestion'])->name('.questions.store');

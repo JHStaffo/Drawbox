@@ -40,6 +40,12 @@
         <input id="news_min_dollars" type="number" min="0" step="0.01" name="news_min_dollars" value="{{ $newsMinDollars ?: '' }}" placeholder="0" style="max-width:140px">
         <div class="hint">Keeps candy, snacks and other small wins out of the feed. Leave blank or 0 to show every prize.</div>
     </div>
+    <h2 class="mt">Training</h2>
+    <div class="field">
+        <input type="hidden" name="training_emails_enabled" value="0">
+        <label class="check"><input type="checkbox" name="training_emails_enabled" value="1" @checked($trainingEmailsEnabled)> Send training emails</label>
+        <div class="hint">A daily email to Team Members when a course they finished has been updated. Leave off while courses are still being added; updates published while it's off are never emailed later.</div>
+    </div>
     <button class="btn" type="submit">Save settings</button>
 </form>
 
