@@ -6,7 +6,7 @@
     <title>{{ isset($title) ? $title.' · ' : '' }}Fast Track Pulse · Fast Track EMS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Oswald:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Oswald:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ @filemtime(public_path('css/app.css')) }}">
     <link rel="icon" href="{{ asset('images/logo.png') }}">
 </head>
@@ -37,6 +37,17 @@
                             @if ($u->hasPermission('scope_check'))<a href="{{ route('scope') }}" @class(['active' => request()->routeIs('scope')])>Scope Check</a>@endif
                             @if ($u->hasPermission('forms'))<a href="{{ route('forms') }}" @class(['active' => request()->routeIs('forms', 'forms.show')])>Forms</a>@endif
                             @if ($u->hasPermission('form_reports'))<a href="{{ route('forms.reports') }}" @class(['active' => request()->routeIs('forms.reports*')])>Form reports</a>@endif
+                        </div>
+                    </details>
+                @endif
+                @if ($u->hasAnyPermission('protocols', 'protocols_build', 'protocols_approve'))
+                    @php($waitingProtocols = $u->hasPermission('protocols_approve') ? \App\Models\ProtocolVersion::where('status', 'submitted')->count() : 0)
+                    <details class="nav-menu">
+                        <summary @class(['active' => request()->routeIs('protocols.*')])>Protocols @if ($waitingProtocols)<span class="nav-count">{{ $waitingProtocols }}</span>@endif</summary>
+                        <div class="nav-drop">
+                            @if ($u->hasPermission('protocols'))<a href="{{ route('protocols.index') }}" @class(['active' => request()->routeIs('protocols.index', 'protocols.book', 'protocols.show')])>Protocol Book</a>@endif
+                            @if ($u->hasPermission('protocols_build'))<a href="{{ route('protocols.manage') }}" @class(['active' => request()->routeIs('protocols.manage*')])>Build protocols</a>@endif
+                            @if ($u->hasPermission('protocols_approve'))<a href="{{ route('protocols.approvals') }}" @class(['active' => request()->routeIs('protocols.approvals*')])>Approvals @if ($waitingProtocols)<span class="nav-count">{{ $waitingProtocols }}</span>@endif</a>@endif
                         </div>
                     </details>
                 @endif
