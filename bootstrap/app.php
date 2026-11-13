@@ -19,6 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'permission' => \App\Http\Middleware\EnsurePermission::class,
             'wellness.enabled' => \App\Http\Middleware\WellnessEnabled::class,
+            'wellness.access' => \App\Http\Middleware\WellnessAccess::class,
+            'wellness.joined' => \App\Http\Middleware\WellnessJoined::class,
             'abilities' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
             'ability' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
         ]);

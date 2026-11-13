@@ -16,18 +16,24 @@ Route::prefix('v1')->name('api.')->group(function () {
         Route::delete('/auth/token', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('/me', [MeController::class, 'show'])->middleware('abilities:wellness')->name('me');
 
-        Route::prefix('wellness')->name('wellness.')->middleware(['wellness.enabled', 'permission:wellness'])->group(function () {
-            // A sync key from the Connect page can only send readings.
-            Route::post('/readings', [WellnessApiController::class, 'readings'])->middleware('ability:wellness,wellness:import')->name('readings');
-
+        Route::prefix('wellness')->name('wellness.')->middleware(['wellness.enabled', 'wellness.access'])->group(function () {
+            // Before signing up, an app can only show the rules and record the Team Member's agreement.
             Route::middleware('abilities:wellness')->group(function () {
                 Route::get('/rules', [WellnessApiController::class, 'rules'])->name('rules');
                 Route::post('/join', [WellnessApiController::class, 'join'])->name('join');
-                Route::get('/summary', [WellnessApiController::class, 'summary'])->name('summary');
-                Route::get('/days', [WellnessApiController::class, 'days'])->name('days');
-                Route::get('/days/{day}', [WellnessApiController::class, 'day'])->name('day');
-                Route::put('/days/{day}', [WellnessApiController::class, 'updateDay'])->name('days.update');
-                Route::get('/leaderboard', [WellnessApiController::class, 'leaderboard'])->name('leaderboard');
+            });
+
+            Route::middleware('wellness.joined')->group(function () {
+                // A sync key from the Devices page can only send readings.
+                Route::post('/readings', [WellnessApiController::class, 'readings'])->middleware('ability:wellness,wellness:import')->name('readings');
+
+                Route::middleware('abilities:wellness')->group(function () {
+                    Route::get('/summary', [WellnessApiController::class, 'summary'])->name('summary');
+                    Route::get('/days', [WellnessApiController::class, 'days'])->name('days');
+                    Route::get('/days/{day}', [WellnessApiController::class, 'day'])->name('day');
+                    Route::put('/days/{day}', [WellnessApiController::class, 'updateDay'])->name('days.update');
+                    Route::get('/leaderboard', [WellnessApiController::class, 'leaderboard'])->name('leaderboard');
+                });
             });
         });
     });

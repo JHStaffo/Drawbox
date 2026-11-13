@@ -41,11 +41,17 @@
                     </details>
                 @endif
                 @php($wellnessOn = \App\Wellness\Wellness::enabled())
-                @if (($wellnessOn && $u->hasAnyPermission('wellness', 'wellness_admin')) || $u->hasPermission('wellness_settings'))
+                @php($wellnessUse = $wellnessOn && \App\Wellness\Wellness::canUse($u))
+                @php($wellnessJoined = $wellnessUse && app(\App\Wellness\Wellness::class)->participant($u)?->isActive())
+                @if ($wellnessUse || ($wellnessOn && $u->hasPermission('wellness_admin')) || $u->hasPermission('wellness_settings'))
                     <details class="nav-menu">
                         <summary @class(['active' => request()->routeIs('wellness*')])>Wellness</summary>
                         <div class="nav-drop">
-                            @if ($wellnessOn && $u->hasPermission('wellness'))
+                            @if ($wellnessUse && ! $wellnessJoined)
+                                <a href="{{ route('wellness') }}" @class(['active' => request()->routeIs('wellness')])>Sign up</a>
+                                <a href="{{ route('wellness.rules') }}" @class(['active' => request()->routeIs('wellness.rules')])>Rules and privacy</a>
+                            @endif
+                            @if ($wellnessJoined)
                                 <a href="{{ route('wellness') }}" @class(['active' => request()->routeIs('wellness')])>My Wellness</a>
                                 <a href="{{ route('wellness.log') }}" @class(['active' => request()->routeIs('wellness.log')])>Log a day</a>
                                 <a href="{{ route('wellness.leaderboard') }}" @class(['active' => request()->routeIs('wellness.leaderboard')])>Leaderboard</a>

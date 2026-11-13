@@ -72,7 +72,7 @@ class WellnessTest extends TestCase
     {
         $user = $this->member(['name' => 'Jamie Medic'], join: false);
 
-        $this->actingAs($user)->get('/wellness')->assertOk()->assertSee('Join the program');
+        $this->actingAs($user)->get('/wellness')->assertOk()->assertSee('Wellness program agreement')->assertSee('I agree');
         $this->actingAs($user)->post('/wellness/join')->assertSessionHasErrors('consent');
         $this->assertDatabaseCount('wellness_participants', 0);
 
@@ -82,6 +82,52 @@ class WellnessTest extends TestCase
         $log = AuditLog::where('action', 'wellness.join')->latest('id')->first();
         $this->assertStringContainsString('Jamie Medic joined the wellness program and agreed to the rules dated 2026-11-01', $log->description);
         $this->actingAs($user)->get('/wellness')->assertOk()->assertSee('My Wellness')->assertSee('Log today');
+    }
+
+    public function test_nothing_else_opens_until_they_agree(): void
+    {
+        $user = $this->member(join: false);
+
+        foreach (['/wellness/log', '/wellness/leaderboard', '/wellness/connect'] as $url) {
+            $this->actingAs($user)->get($url)->assertRedirect('/wellness');
+        }
+        $this->actingAs($user)->put('/wellness/log/2026-12-09', ['water_oz' => 64])->assertRedirect('/wellness');
+        $this->assertDatabaseCount('wellness_readings', 0);
+        $this->actingAs($user)->get('/wellness/rules')->assertOk();
+        $this->actingAs($user)->get('/')->assertSee('Sign up')->assertDontSee('Log a day');
+
+        $this->actingAs($user)->post('/wellness/join', ['consent' => '1']);
+        $this->actingAs($user)->get('/wellness/log')->assertOk();
+        $this->actingAs($user)->get('/')->assertSee('Log a day')->assertDontSee('>Sign up<', false);
+    }
+
+    public function test_admins_can_turn_wellness_on_for_one_team_member(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $tester = User::factory()->role('employee')->create(['name' => 'Tess Tester']);
+        $other = User::factory()->role('employee')->create();
+
+        $this->actingAs($tester)->get('/wellness')->assertForbidden();
+        $this->actingAs($admin)->post('/wellness/admin/testers', ['user_id' => $tester->id])->assertSessionHas('status', 'Tess Tester can now sign up for Wellness.');
+        $this->assertSame('Gave Tess Tester Wellness individually for testing.', AuditLog::where('action', 'wellness.admin.testers.store')->latest('id')->first()->description);
+        $this->actingAs($admin)->get('/wellness/admin/participants')->assertSee('Tess Tester');
+
+        $this->actingAs($tester)->get('/wellness')->assertOk()->assertSee('I agree');
+        $this->actingAs($tester)->post('/wellness/join', ['consent' => '1']);
+        $this->actingAs($tester)->put('/wellness/log/2026-12-09', ['water_oz' => 64])->assertSessionHasNoErrors();
+        $this->actingAs($other)->get('/wellness')->assertForbidden();
+        Sanctum::actingAs($tester, ['wellness']);
+        $this->getJson('/api/v1/me')->assertJsonPath('user.wellness.can_join', true);
+        $this->getJson('/api/v1/wellness/summary')->assertOk();
+
+        $testerRow = \App\Wellness\Models\Tester::first();
+        $this->actingAs($admin)->delete("/wellness/admin/testers/{$testerRow->id}")->assertSessionHasNoErrors();
+        $this->assertStringContainsString('Took individual Wellness access away from Tess Tester.', AuditLog::where('action', 'wellness.admin.testers.destroy')->latest('id')->first()->description);
+        $this->actingAs($tester->fresh())->get('/wellness')->assertForbidden();
+        $this->assertSame(1, (int) Point::where('user_id', $tester->id)->sum('points'));
+
+        // A supervisor without Wellness admin can't add testers.
+        $this->actingAs(User::factory()->role('supervisor')->create())->post('/wellness/admin/testers', ['user_id' => $other->id])->assertForbidden();
     }
 
     public function test_a_perfect_day_scores_eight_and_the_day_never_goes_over(): void

@@ -8,6 +8,7 @@ use App\Wellness\Calendar;
 use App\Wellness\Models\Participant;
 use App\Wellness\Models\Point;
 use App\Wellness\Models\Reading;
+use App\Wellness\Models\Tester;
 use App\Wellness\Scoring;
 use Illuminate\Http\Request;
 
@@ -22,7 +23,7 @@ class ParticipantController extends Controller
             ->selectRaw('user_id, SUM(points) as total')->groupBy('user_id')->pluck('total', 'user_id');
         $last = Reading::selectRaw('user_id, source, MAX(updated_at) as last')->groupBy('user_id', 'source')->get()->groupBy('user_id');
 
-        $eligible = User::where('active', true)->get()->filter(fn (User $u) => $u->hasPermission('wellness'));
+        $eligible = User::where('active', true)->get()->filter(fn (User $u) => \App\Wellness\Wellness::canUse($u));
 
         return view('wellness.admin.participants', [
             'participants' => $participants->sortBy(fn ($p) => [$p->status !== 'active', $p->user->sortName()])->values(),
@@ -30,7 +31,35 @@ class ParticipantController extends Controller
             'last' => $last,
             'target' => Scoring::weeklyTarget(),
             'notJoined' => User::byLastName($eligible->whereNotIn('id', $participants->pluck('user_id'))),
+            'testers' => Tester::with('user', 'addedBy')->get()->filter(fn ($t) => $t->user)->sortBy(fn ($t) => $t->user->sortName())->values(),
+            'canAdd' => User::byLastName(User::where('active', true)->whereNotIn('id', Tester::pluck('user_id'))->get()),
         ]);
+    }
+
+    /** Give one Team Member Wellness for testing, without changing their permission profile. */
+    public function addTester(Request $request)
+    {
+        $data = $request->validate(['user_id' => 'required|integer|exists:users,id'], ['user_id.required' => 'Pick a Team Member.']);
+        $user = User::findOrFail($data['user_id']);
+        if (Tester::where('user_id', $user->id)->exists()) {
+            return back()->with('status', "{$user->name} can already use Wellness.");
+        }
+        Tester::create(['user_id' => $user->id, 'added_by' => $request->user()->id]);
+        audit_note("Gave {$user->name} Wellness individually for testing.");
+
+        return back()->with('status', "{$user->name} can now sign up for Wellness.");
+    }
+
+    public function removeTester(Tester $tester)
+    {
+        $user = $tester->user;
+        $tester->delete();
+        $still = $user && $user->hasPermission('wellness');
+        audit_note("Took individual Wellness access away from {$user?->name}.".($still ? ' Their permission profile still includes Wellness.' : ''));
+
+        return back()->with('status', $still
+            ? "Removed {$user->name} from the testers. Their permission profile still gives them Wellness."
+            : "Removed {$user?->name} from the testers. They can no longer use Wellness, but their points are kept.");
     }
 
     public function exception(Request $request, Participant $participant)

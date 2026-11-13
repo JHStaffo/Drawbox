@@ -291,3 +291,5 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .history-chart .axis { stroke: var(--line); stroke-width: 1; }
 .row-me td { background: #f2f9fc; font-weight: 600; }
 .token-input { font-family: ui-monospace, monospace; }
+.agree-card { max-width: 760px; }
+.agree-card h3 { margin-top: 1em; }

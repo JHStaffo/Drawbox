@@ -94,6 +94,8 @@ class AuditLog extends Model
         'wellness.log.save' => 'Logged wellness',
         'wellness.connect.store' => 'Made a wellness sync key',
         'wellness.connect.destroy' => 'Removed a wellness sync key',
+        'wellness.admin.testers.store' => 'Gave someone Wellness for testing',
+        'wellness.admin.testers.destroy' => 'Removed a Wellness tester',
         'wellness.admin.exception' => 'Changed a wellness device exception',
         'wellness.admin.rules.store' => 'Changed a wellness rule',
         'wellness.admin.settings.update' => 'Changed wellness settings',

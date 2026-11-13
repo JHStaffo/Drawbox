@@ -41,7 +41,9 @@ There are two kinds of token:
 | `POST /wellness/readings` | Device data (below) |
 | `GET /wellness/leaderboard?period=week\|month\|quarter\|year` | Names, points and ranks only |
 
-Errors: `401` bad or removed token, `403` no Wellness permission or wrong token kind, `404` Wellness is turned off, `409` with `"code": "not_joined"` before joining, `422` validation errors in Laravel's usual `{"message", "errors"}` shape.
+Until the Team Member has signed up, only `/me`, `/wellness/rules` and `/wellness/join` work. Show the agreement from the website's sign-up page and the rules before calling join.
+
+Errors: `401` bad or removed token, `403` no Wellness access (profile permission or tester) or wrong token kind, `404` Wellness is turned off, `409` with `"code": "not_joined"` before joining, `422` validation errors in Laravel's usual `{"message", "errors"}` shape.
 
 ## Device readings
 

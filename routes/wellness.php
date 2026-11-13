@@ -16,23 +16,31 @@ Route::middleware(['web', 'auth'])->prefix('wellness')->name('wellness')->group(
     });
 
     Route::middleware('wellness.enabled')->group(function () {
-        Route::middleware('permission:wellness')->group(function () {
+        // Profile permission or added individually as a tester (Wellness > Participants).
+        Route::middleware('wellness.access')->group(function () {
+            // Open before signing up: the "I agree" page and the rules it points to.
             Route::get('/', [WellnessController::class, 'index'])->name('');
             Route::post('/join', [WellnessController::class, 'join'])->name('.join');
-            Route::post('/withdraw', [WellnessController::class, 'withdraw'])->name('.withdraw');
-            Route::get('/log/{day?}', [WellnessController::class, 'log'])->name('.log');
-            Route::put('/log/{day}', [WellnessController::class, 'save'])->name('.log.save');
-            Route::get('/leaderboard', [WellnessController::class, 'leaderboard'])->name('.leaderboard');
             Route::get('/rules', [WellnessController::class, 'rules'])->name('.rules');
-            Route::get('/connect', [ConnectController::class, 'index'])->name('.connect');
-            Route::post('/connect/keys', [ConnectController::class, 'store'])->name('.connect.store');
-            Route::delete('/connect/keys/{token}', [ConnectController::class, 'destroy'])->name('.connect.destroy');
+
+            // Everything else only after they've agreed.
+            Route::middleware('wellness.joined')->group(function () {
+                Route::post('/withdraw', [WellnessController::class, 'withdraw'])->name('.withdraw');
+                Route::get('/log/{day?}', [WellnessController::class, 'log'])->name('.log');
+                Route::put('/log/{day}', [WellnessController::class, 'save'])->name('.log.save');
+                Route::get('/leaderboard', [WellnessController::class, 'leaderboard'])->name('.leaderboard');
+                Route::get('/connect', [ConnectController::class, 'index'])->name('.connect');
+                Route::post('/connect/keys', [ConnectController::class, 'store'])->name('.connect.store');
+                Route::delete('/connect/keys/{token}', [ConnectController::class, 'destroy'])->name('.connect.destroy');
+            });
         });
 
         Route::middleware('permission:wellness_admin')->group(function () {
             Route::get('/admin/participants', [ParticipantController::class, 'index'])->name('.admin.participants');
             Route::get('/admin/rules', [RuleController::class, 'index'])->name('.admin.rules');
             Route::post('/admin/rules/{key}', [RuleController::class, 'store'])->name('.admin.rules.store');
+            Route::post('/admin/testers', [ParticipantController::class, 'addTester'])->name('.admin.testers.store');
+            Route::delete('/admin/testers/{tester}', [ParticipantController::class, 'removeTester'])->name('.admin.testers.destroy');
         });
         Route::put('/admin/participants/{participant}/exception', [ParticipantController::class, 'exception'])
             ->middleware('permission:wellness_review')->name('.admin.exception');

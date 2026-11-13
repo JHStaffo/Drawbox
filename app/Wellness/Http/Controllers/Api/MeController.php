@@ -25,7 +25,7 @@ class MeController extends Controller
             'email' => $user->email,
             'permissions' => $user->permissions(),
             'wellness' => [
-                'can_join' => $user->hasPermission('wellness'),
+                'can_join' => \App\Wellness\Wellness::canUse($user),
                 'joined' => (bool) $participant?->isActive(),
                 'joined_at' => $participant?->joined_at?->toIso8601String(),
                 'consent_version' => $participant?->consent_version,

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Wellness\Models\Participant;
 use App\Wellness\Models\Reading;
 use App\Wellness\Models\Rule;
+use App\Wellness\Models\Tester;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -30,6 +31,15 @@ class Wellness
         $newest = Rule::max('effective_from');
 
         return $newest ? substr((string) $newest, 0, 10) : 'none';
+    }
+
+    /**
+     * True when this person may sign up: their permission profile has
+     * Wellness, or an admin added them individually as a tester.
+     */
+    public static function canUse(User $user): bool
+    {
+        return $user->hasPermission('wellness') || Tester::where('user_id', $user->id)->exists();
     }
 
     public function participant(User $user): ?Participant
