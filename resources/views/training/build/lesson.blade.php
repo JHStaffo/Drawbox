@@ -12,6 +12,12 @@
 <div class="stack">
     <form method="post" action="{{ route('training.lessons.update', $lesson) }}" enctype="multipart/form-data" class="card" id="lesson-form">@csrf @method('put')
         <div class="field"><label for="l-title">Title</label><input id="l-title" type="text" name="title" value="{{ old('title', $lesson->title) }}" required maxlength="255"></div>
+        @if ($course->sections->isNotEmpty())
+            <div class="field"><label for="l-section">Section</label>
+                <select id="l-section" name="section_id" style="max-width:360px"><option value="">No section</option>@foreach ($course->sections as $s)<option value="{{ $s->id }}" @selected((string) old('section_id', $lesson->section_id) === (string) $s->id)>{{ $s->title }}</option>@endforeach</select>
+                <div class="hint">Moving it to another section puts it at the end of that section.</div>
+            </div>
+        @endif
 
         @if ($lesson->hasFile())
             <div class="field">

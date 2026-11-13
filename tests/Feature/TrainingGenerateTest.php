@@ -36,9 +36,9 @@ class TrainingGenerateTest extends TestCase
             'description' => 'How to lift without getting hurt.',
             'category' => 'Safety',
             'lessons' => [
-                ['title' => 'Why it matters', 'html' => '<h2>Backs</h2><p>Lift with your <strong>legs</strong>.</p><script>bad()</script>'],
-                ['title' => 'Stair chair', 'html' => '<ol><li>Lock it</li><li>Tilt back</li></ol><blockquote><strong>Safety:</strong> two people.</blockquote>'],
-                ['title' => 'Empty', 'html' => '<script>only()</script>'],
+                ['section' => 'Basics', 'title' => 'Why it matters', 'html' => '<h2>Backs</h2><p>Lift with your <strong>legs</strong>.</p><script>bad()</script>'],
+                ['section' => 'Equipment', 'title' => 'Stair chair', 'html' => '<ol><li>Lock it</li><li>Tilt back</li></ol><blockquote><strong>Safety:</strong> two people.</blockquote>'],
+                ['section' => 'Basics', 'title' => 'Empty', 'html' => '<script>only()</script>'],
             ],
             'quiz_title' => 'Lifting quiz',
             'questions' => [
@@ -59,7 +59,7 @@ class TrainingGenerateTest extends TestCase
 
         $this->actingAs($admin)->get('/training/generate')->assertOk()->assertSee('Write a course with AI');
         $this->actingAs($admin)->post('/training/generate', [
-            'topic' => 'Safe lifting', 'audience' => 'New EMTs', 'goals' => 'Lift safely', 'lessons' => 3, 'questions' => 5, 'passing_score' => 70,
+            'topic' => 'Safe lifting', 'audience' => 'New EMTs', 'sections' => 'Equipment, Basics, Unused', 'goals' => 'Lift safely', 'lessons' => 3, 'questions' => 5, 'passing_score' => 70,
             'add_source_lesson' => 1, 'source' => UploadedFile::fake()->create('Lifting SOP.pdf', 100, 'application/pdf'),
         ])->assertRedirect();
         $g = Generation::first();
@@ -78,9 +78,14 @@ class TrainingGenerateTest extends TestCase
         $course = Course::with('lessons.questions')->find($g->course_id);
         $this->assertSame('draft', $course->status);
         $this->assertSame('Safe Lifting', $course->title);
+        $this->assertSame(['Equipment', 'Basics', 'Unused'], $g->brief['sections']);
         $this->assertSame(['pdf', 'text', 'text', 'quiz'], $course->lessons->pluck('type')->all());
         $this->assertSame('Lifting SOP', $course->lessons[0]->title);
-        $this->assertSame('<h2>Backs</h2><p>Lift with your <strong>legs</strong>.</p>', $course->lessons[1]->body);
+        // Sections in the order asked for (unused ones skipped), the source PDF outside them and the quiz last in its own.
+        $this->assertSame(['Equipment', 'Basics', 'Quiz'], $course->sections()->pluck('title')->all());
+        $this->assertSame([null, 'Equipment', 'Basics', 'Quiz'], $course->lessons->map(fn ($l) => $l->section?->title)->all());
+        $this->assertSame([1, 2, 3, 4], $course->lessons->pluck('position')->all());
+        $this->assertSame('<h2>Backs</h2><p>Lift with your <strong>legs</strong>.</p>', $course->lessons[2]->body);
         $quiz = $course->lessons[3];
         $this->assertSame(70, $quiz->passing_score);
         $this->assertSame(3, $quiz->questions->count());
@@ -115,6 +120,7 @@ class TrainingGenerateTest extends TestCase
         $g->refresh();
         $this->assertSame('done', $g->status);
         $this->assertSame(['text'], $g->course->lessons->pluck('type')->all());
+        $this->assertSame(0, $g->course->sections()->count());
         $this->assertSame(0, Question::count());
 
         $this->actingAs($admin)->delete("/training/generate/{$g->id}")->assertRedirect('/training/generate');
@@ -139,6 +145,8 @@ class TrainingGenerateTest extends TestCase
         $this->assertStringContainsString('Who takes it: Drivers', $ask);
         $this->assertStringContainsString('8 questions', $ask);
         $this->assertStringContainsString('attached document', $ask);
+        $this->assertStringContainsString('Sections: your choice', $ask);
+        $this->assertStringContainsString('Sections, in this order (use these names exactly): Regulations, Risks.', ClaudeCourseWriter::ask(['topic' => 'X', 'sections' => ['Regulations', 'Risks']], false));
         $this->assertStringContainsString('Return an empty questions list', ClaudeCourseWriter::ask(['topic' => 'X', 'questions' => 0], false));
 
         // Structured outputs need every object closed and every property required.

@@ -39,9 +39,10 @@ class AuditChanges
         \App\Models\ProtocolCategory::class => ['name' => 'name', 'position' => 'order'],
         \App\Training\Models\Course::class => ['title' => 'title', 'description' => 'description', 'category' => 'category', 'status' => 'status', 'due_days' => 'days to finish'],
         \App\Training\Models\Lesson::class => [
-            'title' => 'title', 'url' => 'link', 'min_seconds' => 'minimum seconds', 'passing_score' => 'passing score',
+            'title' => 'title', 'section_id' => 'section', 'url' => 'link', 'min_seconds' => 'minimum seconds', 'passing_score' => 'passing score',
             'max_attempts' => 'attempts allowed', 'show_answers' => 'show right answers', 'shuffle' => 'shuffle questions',
         ],
+        \App\Training\Models\Section::class => ['title' => 'name'],
         \App\Training\Models\Question::class => ['type' => 'type', 'prompt' => 'question', 'choices' => 'answers', 'explanation' => 'explanation'],
         ScopeItem::class => ['name' => 'name', 'level' => 'level of care', 'note' => 'message'],
         \App\Wellness\Models\Participant::class => ['status' => 'status', 'manual_device_until' => 'typing in device data allowed until', 'exception_note' => 'exception note'],
@@ -181,6 +182,7 @@ class AuditChanges
             $model instanceof \App\Models\FormField => '"'.($model->getOriginal('label') ?? $model->label).'" on the '.($model->form?->name ?? 'form').' form',
             $model instanceof \App\Training\Models\Course => 'Course '.($model->getOriginal('title') ?? $model->title),
             $model instanceof \App\Training\Models\Lesson => 'Lesson "'.($model->getOriginal('title') ?? $model->title).'" in '.($model->course?->title ?? 'a course'),
+            $model instanceof \App\Training\Models\Section => 'Section "'.($model->getOriginal('title') ?? $model->title).'" in '.($model->course?->title ?? 'a course'),
             $model instanceof \App\Training\Models\Question => 'A question in the quiz "'.($model->lesson?->title ?? '').'"',
         };
     }
@@ -203,6 +205,7 @@ class AuditChanges
             $value === null || $value === '' => 'none',
             $field === 'permission_profile_id' => PermissionProfile::find($value)?->label() ?? "#{$value}",
             $field === 'parent_id' => PermissionProfile::find($value)?->name ?? "#{$value}",
+            $field === 'section_id' => \App\Training\Models\Section::find($value)?->title ?? "#{$value}",
             $field === 'value_cents' => money((int) $value),
             $field === 'phone' => User::formatPhone($value),
             $field === 'manual_device_until' => \Carbon\Carbon::parse($value)->format('M j, Y'),

@@ -10,37 +10,70 @@
 <div class="stack">
     <div class="card">
         <h2>Lessons</h2>
-        @if ($course->lessons->isEmpty())
+        @php($groups = $course->lessonGroups(null, true))
+        @php($n = 0)
+        @if ($course->lessons->isEmpty() && $course->sections->isEmpty())
             <p class="empty">No lessons yet. Add the first one below.</p>
         @else
-            <ol class="lesson-list">
-                @foreach ($course->lessons as $i => $l)
-                    <li>
-                        <span class="lesson-mark">{{ $i + 1 }}</span>
-                        <div class="lesson-main">
-                            <a href="{{ route('training.lessons.edit', $l) }}">{{ $l->title }}</a>
-                            <div class="hint">{{ $l->typeLabel() }} · {{ \App\Training\Estimate::label($l->est_seconds) }}@if ($l->est_basis) ({{ $l->est_basis }})@endif
-                                @if ($l->isQuiz()) · {{ $questionCounts[$l->id] ?? 0 }} {{ Str::plural('question', $questionCounts[$l->id] ?? 0) }} · pass {{ $l->passing() }}%@endif
-                                @if ($l->hasFile()) · {{ $l->file_name ?: 'no file yet' }}@endif
-                                @if ($l->min_seconds) · at least {{ \App\Training\Models\Assignment::duration($l->min_seconds) }}@endif
-                            </div>
-                        </div>
+            @foreach ($groups as $g)
+                @if ($g['section'])
+                    @php($s = $g['section'])
+                    <div class="section-head" id="s{{ $s->id }}">
+                        <form method="post" action="{{ route('training.sections.update', $s) }}" class="section-name">@csrf @method('put')
+                            <input type="text" name="title" value="{{ $s->title }}" required maxlength="255" aria-label="Section name">
+                            <button class="btn btn-small btn-outline" type="submit">Rename</button>
+                        </form>
+                        <span class="hint">{{ $g['lessons']->count() }} {{ Str::plural('lesson', $g['lessons']->count()) }} · {{ \App\Training\Estimate::label((int) $g['lessons']->sum('est_seconds')) }}</span>
                         <div class="row-actions">
-                            <a class="btn btn-small btn-outline" href="{{ route('training.lessons.preview', $l) }}">Preview</a>
-                            <form method="post" action="{{ route('training.lessons.move', $l) }}">@csrf<input type="hidden" name="direction" value="up"><button class="btn btn-small btn-outline" type="submit" @disabled($i === 0) aria-label="Move up">↑</button></form>
-                            <form method="post" action="{{ route('training.lessons.move', $l) }}">@csrf<input type="hidden" name="direction" value="down"><button class="btn btn-small btn-outline" type="submit" @disabled($i === $course->lessons->count() - 1) aria-label="Move down">↓</button></form>
+                            <form method="post" action="{{ route('training.sections.move', $s) }}">@csrf<input type="hidden" name="direction" value="up"><button class="btn btn-small btn-outline" type="submit" @disabled($s->position <= 1) aria-label="Move section up">↑</button></form>
+                            <form method="post" action="{{ route('training.sections.move', $s) }}">@csrf<input type="hidden" name="direction" value="down"><button class="btn btn-small btn-outline" type="submit" @disabled($s->position >= $course->sections->count()) aria-label="Move section down">↓</button></form>
+                            <form method="post" action="{{ route('training.sections.destroy', $s) }}" onsubmit="return confirm('Remove the section {{ addslashes($s->title) }}? Its lessons stay in the course.')">@csrf @method('delete')<button class="btn btn-small btn-outline" type="submit">Remove</button></form>
                         </div>
-                    </li>
-                @endforeach
-            </ol>
-            <p class="hint">Expected time is worked out from each lesson's content: 200 words a minute, 2 minutes a PDF page, 1 minute a slide, a video's running time plus 10%, 5 minutes a link, 45 to 75 seconds a quiz question. A minimum time, when longer, wins.</p>
+                    </div>
+                @endif
+                @if ($g['lessons']->isEmpty())
+                    <p class="hint section-empty">No lessons in this section yet.</p>
+                @else
+                <ol class="lesson-list" start="{{ $n + 1 }}">
+                    @foreach ($g['lessons'] as $j => $l)
+                        @php($n++)
+                        <li>
+                            <span class="lesson-mark">{{ $n }}</span>
+                            <div class="lesson-main">
+                                <a href="{{ route('training.lessons.edit', $l) }}">{{ $l->title }}</a>
+                                <div class="hint">{{ $l->typeLabel() }} · {{ \App\Training\Estimate::label($l->est_seconds) }}@if ($l->est_basis) ({{ $l->est_basis }})@endif
+                                    @if ($l->isQuiz()) · {{ $questionCounts[$l->id] ?? 0 }} {{ Str::plural('question', $questionCounts[$l->id] ?? 0) }} · pass {{ $l->passing() }}%@endif
+                                    @if ($l->hasFile()) · {{ $l->file_name ?: 'no file yet' }}@endif
+                                    @if ($l->min_seconds) · at least {{ \App\Training\Models\Assignment::duration($l->min_seconds) }}@endif
+                                </div>
+                            </div>
+                            <div class="row-actions">
+                                <a class="btn btn-small btn-outline" href="{{ route('training.lessons.preview', $l) }}">Preview</a>
+                                <form method="post" action="{{ route('training.lessons.move', $l) }}">@csrf<input type="hidden" name="direction" value="up"><button class="btn btn-small btn-outline" type="submit" @disabled($j === 0) aria-label="Move up">↑</button></form>
+                                <form method="post" action="{{ route('training.lessons.move', $l) }}">@csrf<input type="hidden" name="direction" value="down"><button class="btn btn-small btn-outline" type="submit" @disabled($j === $g['lessons']->count() - 1) aria-label="Move down">↓</button></form>
+                            </div>
+                        </li>
+                    @endforeach
+                </ol>
+                @endif
+            @endforeach
+            <p class="hint">Expected time is worked out from each lesson's content: 200 words a minute, 2 minutes a PDF page, 1 minute a slide, a video's running time plus 10%, 5 minutes a link, 45 to 75 seconds a quiz question. A minimum time, when longer, wins. To move a lesson to another section, pick the section on its edit page.</p>
         @endif
         <form method="post" action="{{ route('training.lessons.store', $course) }}" class="field-row mt" style="align-items:end">@csrf
             <div class="field"><label for="lesson-type">Add a lesson</label>
                 <select id="lesson-type" name="type">@foreach (\App\Training\Models\Lesson::TYPES as $k => $label)<option value="{{ $k }}">{{ $label }}</option>@endforeach</select>
             </div>
-            <div class="field" style="grid-column: span 2"><label for="lesson-title">Title</label><input id="lesson-title" type="text" name="title" required maxlength="255" placeholder="Section 1: Our mission"></div>
+            <div class="field" style="grid-column: span 2"><label for="lesson-title">Title</label><input id="lesson-title" type="text" name="title" required maxlength="255" placeholder="Our mission"></div>
+            @if ($course->sections->isNotEmpty())
+                <div class="field"><label for="lesson-section">Section</label>
+                    <select id="lesson-section" name="section_id"><option value="">No section</option>@foreach ($course->sections as $s)<option value="{{ $s->id }}" @selected($loop->last)>{{ $s->title }}</option>@endforeach</select>
+                </div>
+            @endif
             <div class="field"><button class="btn" type="submit">Add</button></div>
+        </form>
+        <form method="post" action="{{ route('training.sections.store', $course) }}" class="field-row mt" style="align-items:end">@csrf
+            <div class="field" style="grid-column: span 3"><label for="section-title">Add a section</label><input id="section-title" type="text" name="title" required maxlength="255" placeholder="Regulations, Policies, Procedures, Risks"><div class="hint">Sections group the lessons under headings. They're optional.</div></div>
+            <div class="field"><button class="btn btn-outline" type="submit">Add section</button></div>
         </form>
     </div>
 

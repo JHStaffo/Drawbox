@@ -447,6 +447,13 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .lesson-list li { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--line); }
 .lesson-list li:last-child { border-bottom: 0; }
 .lesson-list .lesson-mark { flex: 0 0 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line); display: inline-flex; align-items: center; justify-content: center; font-size: .85rem; color: var(--muted); }
+.section-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 18px 0 2px; padding: 10px 12px; background: #f2f6fb; border-left: 4px solid var(--blue); border-radius: 8px; }
+.section-head .section-name { display: flex; gap: 6px; align-items: center; flex: 1 1 260px; margin: 0; }
+.section-head .section-name input { font-weight: 600; flex: 1; min-width: 0; }
+.section-head .row-actions { margin-left: auto; }
+.section-title { margin: 18px 0 2px; padding: 8px 12px; background: #f2f6fb; border-left: 4px solid var(--blue); border-radius: 8px; font-weight: 700; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.section-title .hint { font-weight: 400; }
+.section-empty { padding: 8px 4px 0; }
 .lesson-list .lesson-mark-done { background: var(--green); border-color: var(--green); color: #fff; }
 .lesson-list .lesson-main { flex: 1; min-width: 0; }
 .lesson-nav { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: center; }

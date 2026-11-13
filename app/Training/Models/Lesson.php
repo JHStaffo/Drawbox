@@ -49,12 +49,17 @@ class Lesson extends Model
 
     protected function casts(): array
     {
-        return ['est_seconds' => 'integer', 'show_answers' => 'boolean', 'shuffle' => 'boolean', 'min_seconds' => 'integer', 'passing_score' => 'integer', 'max_attempts' => 'integer'];
+        return ['est_seconds' => 'integer', 'position' => 'integer', 'section_id' => 'integer', 'show_answers' => 'boolean', 'shuffle' => 'boolean', 'min_seconds' => 'integer', 'passing_score' => 'integer', 'max_attempts' => 'integer'];
     }
 
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(Section::class);
     }
 
     public function questions(): HasMany
