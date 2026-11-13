@@ -23,6 +23,7 @@ class ImportController extends Controller
         return view('protocols.manage.imports', [
             'imports' => ProtocolImport::with('uploader')->latest('id')->limit(50)->get(),
             'ready' => $importer->ready(),
+            'serverLimit' => self::serverLimitMb(),
         ]);
     }
 
@@ -39,6 +40,7 @@ class ImportController extends Controller
             'files.max' => 'Upload up to 10 photos at a time.',
             'files.*.mimetypes' => 'Upload a PDF, JPG, PNG or WebP. iPhone HEIC photos need to be saved as JPG first.',
             'files.*.max' => 'Each file can be up to 20 MB.',
+            'files.*.uploaded' => 'The server turned the file down because it is bigger than its upload limit ('.self::serverLimitMb().' MB). Raise upload_max_filesize and post_max_size in cPanel > MultiPHP INI Editor.',
         ]);
         /** @var list<UploadedFile> $uploads */
         $uploads = $request->file('files');
@@ -120,5 +122,20 @@ class ImportController extends Controller
         }
 
         return [$newPath, 'image/jpeg'];
+    }
+
+    /** The smaller of PHP's upload and post limits, in MB. */
+    public static function serverLimitMb(): float
+    {
+        $bytes = function (string $v): float {
+            $n = (float) $v;
+
+            return match (strtolower(substr(trim($v), -1))) {
+                'g' => $n * 1024 ** 3, 'm' => $n * 1024 ** 2, 'k' => $n * 1024, default => $n,
+            };
+        };
+        $limits = array_filter([$bytes((string) ini_get('upload_max_filesize')), $bytes((string) ini_get('post_max_size'))]);
+
+        return $limits ? round(min($limits) / 1024 ** 2, 1) : 0;
     }
 }

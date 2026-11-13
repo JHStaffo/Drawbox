@@ -95,6 +95,7 @@ class AuditLog extends Model
         'protocols.manage.submit' => 'Sent a protocol for approval',
         'protocols.manage.withdraw' => 'Took a protocol back from approval',
         'protocols.manage.discard' => 'Deleted a protocol draft',
+        'protocols.manage.recategorize' => 'Moved protocols to another category',
         'protocols.categories.store' => 'Added a protocol category',
         'protocols.categories.update' => 'Changed a protocol category',
         'protocols.categories.destroy' => 'Deleted a protocol category',

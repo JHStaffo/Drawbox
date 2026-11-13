@@ -153,6 +153,72 @@ class BuildController extends Controller
         return back()->with('status', "Deleted the draft of {$title}.");
     }
 
+    /**
+     * Moves several protocols to one category. Drafts change in place; an
+     * approved protocol gets a new draft with the new category, since the
+     * approved version is never edited. Protocols waiting for approval are
+     * left alone so the Medical Director signs what they reviewed.
+     */
+    public function recategorize(Request $request)
+    {
+        $data = $request->validate([
+            'protocols' => 'required|array|min:1',
+            'protocols.*' => 'integer',
+            'protocol_category_id' => ['required', Rule::when(fn ($input) => $input->protocol_category_id !== 'none', 'exists:protocol_categories,id')],
+        ], ['protocols.required' => 'Tick at least one protocol to move.', 'protocol_category_id.required' => 'Pick the category to move them to.']);
+        $category = $data['protocol_category_id'] === 'none' ? null : ProtocolCategory::find($data['protocol_category_id']);
+        $to = $category?->name ?? 'no category';
+
+        $moved = $started = $skipped = [];
+        foreach (Protocol::with(['approved', 'latest'])->whereIn('id', $data['protocols'])->get() as $protocol) {
+            $open = $protocol->openVersion();
+            $current = $open ?? $protocol->approved ?? $protocol->latest;
+            if (! $current || $current->protocol_category_id === $category?->id) {
+                continue;
+            }
+            $from = $current->category_name ?? 'no category';
+            $fields = ['protocol_category_id' => $category?->id, 'category_name' => $category?->name];
+            if ($open?->isEditable()) {
+                $open->fill($fields);
+                $open->search_text = $open->buildSearchText();
+                $open->updated_by = $request->user()->id;
+                $open->save();
+                $moved[] = "{$open->fullTitle()} (version {$open->version} draft) from {$from} to {$to}";
+            } elseif ($open) {
+                $skipped[] = $open->fullTitle();
+            } elseif ($protocol->retired_at) {
+                $skipped[] = $current->fullTitle();
+            } else {
+                $version = $protocol->versions()->create([
+                    ...$current->only(['number', 'title', 'ages', 'chart', 'sections', 'revised_label']),
+                    ...$fields,
+                    'version' => $protocol->versions()->max('version') + 1,
+                    'status' => 'draft',
+                    'created_by' => $request->user()->id,
+                    'updated_by' => $request->user()->id,
+                ]);
+                $version->update(['search_text' => $version->buildSearchText()]);
+                $started[] = "{$version->fullTitle()} (new version {$version->version} draft from approved version {$current->version}) from {$from} to {$to}";
+            }
+        }
+        if (! $moved && ! $started) {
+            return back()->with('error', $skipped
+                ? 'Nothing was moved. '.implode(', ', $skipped).' '.(count($skipped) === 1 ? 'is' : 'are').' waiting for approval or retired.'
+                : "Those protocols are already in {$to}.");
+        }
+        audit_note('Moved '.(count($moved) + count($started))." protocol(s) to {$to}: ".implode('; ', [...$moved, ...$started]).'.'
+            .($skipped ? ' Left alone (waiting for approval or retired): '.implode(', ', $skipped).'.' : ''));
+
+        $message = collect([
+            $moved ? 'Moved '.count($moved).' '.str('draft')->plural(count($moved))." to {$to}." : null,
+            $started ? 'Started a new version of '.count($started).' approved '.str('protocol')->plural(count($started))." in {$to}. The book keeps the old category until the Medical Director approves "
+                .(count($started) === 1 ? 'it' : 'them').'; send '.(count($started) === 1 ? 'it' : 'them').' for approval when ready.' : null,
+            $skipped ? 'Left '.implode(', ', $skipped).' alone (waiting for approval or retired).' : null,
+        ])->filter()->implode(' ');
+
+        return back()->with('status', $message);
+    }
+
     public function storeCategory(Request $request)
     {
         $data = $request->validate(['name' => 'required|string|max:60|unique:protocol_categories,name']);

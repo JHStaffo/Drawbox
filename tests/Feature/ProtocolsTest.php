@@ -365,4 +365,45 @@ class ProtocolsTest extends TestCase
         $this->actingAs($md)->post('/protocols/approvals/batch', ['versions' => [1], 'signature' => 'Dr. Morgan', 'confirm' => 1])
             ->assertSessionHas('error');
     }
+
+    public function test_builders_move_several_protocols_to_another_category(): void
+    {
+        $builder = $this->builder();
+        $md = $this->medicalDirector();
+        $respiratory = ProtocolCategory::where('name', 'Respiratory')->first();
+        foreach (['Cardiac Arrest', 'ROSC', 'Stroke', 'Old'] as $title) {
+            $this->actingAs($builder)->post('/protocols/manage', $this->payload(['title' => $title]));
+        }
+        // ROSC (2) is approved, Stroke (3) is waiting, Old (4) is approved and retired.
+        foreach ([2, 3, 4] as $id) {
+            $this->actingAs($builder)->post("/protocols/manage/$id/submit");
+        }
+        $this->actingAs($md)->post('/protocols/approvals/batch', ['versions' => [2, 4], 'signature' => 'Dr. Morgan', 'confirm' => 1]);
+        $this->actingAs($md)->post('/protocols/4/retire');
+
+        $this->actingAs($builder)->get('/protocols/manage')->assertSee('Move to category');
+        $this->actingAs($builder)->post('/protocols/manage/recategorize', ['protocol_category_id' => $respiratory->id])->assertSessionHasErrors('protocols');
+        $this->actingAs($builder)->post('/protocols/manage/recategorize', ['protocols' => [1]])->assertSessionHasErrors('protocol_category_id');
+        $this->actingAs($builder)->post('/protocols/manage/recategorize', ['protocols' => [1], 'protocol_category_id' => 999])->assertSessionHasErrors('protocol_category_id');
+        $this->actingAs($builder)->post('/protocols/manage/recategorize', ['protocols' => [1, 2, 3, 4], 'protocol_category_id' => $respiratory->id])
+            ->assertSessionHas('status', 'Moved 1 draft to Respiratory. Started a new version of 1 approved protocol in Respiratory. The book keeps the old category until the Medical Director approves it; send it for approval when ready. Left 4.1 Stroke, 4.1 Old alone (waiting for approval or retired).');
+
+        $this->assertSame('Respiratory', ProtocolVersion::find(1)->category_name);
+        $this->assertStringContainsString('Respiratory', ProtocolVersion::find(1)->search_text);
+        $this->assertSame('Cardiac Arrest', ProtocolVersion::find(2)->category_name, 'the approved version is never edited');
+        $new = Protocol::find(2)->openVersion();
+        $this->assertSame(2, $new->version);
+        $this->assertSame('draft', $new->status);
+        $this->assertSame($respiratory->id, $new->protocol_category_id);
+        $this->assertSame(ProtocolVersion::find(2)->chart, $new->chart);
+        $this->assertSame('Cardiac Arrest', ProtocolVersion::find(3)->category_name);
+        $this->assertStringContainsString('Moved 2 protocol(s) to Respiratory: 4.1 Cardiac Arrest (version 1 draft) from Cardiac Arrest to Respiratory', AuditLog::latest('id')->first()->description);
+
+        $this->actingAs($builder)->post('/protocols/manage/recategorize', ['protocols' => [1], 'protocol_category_id' => 'none'])
+            ->assertSessionHas('status', 'Moved 1 draft to no category.');
+        $this->assertNull(ProtocolVersion::find(1)->category_name);
+        $this->actingAs($builder)->post('/protocols/manage/recategorize', ['protocols' => [1], 'protocol_category_id' => 'none'])
+            ->assertSessionHas('error', 'Those protocols are already in no category.');
+        $this->actingAs($this->teamMember())->post('/protocols/manage/recategorize', ['protocols' => [1]])->assertForbidden();
+    }
 }

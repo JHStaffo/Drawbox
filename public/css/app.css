@@ -430,3 +430,5 @@ label.locker:has(input:disabled) { cursor: not-allowed; opacity: .75; }
 .review-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
 .review-head h2 { margin-bottom: .2em; }
 .batch-approve { border-top: 1px solid #e3e7ec; padding-top: 14px; max-width: 560px; }
+.bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.bulk-bar select { width: auto; min-width: 200px; }
