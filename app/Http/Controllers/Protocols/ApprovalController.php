@@ -41,23 +41,54 @@ class ApprovalController extends Controller
             return back()->with('error', 'That version isn\'t waiting for approval.');
         }
 
+        audit_note('Approved '.$this->sign($version, $request->user()->id, trim($data['signature'])).'.');
+
+        return redirect()->route('protocols.approvals')->with('status', "Approved {$version->title}. Team Members can see it now.");
+    }
+
+    /** Approves several waiting protocols with one signature. */
+    public function approveMany(Request $request)
+    {
+        $data = $request->validate([
+            'versions' => 'required|array|min:1',
+            'versions.*' => 'integer',
+            'signature' => 'required|string|max:120',
+            'confirm' => 'accepted',
+        ], [
+            'versions.required' => 'Tick at least one protocol to approve.',
+            'signature.required' => 'Type your name to sign.',
+            'confirm.accepted' => 'Check the box to confirm you reviewed every protocol you ticked.',
+        ]);
+        $versions = ProtocolVersion::with('protocol.approved')->whereIn('id', $data['versions'])->where('status', 'submitted')->orderBy('submitted_at')->get();
+        if ($versions->isEmpty()) {
+            return back()->with('error', 'None of those are waiting for approval any more.');
+        }
+        $signature = trim($data['signature']);
+        $lines = DB::transaction(fn () => $versions->map(fn (ProtocolVersion $v) => $this->sign($v, $request->user()->id, $signature))->all());
+        audit_note('Approved '.count($lines).' protocol(s) at once, signed "'.$signature.'": '.implode('; ', $lines).'.');
+
+        return redirect()->route('protocols.approvals')->with('status', 'Approved '.$versions->count().' '.str('protocol')->plural($versions->count()).'. Team Members can see them now.');
+    }
+
+    /** Puts a waiting version in the book. Returns what changed, for the audit log. */
+    private function sign(ProtocolVersion $version, int $userId, string $signature): string
+    {
         $protocol = $version->protocol;
         $previous = $protocol->approved;
-        DB::transaction(function () use ($version, $protocol, $previous, $data, $request) {
+        DB::transaction(function () use ($version, $protocol, $previous, $userId, $signature) {
             $previous?->update(['status' => 'superseded']);
             $version->update([
                 'status' => 'approved',
-                'reviewed_by' => $request->user()->id,
+                'reviewed_by' => $userId,
                 'reviewed_at' => now(),
-                'signature' => trim($data['signature']),
+                'signature' => $signature,
                 'review_note' => null,
             ]);
             $protocol->update(['approved_version_id' => $version->id]);
         });
-        audit_note("Approved {$version->fullTitle()} version {$version->version}, signed \"{$version->signature}\". In the book from "
-            .($previous ? "version {$previous->version}" : 'not in the book').' to version '.$version->version.'.');
 
-        return redirect()->route('protocols.approvals')->with('status', "Approved {$version->title}. Team Members can see it now.");
+        return "{$version->fullTitle()} version {$version->version}, signed \"{$signature}\". In the book from "
+            .($previous ? "version {$previous->version}" : 'not in the book').' to version '.$version->version;
     }
 
     public function sendBack(Request $request, ProtocolVersion $version)

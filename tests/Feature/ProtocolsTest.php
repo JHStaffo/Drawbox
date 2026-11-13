@@ -9,6 +9,7 @@ use App\Models\ProtocolCategory;
 use App\Models\ProtocolVersion;
 use App\Models\User;
 use App\Support\ProtocolChart;
+use App\Support\ProtocolLinks;
 use Database\Seeders\ProtocolSampleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -55,7 +56,7 @@ class ProtocolsTest extends TestCase
             'chart' => json_encode(['nodes' => [
                 ['id' => 'n1', 'type' => 'decision', 'text' => 'Pulse?', 'badges' => []],
                 ['id' => 'n2', 'type' => 'action', 'text' => "**High Quality CPR**\nas soon as possible", 'badges' => []],
-                ['id' => 'n3', 'type' => 'step', 'text' => "**Epinephrine** 1 mg IV/IO", 'badges' => ['peds', 'P', 'A', 'bogus']],
+                ['id' => 'n3', 'type' => 'step', 'text' => '**Epinephrine** 1 mg IV/IO', 'badges' => ['peds', 'P', 'A', 'bogus']],
             ], 'edges' => [
                 ['from' => 'n1', 'to' => 'n2', 'label' => 'NO', 'style' => 'one'],
                 ['from' => 'n2', 'to' => 'n3', 'label' => 'If no response in 30 sec', 'style' => 'both'],
@@ -197,7 +198,7 @@ class ProtocolsTest extends TestCase
         $arrest = ProtocolVersion::find(2);
         $this->assertSame(1, $arrest->boxes()[0]['link']);
 
-        $source = fn () => ProtocolChart::mermaid($arrest->chart, \App\Support\ProtocolLinks::forBook());
+        $source = fn () => ProtocolChart::mermaid($arrest->chart, ProtocolLinks::forBook());
         $this->assertStringNotContainsString('href', $source(), 'ROSC is not approved yet');
         $this->actingAs($builder)->post('/protocols/manage/1/submit');
         $this->actingAs($md)->post('/protocols/approvals/1/approve', ['signature' => 'Dr. Morgan', 'confirm' => 1]);
@@ -326,5 +327,42 @@ class ProtocolsTest extends TestCase
         $this->assertCount(28, $v->boxes());
         $this->assertSame($v->chart, ProtocolChart::clean($v->chart), 'The sample is valid builder data');
         $this->actingAs($builder)->get('/protocols/manage/1')->assertOk()->assertSee('Send for approval');
+    }
+
+    public function test_medical_director_approves_several_at_once(): void
+    {
+        $builder = $this->builder();
+        $md = $this->medicalDirector();
+        foreach (['Cardiac Arrest', 'ROSC', 'Stroke'] as $i => $title) {
+            $this->actingAs($builder)->post('/protocols/manage', $this->payload(['title' => $title, 'number' => null]));
+            $this->actingAs($builder)->post('/protocols/manage/'.($i + 1).'/submit');
+        }
+        // ROSC is already in the book, so its new version replaces version 1.
+        $this->actingAs($md)->post('/protocols/approvals/2/approve', ['signature' => 'Dr. Morgan', 'confirm' => 1]);
+        $this->actingAs($builder)->post('/protocols/manage/2/revise');
+        $this->actingAs($builder)->post('/protocols/manage/2/submit');
+
+        $this->actingAs($md)->get('/protocols/approvals')->assertOk()->assertSee('Approve selected')->assertSee('select-all');
+        $this->actingAs($builder)->post('/protocols/approvals/batch', ['versions' => [1], 'signature' => 'x', 'confirm' => 1])->assertForbidden();
+        $this->actingAs($md)->post('/protocols/approvals/batch', ['versions' => [1, 4], 'signature' => 'Dr. Morgan'])->assertSessionHasErrors('confirm');
+        $this->actingAs($md)->post('/protocols/approvals/batch', ['signature' => 'Dr. Morgan', 'confirm' => 1])->assertSessionHasErrors('versions');
+        $this->assertSame('submitted', ProtocolVersion::find(1)->status);
+
+        // Stroke (3) is left for later; version 2 is no longer waiting and is ignored.
+        $this->actingAs($md)->post('/protocols/approvals/batch', ['versions' => [1, 4, 2], 'signature' => 'Dr. Morgan', 'confirm' => 1])
+            ->assertRedirect('/protocols/approvals')->assertSessionHas('status', 'Approved 2 protocols. Team Members can see them now.');
+
+        $this->assertSame('approved', ProtocolVersion::find(1)->status);
+        $this->assertSame('Dr. Morgan', ProtocolVersion::find(1)->signature);
+        $this->assertSame($md->id, ProtocolVersion::find(4)->reviewed_by);
+        $this->assertSame('superseded', ProtocolVersion::find(2)->status);
+        $this->assertSame(4, Protocol::find(2)->approved_version_id);
+        $this->assertSame('submitted', ProtocolVersion::find(3)->status);
+        $log = AuditLog::where('action', 'protocols.approvals.batch')->latest('id')->first()->description;
+        $this->assertStringContainsString('Approved 2 protocol(s) at once, signed "Dr. Morgan"', $log);
+        $this->assertStringContainsString('ROSC version 2, signed "Dr. Morgan". In the book from version 1 to version 2', $log);
+
+        $this->actingAs($md)->post('/protocols/approvals/batch', ['versions' => [1], 'signature' => 'Dr. Morgan', 'confirm' => 1])
+            ->assertSessionHas('error');
     }
 }
