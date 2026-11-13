@@ -10,6 +10,7 @@ use App\Training\Models\Question;
 use App\Training\Models\Section;
 use App\Training\RichText;
 use App\Training\Training;
+use App\Training\Versions;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -44,9 +45,15 @@ class BuildController extends Controller
 
     public function edit(Course $course)
     {
+        $course->load('workLessons', 'sections');
+        $working = $course->workLessons->map(fn ($l) => $l->working());
+
         return view('training.build.course', [
-            'course' => $course->load('lessons', 'sections'),
-            'questionCounts' => Question::whereIn('lesson_id', $course->lessons->pluck('id'))->selectRaw('lesson_id, COUNT(*) as n')->groupBy('lesson_id')->pluck('n', 'lesson_id'),
+            'course' => $course,
+            'working' => $working,
+            'pending' => $course->pendingChanges(),
+            'latest' => $course->versions()->with('publisher')->first(),
+            'questionCounts' => Question::whereIn('lesson_id', $working->pluck('id'))->selectRaw('lesson_id, COUNT(*) as n')->groupBy('lesson_id')->pluck('n', 'lesson_id'),
             'categories' => Course::whereNotNull('category')->distinct()->orderBy('category')->pluck('category'),
             'assigned' => Assignment::current()->where('course_id', $course->id)->count(),
         ]);
@@ -55,14 +62,17 @@ class BuildController extends Controller
     public function update(Request $request, Course $course)
     {
         $data = $this->validatedCourse($request) + $request->validate(['status' => ['required', Rule::in(array_keys(Course::STATUSES))]]);
-        if ($data['status'] === 'published' && $course->lessons()->count() === 0) {
-            return back()->withInput()->with('error', 'Add at least one lesson before publishing.');
-        }
-        $empty = $course->lessons()->where('type', 'quiz')->whereDoesntHave('questions')->pluck('title');
-        if ($data['status'] === 'published' && $empty->isNotEmpty()) {
-            return back()->withInput()->with('error', 'Add questions to '.$empty->implode(', ').' before publishing.');
+        $first = $data['status'] === 'published' && ! $course->isVersioned();
+        if ($first && ($why = $this->cantPublish($course))) {
+            return back()->withInput()->with('error', $why);
         }
         $course->update($data + ['updated_by' => $request->user()->id]);
+        if ($first) {
+            app(Versions::class)->publish($course, $request->user());
+            audit_note("Published {$course->title} for the first time (version 1).");
+
+            return back()->with('status', "Published {$course->title}. From now on, edits wait as unpublished changes until you publish them.");
+        }
 
         return back()->with('status', "Saved {$course->title}.");
     }
@@ -72,11 +82,10 @@ class BuildController extends Controller
         if ($course->assignments()->exists()) {
             return back()->with('error', "{$course->title} has been assigned, so its records stay. Set it to Archived instead.");
         }
-        foreach ($course->lessons as $lesson) {
-            $this->deleteFile($lesson->file_path);
-        }
+        $paths = $course->allLessons()->pluck('file_path');
         $title = $course->title;
         $course->delete();
+        $paths->each(fn ($p) => Versions::dropFile($p));
         audit_note("Deleted the course {$title}.");
 
         return redirect()->route('training.courses')->with('status', "Deleted {$title}.");
@@ -92,20 +101,27 @@ class BuildController extends Controller
         // Goes at the end of its section; renumber() puts it in place.
         $lesson = $course->lessons()->create($data + [
             'position' => 1000000,
+            'pending_add' => $course->isVersioned(),
             'passing_score' => $data['type'] === 'quiz' ? Lesson::DEFAULT_PASSING : null,
         ]);
         $course->renumber();
         $course->update(['updated_by' => $request->user()->id]);
         $training->refreshCourse($course);
-        audit_note("Added the {$lesson->typeLabel()} lesson \"{$lesson->title}\" to {$course->title}".($lesson->section ? " (section {$lesson->section->title})" : '').'.');
+        audit_note("Added the {$lesson->typeLabel()} lesson \"{$lesson->title}\" to {$course->title}".($lesson->section ? " (section {$lesson->section->title})" : '').($lesson->pending_add ? ', not published yet' : '').'.');
 
-        return redirect()->route('training.lessons.edit', $lesson)->with('status', 'Lesson added. Fill it in and Save.');
+        return redirect()->route('training.lessons.edit', $lesson)->with('status', 'Lesson added. Fill it in and Save.'.($lesson->pending_add ? ' Team Members see it once the course\'s changes are published.' : ''));
     }
 
     public function editLesson(Lesson $lesson)
     {
+        // A published lesson with a pending edit opens the edit.
+        if (! $lesson->draft_of && $lesson->draft) {
+            return redirect()->route('training.lessons.edit', $lesson->draft);
+        }
+        $lesson->load('course.sections', 'course.workLessons', 'questions');
+
         return view('training.build.lesson', [
-            'lesson' => $lesson->load('course.sections', 'course.lessons', 'questions'),
+            'lesson' => $lesson,
             'course' => $lesson->course,
             'serverLimitMb' => self::serverLimitMb(),
         ]);
@@ -134,6 +150,16 @@ class BuildController extends Controller
             'upload.uploaded' => 'That file is bigger than the server\'s upload limit ('.self::serverLimitMb().' MB).',
             'upload.max' => 'Files can be up to 1 GB.',
         ]);
+
+        // Sections and order apply straight away (to the published lesson); content goes onto the pending edit.
+        $base = $lesson->base();
+        $sectionId = isset($data['section_id']) ? (int) $data['section_id'] : null;
+        $moved = $request->has('section_id') && $sectionId !== $base->section_id;
+        if ($moved) {
+            $base->update(['section_id' => $sectionId, 'position' => 1000000]);
+            $base->course->renumber();
+        }
+        $lesson = app(Versions::class)->draftFor($base);
 
         $update = [
             'title' => $data['title'],
@@ -164,17 +190,11 @@ class BuildController extends Controller
                 'file_mime' => self::mimeFor($file),
                 'file_size' => $file->getSize(),
             ];
-            $this->deleteFile($old);
-        }
-        $sectionId = isset($data['section_id']) ? (int) $data['section_id'] : null;
-        $moved = $request->has('section_id') && $sectionId !== $lesson->section_id;
-        if ($moved) {
-            $update += ['section_id' => $sectionId, 'position' => 1000000];
         }
         $bodyChanged = ($lesson->body ?? null) !== ($update['body'] ?? null);
         $lesson->update($update);
-        if ($moved) {
-            $lesson->course->renumber();
+        if (isset($old)) {
+            Versions::dropFile($old);
         }
         $lesson->course->update(['updated_by' => $request->user()->id]);
         $notes = [];
@@ -184,30 +204,100 @@ class BuildController extends Controller
         if ($bodyChanged) {
             $notes[] = 'page text edited ('.Str::limit(RichText::text($update['body']), 80).')';
         }
-        audit_note("Saved the lesson \"{$lesson->title}\" in {$lesson->course->title}".($notes ? ': '.implode('; ', $notes) : '').'.');
+        $pending = $lesson->draft_of || $lesson->pending_add;
+        audit_note("Saved the lesson \"{$lesson->title}\" in {$lesson->course->title}".($notes ? ': '.implode('; ', $notes) : '').($pending ? ' (unpublished change)' : '').'.');
 
-        return back()->with('status', "Saved {$lesson->title}.");
+        return redirect()->route('training.lessons.edit', $lesson)->with('status', "Saved {$lesson->title}.".($pending ? ' Team Members see it once the course\'s changes are published.' : ''));
     }
 
     public function destroyLesson(Request $request, Lesson $lesson, Training $training)
     {
         $course = $lesson->course;
-        if ($course->isPublished() && $course->lessons()->count() === 1) {
-            return back()->with('error', 'A published course needs at least one lesson. Add another first, or set the course to Draft.');
-        }
-        $this->deleteFile($lesson->file_path);
         $title = $lesson->title;
+        if ($lesson->draft_of) {
+            $live = $lesson->live;
+            app(Versions::class)->discard($lesson);
+            audit_note("Threw away the unpublished changes to the lesson \"{$live->title}\" in {$course->title}.");
+
+            return redirect()->route('training.lessons.edit', $live)->with('status', "Threw away the changes. {$live->title} is back to its published version.");
+        }
+        if ($course->isVersioned() && ! $lesson->pending_add) {
+            $lesson->draft && app(Versions::class)->discard($lesson->draft);
+            $lesson->update(['pending_remove' => true]);
+            audit_note("Set the lesson \"{$title}\" to be removed from {$course->title} when its changes are published.");
+
+            return redirect()->route('training.courses.edit', $course)->with('status', "{$title} will be removed when you publish the changes. Team Members still see it until then.");
+        }
+        $path = $lesson->file_path;
         $lesson->delete();
+        Versions::dropFile($path);
+        $course->renumber();
         $training->refreshCourse($course);
         audit_note("Removed the lesson \"{$title}\" from {$course->title}.");
 
         return redirect()->route('training.courses.edit', $course)->with('status', "Removed {$title}.");
     }
 
+    /** Undo "remove" on a published lesson before the changes are published. */
+    public function keepLesson(Lesson $lesson)
+    {
+        $lesson->update(['pending_remove' => false]);
+        audit_note("Kept the lesson \"{$lesson->title}\" in {$lesson->course->title} (no longer set to be removed).");
+
+        return back()->with('status', "Keeping {$lesson->title}.");
+    }
+
+    /** Publish the course's pending changes as its next version. */
+    public function publishChanges(Request $request, Course $course)
+    {
+        $note = $request->validate(['note' => 'nullable|string|max:2000'])['note'] ?? null;
+        if (! $course->isVersioned()) {
+            return back()->with('error', 'Set the course to Published first.');
+        }
+        if (! $course->pendingChanges()) {
+            return back()->with('error', 'There are no unpublished changes.');
+        }
+        if ($why = $this->cantPublish($course)) {
+            return back()->with('error', $why);
+        }
+        $version = app(Versions::class)->publish($course, $request->user(), $note);
+        $course->update(['updated_by' => $request->user()->id]);
+        audit_note("Published version {$version->number} of {$course->title}: {$version->summary()}.".($note ? ' Note: '.rtrim($note, '. ').'.' : ''));
+
+        return back()->with('status', "Published version {$version->number}. Team Members see it now.");
+    }
+
+    /** Version history, and who has looked at each version since. */
+    public function versions(Course $course)
+    {
+        $views = \App\Training\Models\VersionView::with('user')->where('course_id', $course->id)->get()->groupBy('version');
+        $finished = Assignment::current()->where('course_id', $course->id)->whereNotNull('completed_at')->with('user')->get();
+
+        return view('training.build.versions', [
+            'course' => $course,
+            'versions' => $course->versions()->with('publisher')->get(),
+            'views' => $views,
+            'finished' => $finished,
+        ]);
+    }
+
+    /** Why the working copy can't be published, or null. */
+    private function cantPublish(Course $course): ?string
+    {
+        $working = $course->workLessons()->get()->reject(fn ($l) => $l->pending_remove)->map(fn ($l) => $l->working());
+        if ($working->isEmpty()) {
+            return 'Add at least one lesson before publishing.';
+        }
+        $empty = $working->filter(fn ($l) => $l->isQuiz() && ! $l->questions()->exists())->pluck('title');
+
+        return $empty->isNotEmpty() ? 'Add questions to '.$empty->implode(', ').' before publishing.' : null;
+    }
+
     public function moveLesson(Request $request, Lesson $lesson)
     {
         $up = $request->input('direction') === 'up';
-        $this->move($lesson->course->lessons()->where('section_id', $lesson->section_id)->get(), $lesson, $up);
+        $lesson = $lesson->base();
+        $this->move($lesson->course->workLessons()->where('section_id', $lesson->section_id)->get(), $lesson, $up);
         $lesson->course->renumber();
         audit_note("Moved the lesson \"{$lesson->title}\" ".($up ? 'up' : 'down')." in {$lesson->course->title}.");
 
@@ -220,6 +310,9 @@ class BuildController extends Controller
         $section = $course->sections()->create($data + ['position' => (int) $course->sections()->max('position') + 1]);
         $course->update(['updated_by' => $request->user()->id]);
         audit_note("Added the section \"{$section->title}\" to {$course->title}.");
+        if ($request->boolean('from_nav')) {
+            return back()->with('status', "Added the section {$section->title}.");
+        }
 
         return redirect()->to(route('training.courses.edit', $course).'#s'.$section->id)->with('status', "Added the section {$section->title}. Add lessons to it, or move lessons into it from their edit page.");
     }
@@ -239,6 +332,9 @@ class BuildController extends Controller
         $this->move($section->course->sections()->get(), $section, $up);
         $section->course->renumber();
         audit_note("Moved the section \"{$section->title}\" ".($up ? 'up' : 'down')." in {$section->course->title}.");
+        if ($request->boolean('from_nav')) {
+            return back();
+        }
 
         return redirect()->to(route('training.courses.edit', $section->course_id).'#s'.$section->id);
     }
@@ -247,7 +343,7 @@ class BuildController extends Controller
     public function destroySection(Request $request, Section $section)
     {
         $course = $section->course;
-        $count = $section->lessons()->count();
+        $count = $section->lessons()->whereNull('draft_of')->count();
         $section->lessons()->update(['section_id' => null, 'position' => 0]);
         $section->delete();
         $course->renumber();
@@ -259,7 +355,9 @@ class BuildController extends Controller
 
     public function previewLesson(Lesson $lesson)
     {
-        $lessons = $lesson->course->lessons;
+        // The working copy: what Team Members will see once the changes are published.
+        $lesson = $lesson->base()->working();
+        $lessons = $lesson->course->workLessons->reject(fn ($l) => $l->pending_remove)->map(fn ($l) => $l->working())->values();
         $index = $lessons->search(fn ($l) => $l->id === $lesson->id);
 
         return view('training.lesson', [
@@ -284,6 +382,7 @@ class BuildController extends Controller
     {
         abort_unless($lesson->isQuiz(), 404);
         $data = $this->validatedQuestion($request);
+        $lesson = app(Versions::class)->draftFor($lesson);
         $question = $lesson->questions()->create($data + ['position' => (int) $lesson->questions()->max('position') + 1]);
         audit_note("Added question {$lesson->questions()->count()} to the quiz \"{$lesson->title}\" in {$lesson->course->title}: ".Str::limit($question->prompt, 120));
 
@@ -292,23 +391,27 @@ class BuildController extends Controller
 
     public function updateQuestion(Request $request, Question $question)
     {
-        $question->update($this->validatedQuestion($request));
+        $data = $this->validatedQuestion($request);
+        $question = app(Versions::class)->draftQuestion($question);
+        $question->update($data);
 
         return redirect()->to(route('training.lessons.edit', $question->lesson_id).'#q'.$question->id)->with('status', 'Question saved.');
     }
 
     public function destroyQuestion(Question $question)
     {
+        $question = app(Versions::class)->draftQuestion($question);
         $lesson = $question->lesson;
         $question->delete();
         audit_note("Removed a question from the quiz \"{$lesson->title}\" in {$lesson->course->title}: ".Str::limit($question->prompt, 120));
 
-        return back()->with('status', 'Question removed.');
+        return redirect()->route('training.lessons.edit', $lesson)->with('status', 'Question removed.');
     }
 
     public function moveQuestion(Request $request, Question $question)
     {
         $up = $request->input('direction') === 'up';
+        $question = app(Versions::class)->draftQuestion($question);
         $this->move($question->lesson->questions()->get(), $question, $up);
         audit_note("Moved a question ".($up ? 'up' : 'down')." in the quiz \"{$question->lesson->title}\": ".Str::limit($question->prompt, 80));
 
@@ -406,12 +509,6 @@ class BuildController extends Controller
         });
     }
 
-    private function deleteFile(?string $path): void
-    {
-        if ($path) {
-            Storage::disk('local')->delete($path);
-        }
-    }
 
     /** Browsers send odd types for Office files and MOV; the extension decides what's served. */
     private static function mimeFor(UploadedFile $file): string

@@ -15,16 +15,30 @@
         <a href="{{ route('training.courses.edit', $course) }}"><strong>{{ $course->title }}</strong></a>
         <button type="button" class="btn btn-small btn-outline" id="nav-hide" aria-label="Hide the lesson list" title="Hide the lesson list">«</button>
     </div>
-    <div class="hint">{{ $course->lessons->count() }} {{ Str::plural('lesson', $course->lessons->count()) }} · {{ $course->estimateLabel() }}</div>
+    @php($navLessons = $course->workLessons->map(fn ($l) => $l->working()))
+    <div class="hint">{{ $navLessons->count() }} {{ Str::plural('lesson', $navLessons->count()) }}@if ($course->isVersioned()) · version {{ $course->version }}@endif</div>
     @php($n = 0)
-    @foreach ($course->lessonGroups(null, true) as $g)
-        @if ($g['section'])<div class="builder-nav-section">{{ $g['section']->title }}</div>@endif
+    @foreach ($course->lessonGroups($navLessons, true) as $g)
+        @if ($g['section'])
+            @php($sec = $g['section'])
+            <div class="builder-nav-section"><span>{{ $sec->title }}</span>
+                <span class="builder-nav-arrows">
+                    <form method="post" action="{{ route('training.sections.move', $sec) }}">@csrf<input type="hidden" name="from_nav" value="1"><input type="hidden" name="direction" value="up"><button type="submit" @disabled($sec->position <= 1) aria-label="Move section {{ $sec->title }} up" title="Move section up">↑</button></form>
+                    <form method="post" action="{{ route('training.sections.move', $sec) }}">@csrf<input type="hidden" name="from_nav" value="1"><input type="hidden" name="direction" value="down"><button type="submit" @disabled($sec->position >= $course->sections->count()) aria-label="Move section {{ $sec->title }} down" title="Move section down">↓</button></form>
+                </span>
+            </div>
+        @endif
         <ol class="builder-nav-list">
             @foreach ($g['lessons'] as $l)
                 @php($n++)
-                <li><a href="{{ route('training.lessons.edit', $l) }}" @class(['current' => $l->id === $lesson->id]) @if ($l->id === $lesson->id) aria-current="page" @endif>
-                    <span class="builder-nav-num">{{ $n }}</span><span class="builder-nav-title">{{ $l->title }}<span class="hint">{{ $l->typeLabel() }} · {{ \App\Training\Estimate::label($l->est_seconds) }}</span></span>
-                </a></li>
+                <li class="builder-nav-item"><a href="{{ route('training.lessons.edit', $l) }}" @class(['current' => $l->id === $lesson->id]) @if ($l->id === $lesson->id) aria-current="page" @endif>
+                    <span class="builder-nav-num">{{ $n }}</span><span @class(['builder-nav-title', 'struck' => $l->pending_remove])>{{ $l->title }}<span class="hint">{{ $l->typeLabel() }} · {{ \App\Training\Estimate::label($l->est_seconds) }}@if ($l->draft_of) · <b>changed</b>@elseif ($l->pending_add) · <b>new</b>@elseif ($l->pending_remove) · <b>removing</b>@endif</span></span>
+                </a>
+                    <span class="builder-nav-arrows">
+                        <form method="post" action="{{ route('training.lessons.move', $l) }}">@csrf<input type="hidden" name="direction" value="up"><button type="submit" @disabled($loop->first) aria-label="Move {{ $l->title }} up" title="Move up">↑</button></form>
+                        <form method="post" action="{{ route('training.lessons.move', $l) }}">@csrf<input type="hidden" name="direction" value="down"><button type="submit" @disabled($loop->last) aria-label="Move {{ $l->title }} down" title="Move down">↓</button></form>
+                    </span>
+                </li>
             @endforeach
             @if ($g['section'] && $g['lessons']->isEmpty())<li class="hint builder-nav-empty">No lessons yet</li>@endif
         </ol>
@@ -38,10 +52,31 @@
         @endif
         <button class="btn btn-small" type="submit">Add</button>
     </form>
+    <form method="post" action="{{ route('training.sections.store', $course) }}" class="builder-nav-add">@csrf
+        <input type="hidden" name="from_nav" value="1">
+        <label for="nav-section">Add a section</label>
+        <input id="nav-section" type="text" name="title" required maxlength="255" placeholder="Regulations">
+        <button class="btn btn-small btn-outline" type="submit">Add section</button>
+    </form>
 </aside>
 <div class="builder-main">
 <button type="button" class="btn btn-small btn-outline builder-nav-show" id="nav-show" aria-label="Show the lesson list">» Lessons</button>
 <div class="stack">
+    @if ($lesson->draft_of)
+        <div class="flash flash-warn row-actions" style="justify-content:space-between">
+            <span>You're editing an unpublished change. Team Members still see the published lesson until the course's changes are published.</span>
+            <form method="post" action="{{ route('training.lessons.destroy', $lesson) }}" onsubmit="return confirm('Throw away your changes to this lesson and go back to the published version?')">@csrf @method('delete')<button class="btn btn-small btn-outline" type="submit">Discard changes</button></form>
+        </div>
+    @elseif ($lesson->pending_add)
+        <div class="flash flash-warn">New lesson, not published yet. Team Members see it once the course's changes are published.</div>
+    @elseif ($lesson->pending_remove)
+        <div class="flash flash-warn row-actions" style="justify-content:space-between">
+            <span>This lesson will be removed when the course's changes are published.</span>
+            <form method="post" action="{{ route('training.lessons.keep', $lesson) }}">@csrf<button class="btn btn-small btn-outline" type="submit">Keep it</button></form>
+        </div>
+    @elseif ($course->isVersioned())
+        <p class="hint">Published lesson. Saving keeps your edits as an unpublished change; Team Members keep seeing this version until you publish the course's changes.</p>
+    @endif
     <form method="post" action="{{ route('training.lessons.update', $lesson) }}" enctype="multipart/form-data" class="card" id="lesson-form">@csrf @method('put')
         <div class="field"><label for="l-title">Title</label><input id="l-title" type="text" name="title" value="{{ old('title', $lesson->title) }}" required maxlength="255"></div>
         @if ($course->sections->isNotEmpty())
@@ -121,9 +156,11 @@
         </div>
     @endif
 
-    <form method="post" action="{{ route('training.lessons.destroy', $lesson) }}" onsubmit="return confirm('Remove this lesson? Progress on it is removed too.')">@csrf @method('delete')
-        <button class="btn btn-small btn-outline" type="submit">Remove this lesson</button>
-    </form>
+    @unless ($lesson->draft_of || $lesson->pending_remove)
+        <form method="post" action="{{ route('training.lessons.destroy', $lesson) }}" onsubmit="return confirm('{{ $course->isVersioned() && ! $lesson->pending_add ? 'Remove this lesson when the changes are next published?' : 'Remove this lesson? Progress on it is removed too.' }}')">@csrf @method('delete')
+            <button class="btn btn-small btn-outline" type="submit">Remove this lesson</button>
+        </form>
+    @endunless
 </div>
 </div>
 </div>

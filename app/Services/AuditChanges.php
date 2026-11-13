@@ -57,6 +57,7 @@ class AuditChanges
         'draw_delay_hours' => 'Wait before drawing (hours)',
         'locker_pickup_days' => 'Locker pickup window (days)',
         'expiry_reminder_enabled' => 'Expiry reminder emails',
+        'training_emails_enabled' => 'Training emails',
         'news_hide_dispatcher' => 'Hide dispatcher winners',
         'news_hide_supervisor' => 'Hide supervisor winners',
         'news_hide_admin' => 'Hide admin winners',
@@ -148,7 +149,7 @@ class AuditChanges
         }
         $label = self::SETTINGS[$setting->key] ?? $setting->key;
         $show = fn ($v) => match (true) {
-            $setting->key === 'expiry_reminder_enabled', str_starts_with($setting->key, 'news_hide_'), in_array($setting->key, ['wellness_enabled', 'wellness_manual_device'], true) => $v ? 'on' : 'off',
+            in_array($setting->key, ['expiry_reminder_enabled', 'training_emails_enabled'], true), str_starts_with($setting->key, 'news_hide_'), in_array($setting->key, ['wellness_enabled', 'wellness_manual_device'], true) => $v ? 'on' : 'off',
             in_array($setting->key, ['news_min_cents', 'wellness_weekly_reward_cents'], true) => money((int) $v),
             $setting->key === 'wellness_gift_brands' => str_replace("\n", ', ', (string) $v),
             default => (string) $v,

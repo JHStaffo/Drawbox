@@ -49,12 +49,47 @@ class Lesson extends Model
 
     protected function casts(): array
     {
-        return ['est_seconds' => 'integer', 'position' => 'integer', 'section_id' => 'integer', 'show_answers' => 'boolean', 'shuffle' => 'boolean', 'min_seconds' => 'integer', 'passing_score' => 'integer', 'max_attempts' => 'integer'];
+        return ['est_seconds' => 'integer', 'position' => 'integer', 'section_id' => 'integer', 'draft_of' => 'integer', 'pending_add' => 'boolean', 'pending_remove' => 'boolean', 'changed_in' => 'integer', 'show_answers' => 'boolean', 'shuffle' => 'boolean', 'min_seconds' => 'integer', 'passing_score' => 'integer', 'max_attempts' => 'integer'];
     }
 
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    /** The unpublished edit of this published lesson, if someone has started one. */
+    public function draft(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Lesson::class, 'draft_of');
+    }
+
+    /** For a pending edit: the published lesson it edits. */
+    public function live(): BelongsTo
+    {
+        return $this->belongsTo(Lesson::class, 'draft_of');
+    }
+
+    /** Lessons Team Members can see. */
+    public function scopeVisible($query)
+    {
+        return $query->whereNull('draft_of')->where('pending_add', false);
+    }
+
+    public function isLive(): bool
+    {
+        return ! $this->draft_of && ! $this->pending_add;
+    }
+
+    /** The row a builder works with: the pending edit when there is one. */
+    public function working(): Lesson
+    {
+        return $this->draft ?? $this;
+    }
+
+    /** The published row (itself, or the lesson a pending edit belongs to). */
+    public function base(): Lesson
+    {
+        return $this->draft_of ? $this->live : $this;
     }
 
     public function section(): BelongsTo

@@ -19,12 +19,56 @@ class Course extends Model
 
     protected function casts(): array
     {
-        return ['due_days' => 'integer'];
+        return ['due_days' => 'integer', 'version' => 'integer'];
     }
 
+    /** The published lessons: what Team Members see. Unpublished additions and pending edits are left out. */
     public function lessons(): HasMany
     {
-        return $this->hasMany(Lesson::class)->orderBy('position')->orderBy('id');
+        return $this->hasMany(Lesson::class)->whereNull('draft_of')->where('pending_add', false)->orderBy('position')->orderBy('id');
+    }
+
+    /** What the builder works on: published lessons (including ones set to be removed) and unpublished new ones, each with its pending edit. */
+    public function workLessons(): HasMany
+    {
+        return $this->hasMany(Lesson::class)->whereNull('draft_of')->with('draft')->orderBy('position')->orderBy('id');
+    }
+
+    /** Every lesson row, pending edits included. */
+    public function allLessons(): HasMany
+    {
+        return $this->hasMany(Lesson::class);
+    }
+
+    public function versions(): HasMany
+    {
+        return $this->hasMany(CourseVersion::class)->orderByDesc('number');
+    }
+
+    /** Once a course has been published, edits wait as unpublished changes until they're published as a new version. */
+    public function isVersioned(): bool
+    {
+        return $this->version >= 1;
+    }
+
+    /** What would change if the course were published now: [['kind' => added|changed|removed, 'title' => ..., 'lesson' => Lesson]]. */
+    public function pendingChanges(): array
+    {
+        if (! $this->isVersioned()) {
+            return [];
+        }
+        $changes = [];
+        foreach ($this->workLessons()->get() as $l) {
+            if ($l->pending_remove) {
+                $changes[] = ['kind' => 'removed', 'title' => $l->title, 'lesson' => $l];
+            } elseif ($l->pending_add) {
+                $changes[] = ['kind' => 'added', 'title' => $l->title, 'lesson' => $l];
+            } elseif ($l->draft) {
+                $changes[] = ['kind' => 'changed', 'title' => $l->draft->title, 'lesson' => $l->draft];
+            }
+        }
+
+        return $changes;
     }
 
     public function sections(): HasMany
@@ -64,14 +108,18 @@ class Course extends Model
             }
         }
         $order = $sections->pluck('id')->flip();
-        $lessons = $this->lessons()->get()
+        $lessons = $this->workLessons()->get()
             ->sortBy(fn ($l) => [$l->section_id === null ? -1 : ($order[$l->section_id] ?? 999), $l->position, $l->id])->values();
         foreach ($lessons as $i => $l) {
             if ($l->position !== $i + 1) {
                 $l->newQuery()->whereKey($l->id)->update(['position' => $i + 1]);
             }
         }
-        $this->unsetRelation('lessons')->unsetRelation('sections');
+        // A pending edit sits with the lesson it edits.
+        foreach ($lessons as $l) {
+            Lesson::where('draft_of', $l->id)->update(['position' => $l->newQuery()->whereKey($l->id)->value('position'), 'section_id' => $l->section_id]);
+        }
+        $this->unsetRelation('lessons')->unsetRelation('sections')->unsetRelation('workLessons');
     }
 
     public function assignments(): HasMany

@@ -3,16 +3,30 @@
 @section('band')
     <p style="margin:0 0 .3em"><a style="color:#fff" href="{{ route('training.courses') }}">Courses</a></p>
     <h1>{{ $course->title }}</h1>
-    <p>{{ $course->statusLabel() }} · {{ $course->lessons->count() }} {{ Str::plural('lesson', $course->lessons->count()) }} · {{ $course->estimateLabel() }} · assigned to {{ $assigned }}</p>
+    <p>{{ $course->statusLabel() }}@if ($course->isVersioned()) · version {{ $course->version }}@endif · {{ $course->lessons->count() }} {{ Str::plural('lesson', $course->lessons->count()) }} · {{ $course->estimateLabel() }} · assigned to {{ $assigned }}</p>
 @endsection
 
 @section('content')
 <div class="stack">
+    @if ($pending)
+        <form class="card card-pending" method="post" action="{{ route('training.courses.publish', $course) }}">@csrf
+            <h2>Unpublished changes ({{ count($pending) }})</h2>
+            <p class="hint">Team Members still see version {{ $course->version }}. Publish these together as version {{ $course->version + 1 }} when they're ready.</p>
+            <ul>@foreach ($pending as $c)<li><span class="pill">{{ \App\Training\Models\CourseVersion::KINDS[$c['kind']] }}</span> <a href="{{ route('training.lessons.edit', $c['lesson']) }}">{{ $c['title'] }}</a></li>@endforeach</ul>
+            <div class="field"><label for="v-note">What changed <span class="hint">(optional, shown to Team Members who finished the course)</span></label><textarea id="v-note" name="note" rows="2" maxlength="2000" placeholder="Updated the cell phone policy to match the new handbook."></textarea></div>
+            <div class="row-actions">
+                <button class="btn" type="submit" onclick="return confirm('Publish these changes as version {{ $course->version + 1 }}? Team Members see them right away.')">Publish version {{ $course->version + 1 }}</button>
+                <a class="btn btn-outline" href="{{ route('training.courses.versions', $course) }}">Version history</a>
+            </div>
+        </form>
+    @elseif ($latest)
+        <p class="hint">Version {{ $latest->number }}, published {{ $latest->published_at->format('M j, Y g:i A') }}@if ($latest->publisher) by {{ $latest->publisher->name }}@endif. Edits wait as unpublished changes until you publish them. <a href="{{ route('training.courses.versions', $course) }}">Version history</a></p>
+    @endif
     <div class="card">
         <h2>Lessons</h2>
-        @php($groups = $course->lessonGroups(null, true))
+        @php($groups = $course->lessonGroups($working, true))
         @php($n = 0)
-        @if ($course->lessons->isEmpty() && $course->sections->isEmpty())
+        @if ($working->isEmpty() && $course->sections->isEmpty())
             <p class="empty">No lessons yet. Add the first one below.</p>
         @else
             @foreach ($groups as $g)
@@ -40,7 +54,8 @@
                         <li>
                             <span class="lesson-mark">{{ $n }}</span>
                             <div class="lesson-main">
-                                <a href="{{ route('training.lessons.edit', $l) }}">{{ $l->title }}</a>
+                                <a href="{{ route('training.lessons.edit', $l) }}" @class(['struck' => $l->pending_remove])>{{ $l->title }}</a>
+                                @if ($l->draft_of)<span class="pill pill-amber">Changed, not published</span>@elseif ($l->pending_add)<span class="pill pill-amber">New, not published</span>@elseif ($l->pending_remove)<span class="pill pill-red">Removed when published</span>@endif
                                 <div class="hint">{{ $l->typeLabel() }} · {{ \App\Training\Estimate::label($l->est_seconds) }}@if ($l->est_basis) ({{ $l->est_basis }})@endif
                                     @if ($l->isQuiz()) · {{ $questionCounts[$l->id] ?? 0 }} {{ Str::plural('question', $questionCounts[$l->id] ?? 0) }} · pass {{ $l->passing() }}%@endif
                                     @if ($l->hasFile()) · {{ $l->file_name ?: 'no file yet' }}@endif
@@ -48,6 +63,7 @@
                                 </div>
                             </div>
                             <div class="row-actions">
+                                @if ($l->pending_remove)<form method="post" action="{{ route('training.lessons.keep', $l) }}">@csrf<button class="btn btn-small btn-outline" type="submit">Keep it</button></form>@endif
                                 <a class="btn btn-small btn-outline" href="{{ route('training.lessons.preview', $l) }}">Preview</a>
                                 <form method="post" action="{{ route('training.lessons.move', $l) }}">@csrf<input type="hidden" name="direction" value="up"><button class="btn btn-small btn-outline" type="submit" @disabled($j === 0) aria-label="Move up">↑</button></form>
                                 <form method="post" action="{{ route('training.lessons.move', $l) }}">@csrf<input type="hidden" name="direction" value="down"><button class="btn btn-small btn-outline" type="submit" @disabled($j === $g['lessons']->count() - 1) aria-label="Move down">↓</button></form>
@@ -88,7 +104,7 @@
                 <div class="field"><label for="c-due">Days to finish</label><input id="c-due" type="number" name="due_days" min="1" max="3650" value="{{ old('due_days', $course->due_days) }}" placeholder="No due date"><div class="hint">Counted from the day it's assigned.</div></div>
                 <div class="field"><label for="c-status">Status</label>
                     <select id="c-status" name="status">@foreach (\App\Training\Models\Course::STATUSES as $k => $label)<option value="{{ $k }}" @selected(old('status', $course->status) === $k)>{{ $label }}</option>@endforeach</select>
-                    <div class="hint">Published courses can be assigned. Archived ones can't be assigned again, but people who have them can finish.</div></div>
+                    <div class="hint">Published courses can be assigned. Archived ones can't be assigned again, but people who have them can finish. @unless ($course->isVersioned())Publishing makes this version 1; after that, lesson edits wait until you publish them.@endunless</div></div>
             </div>
             <div class="row-actions">
                 <button class="btn" type="submit">Save</button>

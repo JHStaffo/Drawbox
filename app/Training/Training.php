@@ -284,7 +284,7 @@ class Training
         if ($assignment->replaced_at) {
             return;
         }
-        $lessons = Lesson::where('course_id', $assignment->course_id)->get(['id', 'type']);
+        $lessons = Lesson::visible()->where('course_id', $assignment->course_id)->get(['id', 'type']);
         $progress = LessonProgress::where('assignment_id', $assignment->id)->whereIn('lesson_id', $lessons->pluck('id'))->get()->keyBy('lesson_id');
         $done = $progress->whereNotNull('completed_at')->count();
         $total = $lessons->count();
@@ -297,6 +297,7 @@ class Training
         if (! $assignment->completed_at && $total > 0 && $done === $total) {
             $data['completed_at'] = now();
             $data['percent'] = 100;
+            $data['completed_version'] = $assignment->course->version ?: null;
         }
         $assignment->update($data);
     }

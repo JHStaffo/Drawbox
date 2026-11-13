@@ -41,7 +41,7 @@ class LearnController extends Controller
             return collect();
         }
         $byCourse = $done->keyBy('course_id');
-        $query = Lesson::with('course')->whereIn('course_id', $byCourse->keys())->where('type', '!=', 'quiz');
+        $query = Lesson::visible()->with('course')->whereIn('course_id', $byCourse->keys())->where('type', '!=', 'quiz');
         foreach ($terms as $term) {
             $like = '%'.addcslashes($term, '%_\\').'%';
             $query->where(fn ($w) => $w->where('search_text', 'like', $like)->orWhereHas('course', fn ($c) => $c->where('title', 'like', $like)));
@@ -60,10 +60,15 @@ class LearnController extends Controller
     public function course(Request $request, Assignment $assignment, Training $training)
     {
         $this->authorizeView($request, $assignment);
+        app(\App\Training\Versions::class)->recordView($assignment, $request->user());
+        $course = $assignment->course;
+        $since = $assignment->completed_version && $course->version > $assignment->completed_version ? $assignment->completed_version : null;
 
         return view('training.course', [
             'assignment' => $assignment,
-            'course' => $assignment->course,
+            'course' => $course,
+            'updatedSince' => $since,
+            'updates' => $since ? $course->versions()->where('number', '>', $since)->get() : collect(),
             'lessons' => $training->lessonsWithProgress($assignment),
             'mine' => $assignment->user_id === $request->user()->id,
         ]);
@@ -72,6 +77,7 @@ class LearnController extends Controller
     public function lesson(Request $request, Assignment $assignment, Lesson $lesson, Training $training)
     {
         $this->authorizeView($request, $assignment, $lesson);
+        app(\App\Training\Versions::class)->recordView($assignment, $request->user());
         $mine = $assignment->user_id === $request->user()->id;
         $progress = $mine && $assignment->isOpen() ? $training->open($assignment, $lesson) : $assignment->progress()->where('lesson_id', $lesson->id)->first();
         $lessons = $assignment->course->lessons;
@@ -207,12 +213,12 @@ class LearnController extends Controller
     private function authorizeView(Request $request, Assignment $assignment, ?Lesson $lesson = null): void
     {
         abort_unless(Training::canView($request->user(), $assignment), 403);
-        abort_if($lesson && $lesson->course_id !== $assignment->course_id, 404);
+        abort_if($lesson && ($lesson->course_id !== $assignment->course_id || ! $lesson->isLive()), 404);
     }
 
     private function authorizeOwn(Request $request, Assignment $assignment, Lesson $lesson): void
     {
         abort_unless($assignment->user_id === $request->user()->id, 403);
-        abort_if($lesson->course_id !== $assignment->course_id, 404);
+        abort_if($lesson->course_id !== $assignment->course_id || ! $lesson->isLive(), 404);
     }
 }

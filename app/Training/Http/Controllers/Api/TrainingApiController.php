@@ -26,6 +26,7 @@ class TrainingApiController extends Controller
     public function show(Request $request, Assignment $assignment, Training $training)
     {
         $this->own($request, $assignment);
+        app(\App\Training\Versions::class)->recordView($assignment, $request->user());
 
         return response()->json([
             'assignment' => $this->assignment($assignment),
@@ -99,7 +100,7 @@ class TrainingApiController extends Controller
     {
         return [
             'id' => $a->id,
-            'course' => ['id' => $a->course->id, 'title' => $a->course->title, 'description' => $a->course->description, 'category' => $a->course->category, 'estimated_seconds' => $a->course->estimatedSeconds()],
+            'course' => ['id' => $a->course->id, 'title' => $a->course->title, 'description' => $a->course->description, 'category' => $a->course->category, 'estimated_seconds' => $a->course->estimatedSeconds(), 'version' => $a->course->version],
             'status' => $a->status(),
             'percent' => $a->percent,
             'seconds_spent' => $a->seconds_spent,
@@ -108,6 +109,8 @@ class TrainingApiController extends Controller
             'assigned_at' => $a->created_at->toIso8601String(),
             'started_at' => $a->started_at?->toIso8601String(),
             'completed_at' => $a->completed_at?->toIso8601String(),
+            'completed_version' => $a->completed_version,
+            'updated_since_completed' => (bool) ($a->completed_version && $a->course->version > $a->completed_version),
         ];
     }
 
@@ -119,6 +122,7 @@ class TrainingApiController extends Controller
             'id' => $l->id,
             'title' => $l->title,
             'section' => $l->section_id ? $l->section?->title : null,
+            'changed_in_version' => $l->changed_in,
             'type' => $l->type,
             'html' => $l->body,
             'url' => $l->url,
@@ -139,6 +143,6 @@ class TrainingApiController extends Controller
     private function own(Request $request, Assignment $assignment, ?Lesson $lesson = null): void
     {
         abort_unless($assignment->user_id === $request->user()->id, 403);
-        abort_if($lesson && $lesson->course_id !== $assignment->course_id, 404);
+        abort_if($lesson && ($lesson->course_id !== $assignment->course_id || ! $lesson->isLive()), 404);
     }
 }

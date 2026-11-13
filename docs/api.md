@@ -57,8 +57,8 @@ Needs the Training permission on the Team Member's profile. Lessons are `text`, 
 
 | Method and path | What it does |
 | --- | --- |
-| `GET /training/assignments` | Their current courses (each course with `estimated_seconds`): status (`not_started`, `in_progress`, `overdue`, `completed`), percent, seconds spent, quiz grade, due date |
-| `GET /training/assignments/{id}` | The course's `sections` (`id`, `title`, in order) and each lesson in order: `section` (its section's title, or null), `html`, `file` (`name`, `mime`, `size`, `url`), `embed_url` for YouTube/Vimeo/Loom links, `min_seconds`, `estimated_seconds`, time spent, `completed_at`, and for quizzes `passing_score`, `best_score`, attempts `used`/`allowed`/`left` |
+| `GET /training/assignments` | Their current courses (each course with `estimated_seconds` and its published `version`; `completed_version` and `updated_since_completed` when a course they finished has a newer version): status (`not_started`, `in_progress`, `overdue`, `completed`), percent, seconds spent, quiz grade, due date |
+| `GET /training/assignments/{id}` | The course's `sections` (`id`, `title`, in order) and each lesson in order: `section` (its section's title, or null), `changed_in_version`, `html`, `file` (`name`, `mime`, `size`, `url`), `embed_url` for YouTube/Vimeo/Loom links, `min_seconds`, `estimated_seconds`, time spent, `completed_at`, and for quizzes `passing_score`, `best_score`, attempts `used`/`allowed`/`left` |
 | `POST /training/assignments/{id}/lessons/{lesson}/time` | `{"seconds": 15}` while the lesson is open and in use. Each report adds at most 60 seconds and no more than has passed since the last one |
 | `POST /training/assignments/{id}/lessons/{lesson}/done` | Finish a non-quiz lesson (`422` with a message if its minimum time isn't reached) |
 | `POST /training/assignments/{id}/lessons/{lesson}/attempts` | Start (or resume) a quiz attempt. Returns the questions in order with choices as `{index, text}`, never the answers |
