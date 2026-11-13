@@ -105,7 +105,7 @@ class BuildController extends Controller
     public function editLesson(Lesson $lesson)
     {
         return view('training.build.lesson', [
-            'lesson' => $lesson->load('course.sections', 'questions'),
+            'lesson' => $lesson->load('course.sections', 'course.lessons', 'questions'),
             'course' => $lesson->course,
             'serverLimitMb' => self::serverLimitMb(),
         ]);

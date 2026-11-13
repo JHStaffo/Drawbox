@@ -504,6 +504,10 @@ class TrainingTest extends TestCase
         $this->actingAs($admin)->put("/training/sections/{$regs->id}", ['title' => 'Rules of the road']);
         $this->assertStringContainsString('name from Regulations to Rules of the road', AuditLog::where('action', 'training.sections.update')->first()->description);
         $this->actingAs($admin)->get("/training/courses/{$course->id}/edit")->assertOk()->assertSeeInOrder(['Welcome', 'Policies', 'Phones', 'Rules of the road', 'Speed limits']);
+        // The lesson designer lists the whole course on the left to jump between lessons, with a quick add.
+        $this->actingAs($admin)->get('/training/lessons/'.Lesson::where('title', 'Phones')->value('id').'/edit')->assertOk()
+            ->assertSeeInOrder(['builder-nav', 'Welcome', 'Policies', 'Phones', 'Rules of the road', 'Speed limits', 'Hours of service', 'Add a lesson'])
+            ->assertSee('aria-current="page"', false);
 
         $member = $this->member();
         $a = app(Training::class)->assign($member, $course->fresh(), $admin);
