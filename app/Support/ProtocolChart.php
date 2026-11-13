@@ -18,6 +18,12 @@ class ProtocolChart
     /** one: an arrow; both: arrowheads at both ends; line: a dotted line with no arrowhead (for a note beside a box). */
     public const ARROW_STYLES = ['one', 'both', 'line'];
 
+    /** Which side of a box an arrow leaves or enters; auto picks the side facing the other box. */
+    public const SIDES = ['auto', 'top', 'bottom', 'left', 'right'];
+
+    /** Largest x or y a box can be placed at, in pixels. */
+    public const MAX_POSITION = 6000;
+
     /** Box colors: fill, border, text. */
     private const STYLES = [
         'action' => ['#ed1c24', '#b5121a', '#ffffff'],
@@ -32,7 +38,10 @@ class ProtocolChart
     /**
      * Checks and tidies chart data from the builder.
      *
-     * @return array{nodes: list<array>, edges: list<array>}
+     * The layout is "auto" (Mermaid places the boxes) or "manual" (every box
+     * has the x and y of its center, set by dragging it in the builder).
+     *
+     * @return array{layout: string, nodes: list<array>, edges: list<array>}
      */
     public static function clean(mixed $chart): array
     {
@@ -40,6 +49,10 @@ class ProtocolChart
         if (! is_array($chart)) {
             throw ValidationException::withMessages(['chart' => 'The flowchart could not be read. Reload the page and try again.']);
         }
+
+        $manual = ($chart['layout'] ?? 'auto') === 'manual' && collect($chart['nodes'] ?? [])
+            ->every(fn ($n) => is_numeric($n['x'] ?? null) && is_numeric($n['y'] ?? null));
+        $position = fn ($v) => max(0, min(self::MAX_POSITION, (int) round($v)));
 
         $nodes = [];
         foreach (array_slice(array_values($chart['nodes'] ?? []), 0, self::MAX_BOXES + 1) as $i => $node) {
@@ -60,6 +73,9 @@ class ProtocolChart
                 'badges' => self::badges($node['badges'] ?? []),
                 'link' => $link && Protocol::whereKey($link)->exists() ? $link : null,
             ];
+            if ($manual) {
+                $nodes[$id] += ['x' => $position($node['x']), 'y' => $position($node['y'])];
+            }
         }
         if (count($nodes) > self::MAX_BOXES) {
             throw ValidationException::withMessages(['chart' => 'A flowchart can have up to '.self::MAX_BOXES.' boxes.']);
@@ -74,10 +90,14 @@ class ProtocolChart
             }
             $label = trim(mb_substr((string) ($edge['label'] ?? ''), 0, 30));
             $style = in_array($edge['style'] ?? '', self::ARROW_STYLES, true) ? $edge['style'] : 'one';
-            $edges[] = ['from' => $from, 'to' => $to, 'label' => $label === '' ? null : $label, 'style' => $style];
+            $side = fn ($v) => in_array($v, self::SIDES, true) ? $v : 'auto';
+            $edges[] = [
+                'from' => $from, 'to' => $to, 'label' => $label === '' ? null : $label, 'style' => $style,
+                'from_side' => $side($edge['from_side'] ?? 'auto'), 'to_side' => $side($edge['to_side'] ?? 'auto'),
+            ];
         }
 
-        return ['nodes' => array_values($nodes), 'edges' => $edges];
+        return ['layout' => $manual && $nodes ? 'manual' : 'auto', 'nodes' => array_values($nodes), 'edges' => $edges];
     }
 
     /** @return list<string> known badges, in their usual order */
@@ -106,6 +126,37 @@ class ProtocolChart
         return "<span class='pbs'>{$html}</span>";
     }
 
+    /** What goes inside a box: its badges and text, wrapped in a link when it opens another protocol. */
+    public static function labelHtml(array $node, callable $linkFor): string
+    {
+        $inner = "<span class='pt'>".ProtocolText::label($node['text']).'</span>';
+        $url = ($node['link'] ?? null) ? $linkFor($node['link']) : null;
+        if ($url) {
+            $inner = "<a class='plink' href='".e($url)."'>{$inner}</a>";
+        }
+
+        return "<span class='pn'>".self::badgeHtml($node['badges'] ?? []).$inner.'</span>';
+    }
+
+    public static function isManual(array $chart): bool
+    {
+        return ($chart['layout'] ?? 'auto') === 'manual';
+    }
+
+    /** A hand-arranged chart for the page's own drawing code (public/js/protocol-chart.js). */
+    public static function layoutData(array $chart, callable $linkFor): array
+    {
+        return [
+            'nodes' => array_map(fn ($n) => [
+                'id' => $n['id'], 'type' => $n['type'], 'x' => $n['x'] ?? 0, 'y' => $n['y'] ?? 0, 'html' => self::labelHtml($n, $linkFor),
+            ], $chart['nodes'] ?? []),
+            'edges' => array_map(fn ($e) => [
+                'from' => $e['from'], 'to' => $e['to'], 'label' => $e['label'] ?? null, 'style' => $e['style'] ?? 'one',
+                'from_side' => $e['from_side'] ?? 'auto', 'to_side' => $e['to_side'] ?? 'auto',
+            ], $chart['edges'] ?? []),
+        ];
+    }
+
     /**
      * The Mermaid source for the chart.
      *
@@ -116,13 +167,7 @@ class ProtocolChart
         $lines = ['flowchart TD'];
         foreach ($chart['nodes'] ?? [] as $node) {
             $id = 'b_'.$node['id'];
-            $inner = "<span class='pt'>".ProtocolText::label($node['text']).'</span>';
-            $url = $node['link'] ? $linkFor($node['link']) : null;
-            if ($url) {
-                $inner = "<a class='plink' href='".e($url)."'>{$inner}</a>";
-            }
-            $label = "<span class='pn'>".self::badgeHtml($node['badges'] ?? []).$inner.'</span>';
-            $label = str_replace('"', '#quot;', $label);
+            $label = str_replace('"', '#quot;', self::labelHtml($node, $linkFor));
             $lines[] = $node['type'] === 'decision' ? "  {$id}{\"{$label}\"}" : "  {$id}[\"{$label}\"]";
             $lines[] = "  class {$id} t_{$node['type']}";
         }

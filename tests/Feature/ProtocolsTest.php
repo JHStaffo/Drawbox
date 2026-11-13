@@ -205,6 +205,40 @@ class ProtocolsTest extends TestCase
         $this->assertSame(1, $arrest->toApi()['chart']['boxes'][0]['links_to']);
     }
 
+    public function test_boxes_can_be_arranged_by_hand(): void
+    {
+        $builder = $this->builder();
+        $chart = json_decode($this->payload()['chart'], true);
+        $chart['layout'] = 'manual';
+        foreach ($chart['nodes'] as $i => &$node) {
+            $node['x'] = 200 + $i * 10;
+            $node['y'] = 100 + $i * 120;
+        }
+        unset($node);
+        $chart['edges'][0] += ['from_side' => 'right', 'to_side' => 'sideways'];
+        $this->actingAs($builder)->post('/protocols/manage', $this->payload(['chart' => json_encode($chart)]));
+
+        $v = ProtocolVersion::first();
+        $this->assertSame('manual', $v->chart['layout']);
+        $this->assertSame(['x' => 210, 'y' => 220], array_intersect_key($v->boxes()[1], ['x' => 1, 'y' => 1]));
+        $this->assertSame(['right', 'auto'], [$v->arrows()[0]['from_side'], $v->arrows()[0]['to_side']], 'Unknown sides fall back to auto');
+        $this->actingAs($builder)->get('/protocols/versions/1')->assertSee('class="pchart"', false)->assertDontSee('pre class="mermaid"', false);
+        $this->assertSame('manual', $v->toApi()['chart']['layout']);
+        $this->assertSame(210, $v->toApi()['chart']['boxes'][1]['x']);
+
+        // Moving a box is logged.
+        $chart['nodes'][2]['x'] = 500;
+        $this->actingAs($builder)->put('/protocols/manage/1', $this->payload(['chart' => json_encode($chart)]));
+        $this->assertStringContainsString('box positions (1 box moved)', AuditLog::latest('id')->first()->description);
+
+        // A box without a position puts the chart back on the automatic layout.
+        unset($chart['nodes'][0]['x']);
+        $this->actingAs($builder)->put('/protocols/manage/1', $this->payload(['chart' => json_encode($chart)]));
+        $this->assertSame('auto', $v->fresh()->chart['layout']);
+        $this->assertArrayNotHasKey('x', $v->fresh()->boxes()[1]);
+        $this->assertStringContainsString('layout from arranged by hand to automatic', AuditLog::latest('id')->first()->description);
+    }
+
     public function test_box_text_is_escaped_in_the_chart(): void
     {
         $chart = ProtocolChart::clean(['nodes' => [['id' => 'n1', 'type' => 'step', 'text' => '<script>alert(1)</script> "quoted" **bold**']], 'edges' => []]);

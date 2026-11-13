@@ -16,7 +16,11 @@
     @if ($v->boxes())
         <div class="protocol-chart-bar no-print"><button class="btn btn-small btn-outline" type="button" data-chart-full>Open chart full screen</button></div>
         <div class="protocol-chart">
-            <pre class="mermaid">{{ $chart::mermaid($v->chart, $linkFor) }}</pre>
+            @if ($chart::isManual($v->chart))
+                <div class="pchart" data-chart="{{ json_encode($chart::layoutData($v->chart, $linkFor)) }}"></div>
+            @else
+                <pre class="mermaid">{{ $chart::mermaid($v->chart, $linkFor) }}</pre>
+            @endif
         </div>
         <span class="protocol-chart-hint">Swipe sideways to see the whole chart.</span>
     @endif
