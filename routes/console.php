@@ -114,6 +114,20 @@ Schedule::command('drawbox:notify')->everyTwoHours();
 Schedule::command('drawbox:remind')->hourly();
 Schedule::command('pulse:slack-retry')->everyFiveMinutes();
 Schedule::command('protocols:import')->everyMinute()->withoutOverlapping(30);
+Schedule::command('training:generate')->everyMinute()->withoutOverlapping(30);
+
+Artisan::command('training:generate', function (\App\Training\Generate\CourseGenerator $generator) {
+    // Writes courses asked for under Training > Courses > Write a course with AI.
+    if (! $generator->ready()) {
+        return;
+    }
+    $count = 0;
+    $until = now()->addSeconds(50);
+    while (now()->lessThan($until) && $generator->runNext()) {
+        $count++;
+    }
+    $this->info($count ? "Worked on {$count} AI course request(s)." : 'No AI course requests waiting.');
+})->purpose('Have Claude write the courses asked for under Training > Courses');
 
 Artisan::command('protocols:import {--all : Keep going until every upload is read}', function (ProtocolImporter $importer) {
     // Reads the next couple of pages of uploaded protocol files (Protocols > Build protocols > Import).

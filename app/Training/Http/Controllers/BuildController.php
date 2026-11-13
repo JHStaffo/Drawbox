@@ -22,7 +22,7 @@ class BuildController extends Controller
 {
     public function index()
     {
-        $courses = Course::withCount('lessons')
+        $courses = Course::withCount('lessons')->withSum('lessons as est_total', 'est_seconds')
             ->withCount(['assignments as open_count' => fn ($q) => $q->whereNull('replaced_at')->whereNull('completed_at')])
             ->withCount(['assignments as done_count' => fn ($q) => $q->whereNull('replaced_at')->whereNotNull('completed_at')])
             ->get()

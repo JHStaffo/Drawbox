@@ -77,8 +77,8 @@
     </div>
 
 <form class="card" id="anthropic" method="post" action="{{ route('supervisor.settings.anthropic') }}" style="max-width:640px">@csrf @method('put')
-    <h2>Protocol import: Anthropic API key</h2>
-    <p class="hint">Protocols &gt; Build protocols &gt; Import uses Claude to read uploaded PDFs and photos. Create a key at console.anthropic.com under API keys and paste it here. It's checked with Anthropic before it's saved, and stored encrypted.</p>
+    <h2>Anthropic API key (Claude)</h2>
+    <p class="hint">Protocols &gt; Build protocols &gt; Import uses Claude to read uploaded PDFs and photos, and Training &gt; Courses &gt; Write a course with AI uses it to write courses. Create a key at console.anthropic.com under API keys and paste it here. It's checked with Anthropic before it's saved, and stored encrypted.</p>
     @if ($anthropicKey->source() === 'settings')
         <p><span class="pill pill-green">Saved</span> {{ $anthropicKey->masked() }}</p>
     @elseif ($anthropicKey->source() === 'env')

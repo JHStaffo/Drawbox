@@ -42,6 +42,17 @@ class Course extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
+    /** Expected time for the whole course: the sum of its lessons' (see App\Training\Estimate). */
+    public function estimatedSeconds(): int
+    {
+        return $this->relationLoaded('lessons') ? (int) $this->lessons->sum('est_seconds') : (int) $this->lessons()->sum('est_seconds');
+    }
+
+    public function estimateLabel(): string
+    {
+        return \App\Training\Estimate::label($this->estimatedSeconds());
+    }
+
     public function isPublished(): bool
     {
         return $this->status === 'published';

@@ -2,7 +2,8 @@
 
 @section('band')
     <h1>{{ $course->title }}</h1>
-    <p>{{ $current->whereNotNull('completed_at')->count() }} of {{ $current->count() }} completed.</p>
+    @php($finished = $current->whereNotNull('completed_at'))
+    <p>{{ $finished->count() }} of {{ $current->count() }} completed · expected {{ strtolower($course->estimateLabel()) }}{{ $finished->isNotEmpty() ? ' · finishers averaged '.\App\Training\Models\Assignment::duration((int) $finished->avg('seconds_spent')) : '' }}</p>
 @endsection
 
 @section('content')
