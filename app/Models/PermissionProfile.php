@@ -57,12 +57,13 @@ class PermissionProfile extends Model
             'audit_log' => 'Audit log',
             'profiles' => 'Permission Profiles',
             'manage_forms' => 'Forms and Slack (build forms, see every submission, connect Slack)',
+            'remotelock' => 'RemoteLock (connect it, match Team Members, door groups for new Team Members)',
         ],
     ];
 
     protected function casts(): array
     {
-        return ['permissions' => 'array', 'is_default' => 'boolean', 'hide_winners' => 'boolean'];
+        return ['permissions' => 'array', 'is_default' => 'boolean', 'hide_winners' => 'boolean', 'remotelock_door_groups' => 'array'];
     }
 
     /** @return array<string, string> key => label */

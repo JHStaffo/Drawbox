@@ -91,6 +91,15 @@ Artisan::command('pulse:slack-retry', function (Forms $forms) {
     $this->info("Posted {$count} submission(s).");
 })->purpose('Try again to post form submissions Slack did not take');
 
+Artisan::command('remotelock:sync', function (\App\Services\RemoteLockSync $sync) {
+    // Team Members added, changed or turned off whose change hasn't reached RemoteLock yet.
+    $done = $sync->pushPending();
+    if ($done) {
+        AuditLog::record('system.remotelock-sync', implode(' ', $done));
+    }
+    $this->info(count($done).' RemoteLock change(s).');
+})->purpose('Send Team Member changes waiting for RemoteLock');
+
 Artisan::command('wellness:close-weeks', function (Rewards $rewards) {
     $count = $rewards->closeWeeks();
     if ($count) {
@@ -113,6 +122,7 @@ Schedule::command('drawbox:expire')->everyFifteenMinutes();
 Schedule::command('drawbox:notify')->everyTwoHours();
 Schedule::command('drawbox:remind')->hourly();
 Schedule::command('pulse:slack-retry')->everyFiveMinutes();
+Schedule::command('remotelock:sync')->everyFiveMinutes()->withoutOverlapping(15);
 Schedule::command('protocols:import')->everyMinute()->withoutOverlapping(30);
 Schedule::command('training:generate')->everyMinute()->withoutOverlapping(30);
 Schedule::command('training:update-emails')->dailyAt('08:00');

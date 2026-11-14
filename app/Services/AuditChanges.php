@@ -27,7 +27,7 @@ class AuditChanges
         ],
         GiftCardStock::class => ['brand' => 'name', 'quantity' => 'on hand', 'active' => 'shown'],
         User::class => ['name' => 'name', 'email' => 'email', 'phone' => 'phone', 'employee_number' => 'team member #', 'permission_profile_id' => 'profile', 'active' => 'active'],
-        PermissionProfile::class => ['name' => 'name', 'parent_id' => 'sub-profile of', 'permissions' => 'permissions', 'is_default' => 'new team members get it', 'hide_winners' => 'hidden from Recent Winners'],
+        PermissionProfile::class => ['name' => 'name', 'parent_id' => 'sub-profile of', 'permissions' => 'permissions', 'is_default' => 'new team members get it', 'hide_winners' => 'hidden from Recent Winners', 'remotelock_door_groups' => 'RemoteLock door groups'],
         Draw::class => [
             'prize_name' => 'prize', 'brand' => 'brand', 'value_cents' => 'value', 'pto_hours' => 'PTO hours',
             'taxable' => 'taxable', 'cash_bonus' => 'cash bonus',
@@ -65,6 +65,7 @@ class AuditChanges
         'scope_base_crew' => 'Scope check: usual ideal crew',
         'scope_scene_types' => 'Scope check: scene types',
         'scope_destination_types' => 'Scope check: destination types',
+        'remotelock_auto_add' => 'Add new Team Members to RemoteLock',
         'wellness_enabled' => 'Wellness module',
         'wellness_daily_max' => 'Wellness: most daily-habit points a day',
         'wellness_grace_days' => 'Wellness: days after a week ends that it stays open',
@@ -147,9 +148,14 @@ class AuditChanges
 
             return;
         }
+        if ($setting->key === 'remotelock_credentials') {
+            $this->add('Settings', 'RemoteLock client ID and secret', $old ? 'set' : 'none', $setting->value ? ($old ? 'replaced' : 'set') : 'none');
+
+            return;
+        }
         $label = self::SETTINGS[$setting->key] ?? $setting->key;
         $show = fn ($v) => match (true) {
-            in_array($setting->key, ['expiry_reminder_enabled', 'training_emails_enabled'], true), str_starts_with($setting->key, 'news_hide_'), in_array($setting->key, ['wellness_enabled', 'wellness_manual_device'], true) => $v ? 'on' : 'off',
+            in_array($setting->key, ['expiry_reminder_enabled', 'training_emails_enabled'], true), str_starts_with($setting->key, 'news_hide_'), in_array($setting->key, ['wellness_enabled', 'wellness_manual_device', 'remotelock_auto_add'], true) => $v ? 'on' : 'off',
             in_array($setting->key, ['news_min_cents', 'wellness_weekly_reward_cents'], true) => money((int) $v),
             $setting->key === 'wellness_gift_brands' => str_replace("\n", ', ', (string) $v),
             default => (string) $v,
@@ -202,6 +208,7 @@ class AuditChanges
     {
         return match (true) {
             $field === 'permissions' => $this->permissions($value),
+            $field === 'remotelock_door_groups' => collect(is_string($value) ? (json_decode($value, true) ?? []) : ($value ?? []))->sort()->implode(', ') ?: 'none',
             $field === 'choices' => collect(is_string($value) ? (json_decode($value, true) ?? []) : ($value ?? []))->map(fn ($c) => ($c['text'] ?? '').(! empty($c['correct']) ? ' (right)' : ''))->implode(' / ') ?: 'none',
             $value === null || $value === '' => 'none',
             $field === 'permission_profile_id' => PermissionProfile::find($value)?->label() ?? "#{$value}",

@@ -9,6 +9,8 @@ use App\Models\InventoryLog;
 use App\Models\LockerAssignment;
 use App\Models\PermissionProfile;
 use App\Models\User;
+use App\Services\RemoteLock;
+use App\Services\RemoteLockSync;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -29,8 +31,9 @@ class UserController extends Controller
             return back()->withInput()->with('error', $error);
         }
         $user = User::create($data + ['active' => true]);
+        $remote = app(RemoteLockSync::class)->push($user);
 
-        return back()->with('status', "Added {$user->name}.");
+        return back()->with('status', trim("Added {$user->name}. {$remote}"));
     }
 
     /**
@@ -107,6 +110,9 @@ class UserController extends Controller
         }
 
         $message = "Added {$added} team member(s).";
+        if ($added && app(RemoteLockSync::class)->autoAdd()) {
+            $message .= ' They\'ll be added to RemoteLock within a few minutes.';
+        }
         if ($skipped) {
             $message .= " Skipped {$skipped} already on the roster.";
         }
@@ -137,8 +143,9 @@ class UserController extends Controller
             return back()->with('error', "You can't take away your own access to Team Members.");
         }
         $user->update($data);
+        $remote = app(RemoteLockSync::class)->push($user);
 
-        return back()->with('status', "Saved {$user->name}.");
+        return back()->with('status', trim("Saved {$user->name}. {$remote}"));
     }
 
     /**
@@ -163,13 +170,24 @@ class UserController extends Controller
             return back()->with('error', "{$user->name} has prize or dispatch history, so they can't be deleted. Uncheck Active and Save to turn them off instead.");
         }
 
+        // Someone deleted from Pulse loses their doors too; RemoteLock keeps their history.
+        $remote = '';
+        if ($user->remotelock_id && app(RemoteLock::class)->connected()) {
+            try {
+                app(RemoteLock::class)->deactivate($user->remotelock_id);
+                $remote = " Deactivated them in RemoteLock ({$user->remotelock_name}).";
+            } catch (\RuntimeException $e) {
+                return back()->with('error', "{$user->name} wasn't deleted, because RemoteLock couldn't deactivate them: ".$e->getMessage());
+            }
+        }
+
         DB::transaction(function () use ($user) {
             InventoryLog::where('user_id', $user->id)->update(['user_id' => null]);
             $user->credits()->delete();
             $user->delete();
         });
 
-        return back()->with('status', "Deleted {$user->name}.");
+        return back()->with('status', "Deleted {$user->name}.{$remote}");
     }
 
     /**

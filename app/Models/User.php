@@ -21,7 +21,13 @@ class User extends Authenticatable
 
     protected function casts(): array
     {
-        return ['active' => 'boolean', 'last_login_at' => 'datetime'];
+        return ['active' => 'boolean', 'last_login_at' => 'datetime', 'remotelock_pending' => 'boolean', 'remotelock_synced_at' => 'datetime'];
+    }
+
+    protected static function booted(): void
+    {
+        // Changes RemoteLock keeps (name, email, active) are marked to be sent there.
+        static::saving(fn (User $user) => app(\App\Services\RemoteLockSync::class)->flag($user));
     }
 
     /** True when this person's permission profile includes the permission. */
