@@ -143,7 +143,10 @@ class WellnessActivitiesTest extends TestCase
             ->assertSessionHasErrors('body_fat_pct');
         $this->actingAs($user)->post('/wellness/activities', ['activity' => 'inbody', 'day' => '2026-11-01', 'note' => $this->note(), 'body_fat_pct' => 24.0, 'muscle_lb' => 80])->assertSessionHasNoErrors();
         $first = Submission::first();
-        $this->assertStringNotContainsString('24', $first->getRawOriginal('measures'));
+        // Stored encrypted: the raw column isn't readable JSON (checking for "24" failed whenever the random ciphertext happened to contain it).
+        $this->assertNull(json_decode($first->getRawOriginal('measures'), true)['body_fat_pct'] ?? null);
+        $this->assertStringNotContainsString('body_fat_pct', $first->getRawOriginal('measures'));
+        $this->assertEquals(24.0, $first->measures['body_fat_pct']);
         $this->actingAs($admin)->post("/wellness/admin/review/{$first->id}/approve");
         $this->assertSame(0, $first->fresh()->points);
         $this->assertStringContainsString('First scan', $first->fresh()->points_note);

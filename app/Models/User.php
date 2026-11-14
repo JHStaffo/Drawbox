@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Ssn;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -13,7 +14,8 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable(['name', 'email', 'phone', 'employee_number', 'permission_profile_id', 'active'])]
-#[Hidden(['remember_token'])]
+// The SSN columns are never in fillable (only setSsn() writes them) and never in JSON or arrays.
+#[Hidden(['remember_token', 'ssn_encrypted', 'ssn_last4', 'ssn_hash'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -141,6 +143,41 @@ class User extends Authenticatable
     public function phoneDisplay(): string
     {
         return self::formatPhone($this->phone);
+    }
+
+    public function hasSsn(): bool
+    {
+        return $this->ssn_encrypted !== null;
+    }
+
+    /** •••-••-1234, or blank when there's no SSN on file. Only for people with ssn_view or ssn_edit. */
+    public function ssnMasked(): string
+    {
+        return Ssn::mask($this->ssn_last4);
+    }
+
+    /**
+     * The full SSN as 123-45-6789, decrypted. Only call this for a reason that
+     * gets its own audit log entry: a permitted person looking, or a check
+     * such as the OIG exclusion list.
+     */
+    public function ssn(): ?string
+    {
+        return $this->ssn_encrypted === null ? null : Ssn::format(Ssn::decrypt($this->ssn_encrypted));
+    }
+
+    /** Store nine digits (already normalized with Ssn::normalize), or null to remove it. Doesn't save. */
+    public function setSsn(?string $digits): void
+    {
+        $this->ssn_encrypted = $digits === null ? null : Ssn::encrypt($digits);
+        $this->ssn_last4 = $digits === null ? null : substr($digits, -4);
+        $this->ssn_hash = $digits === null ? null : Ssn::hash($digits);
+    }
+
+    /** Who already has this SSN (nine digits), if anyone. */
+    public static function withSsn(string $digits): ?self
+    {
+        return static::where('ssn_hash', Ssn::hash($digits))->first();
     }
 
     public function setEmailAttribute(string $value): void

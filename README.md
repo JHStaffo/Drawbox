@@ -21,6 +21,16 @@ Fast Track EMS's draw box, online. Dispatch credits a crew for a solicited call,
 
 Each team member has one permission profile, and admins edit profiles under Admin > Permission Profiles. Everyone can draw, pick a gift card brand and see their own prizes. A profile adds any of: Credit a call, Dashboard, Reports, Inventory, Locker map, Change or remove won prizes, Scope Check, Team Members, Settings, Audit log and Permission Profiles. A profile can have sub-profiles (EMT under Team Member, say), one level deep: a sub-profile gets everything its main profile allows plus what's checked for it. New features add a permission key in `PermissionProfile::GROUPS`; every profile starts without it. The starting profiles are Team Member, Dispatcher, Supervisor and Admin, matching the old fixed roles. `drawbox:make-admin` puts someone on the Admin profile and gives that profile every permission.
 
+## Social Security numbers
+
+Team Members can have an SSN on file, for checks such as the OIG exclusion list (LEIE).
+
+- **Stored encrypted** with AES-256-GCM using its own key, `SSN_KEY` in `.env` (not `APP_KEY`, so replacing the app key never loses them, and a copy of the database alone shows nothing). Beside it are only the last 4 digits (for the masked •••-••-1234) and a keyed fingerprint (HMAC-SHA256) that finds a number without decrypting every row: duplicates are refused, and a later OIG check can match on it. See `app/Services/Ssn.php`.
+- **Permissions**, both on Admin to start and nobody else: *See SSNs* shows the last 4 on Team Members and a Show button that displays the full number for 30 seconds; *Add, change or remove SSNs* adds the SSN box to Add a Team Member, a Change/Remove form on each row, and the optional SSN column in the CSV import (fills blanks only, like phone). Nobody can give these out without having them.
+- **Audit log:** every look, add, change, removal and refusal is logged with who and which Team Member, never the number.
+- **Never sent anywhere:** the SSN columns are hidden from every JSON and array (so never in `/api/v1`), are in no CSV export, and a failed save never puts the number back in the form.
+- **The key:** make it once with `php artisan drawbox:ssn-key` (it won't replace an existing key), then `php artisan config:cache`. Keep a copy of `SSN_KEY` somewhere safe and separate from the database backups: without it the saved SSNs can't be read. Until the key is set, the SSN boxes don't show.
+
 ## Forms and Slack
 
 Dispatch forms replace Google Forms, the Google Sheet and Zapier. An admin builds each form under Admin > Forms (questions, choices, required or not) and picks the Slack channel it posts to. A form can also have its own Slack message, typed freely with `$answer1`, `$answer2` ... (and `$sender`, `$form`, `$date`, `$time`) filled in from the answers. When someone sends a form, Pulse saves it, then posts it to that channel right away. If Slack doesn't take it, the submission stays saved and `pulse:slack-retry` (every five minutes, from `schedule:run`) tries again up to five times; an admin can also press Post now under Admin > Forms > All submissions.
@@ -134,6 +144,7 @@ Run the tests with `php artisan test`.
    Then:
    ```sh
    php artisan migrate --force --seed
+   php artisan drawbox:ssn-key    # the key that encrypts SSNs; back it up apart from the database
    php artisan drawbox:make-admin you@fasttrackems.com "Your Name"
    php artisan config:cache && php artisan route:cache && php artisan view:cache
    ```

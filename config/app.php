@@ -99,6 +99,10 @@ return [
 
     'key' => env('APP_KEY'),
 
+    // Encrypts Team Members' Social Security numbers (App\Services\Ssn). Kept
+    // apart from APP_KEY on purpose; make one with php artisan drawbox:ssn-key.
+    'ssn_key' => env('SSN_KEY'),
+
     'previous_keys' => [
         ...array_filter(
             explode(',', (string) env('APP_PREVIOUS_KEYS', ''))
