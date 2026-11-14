@@ -31,6 +31,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo('/');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // A Social Security number or date of birth is never put back into the session after a failed save.
+        $exceptions->dontFlash(['ssn', 'dob', 'remotelock_pin', 'pin', 'pins']);
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

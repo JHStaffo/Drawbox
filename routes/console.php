@@ -46,6 +46,25 @@ Artisan::command('drawbox:make-admin {email} {name}', function (string $email, s
     $this->info("{$user->name} <{$user->email}> is an admin.");
 })->purpose('Create or promote an admin account');
 
+Artisan::command('drawbox:ssn-key', function () {
+    // SSNs are encrypted with their own key. Making a new one when SSNs are
+    // already saved would leave them unreadable, so an existing key is kept.
+    $path = base_path('.env');
+    $env = is_file($path) ? file_get_contents($path) : '';
+    if (preg_match('/^SSN_KEY=\S+/m', $env)) {
+        $this->error('SSN_KEY is already set in .env. It was left alone, because SSNs saved with it would be lost.');
+
+        return 1;
+    }
+    $line = 'SSN_KEY='.\App\Services\Ssn::generateKey();
+    $env = preg_match('/^SSN_KEY=\s*$/m', $env) ? preg_replace('/^SSN_KEY=\s*$/m', $line, $env, 1) : rtrim($env, "\n")."\n\n# Encrypts Social Security numbers. Back it up with the database; without it they can't be read.\n{$line}\n";
+    file_put_contents($path, $env);
+    AuditLog::record('system.ssn-key', 'Made the SSN encryption key from the server command line.');
+    $this->info('Added SSN_KEY to .env. Run php artisan config:cache, and keep a copy of this key somewhere safe, apart from the database backups.');
+
+    return 0;
+})->purpose('Make the key that encrypts Social Security numbers');
+
 Artisan::command('protocols:load-sample', function () {
     // Puts the arranged Cardiac Arrest sample into a draft, whatever state the protocol is in.
     // The Medical Director still has to approve it before Team Members see it.
