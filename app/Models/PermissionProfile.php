@@ -56,6 +56,7 @@ class PermissionProfile extends Model
             'ssn_view' => 'See SSNs and dates of birth (last 4 on Team Members, and the full number and birth date one at a time; each look is in the audit log)',
             'ssn_edit' => 'Add, change or remove SSNs and dates of birth (also lets CSV imports fill them in)',
             'oig_exclusions' => 'OIG Exclusions (check Team Members against the OIG exclusion list and record manual checks)',
+            'ems_affiliations' => 'EMS Affiliations (search the Virginia Office of EMS provider search for every Team Member, review their other agencies, and keep the unacceptable agencies list)',
             'settings' => 'Settings',
             'audit_log' => 'Audit log',
             'profiles' => 'Permission Profiles',

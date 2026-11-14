@@ -54,6 +54,7 @@ class AuditChanges
 
     private const SETTINGS = [
         'draw_window_days' => 'Draw window (days)',
+        'ems_our_agency' => 'Our agency on the Virginia EMS provider search',
         'draw_delay_hours' => 'Wait before drawing (hours)',
         'locker_pickup_days' => 'Locker pickup window (days)',
         'expiry_reminder_enabled' => 'Expiry reminder emails',

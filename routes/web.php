@@ -169,6 +169,19 @@ Route::middleware('auth')->group(function () {
             Route::post('/oig/results/{result}/review', [\App\Http\Controllers\Admin\OigController::class, 'review'])->name('oig.review');
             Route::get('/oig/results/{result}/file', [\App\Http\Controllers\Admin\OigController::class, 'file'])->name('oig.file');
         });
+        Route::middleware('permission:ems_affiliations')->prefix('ems-affiliations')->name('ems')->controller(\App\Http\Controllers\Admin\EmsAffiliationController::class)->group(function () {
+            Route::get('/', 'index')->name('');
+            Route::post('/', 'store')->middleware('throttle:6,1')->name('.store');
+            Route::post('/test', 'test')->middleware('throttle:10,1')->name('.test');
+            Route::put('/agency', 'agency')->name('.agency');
+            Route::post('/unacceptable', 'unacceptableStore')->name('.unacceptable.store');
+            Route::delete('/unacceptable/{agency}', 'unacceptableDestroy')->name('.unacceptable.destroy');
+            Route::post('/affiliations/{affiliation}/review', 'review')->name('.review');
+            Route::get('/members/{user}', 'member')->name('.member');
+            Route::put('/members/{user}/cert', 'memberCert')->name('.member.cert');
+            Route::put('/members/{user}/exclusion', 'memberExclusion')->name('.member.exclusion');
+            Route::get('/{check}', 'show')->whereNumber('check')->name('.show');
+        });
         Route::get('/lockers', [LockerController::class, 'index'])->middleware('permission:lockers')->name('lockers');
         Route::get('/audit', [AuditLogController::class, 'index'])->middleware('permission:audit_log')->name('audit');
         Route::middleware('permission:settings')->group(function () {
