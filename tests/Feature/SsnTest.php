@@ -172,7 +172,7 @@ class SsnTest extends TestCase
         $this->assertStringNotContainsString('1985', $raw);
         $this->assertStringNotContainsString('dob', json_encode($pat));
 
-        $this->actingAs($admin)->get('/admin/users')->assertSee('DOB on file')->assertDontSee('04/12/1985');
+        $this->actingAs($admin)->get('/admin/users')->assertSee('DOB 04/12/XX')->assertDontSee('04/12/1985')->assertDontSee('1985');
         $this->actingAs($admin)->postJson("/admin/users/{$pat->id}/ssn")->assertExactJson(['ssn' => '123-45-6789', 'dob' => '04/12/1985']);
         $this->assertDatabaseHas('audit_logs', ['action' => 'admin.users.ssn.reveal', 'description' => "Looked at Pat Crew's full SSN and date of birth."]);
 

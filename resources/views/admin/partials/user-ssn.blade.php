@@ -1,7 +1,7 @@
-{{-- SSN and date of birth: last 4 and "on file" for people who can see or edit them, the full values one look at a time, and change forms. Never prefilled. --}}
+{{-- SSN and date of birth: last 4 and month/day (04/12/XX) for people who can see or edit them, the full values one look at a time, and change forms. Never prefilled. --}}
 <td class="ssn-cell">
     <span class="ssn-value" data-masked="{{ $user->hasSsn() ? $user->ssnMasked() : 'No SSN' }}">{{ $user->hasSsn() ? $user->ssnMasked() : 'No SSN' }}</span>
-    <div class="hint dob-value" data-masked="{{ $user->hasDob() ? 'DOB on file' : 'No DOB' }}">{{ $user->hasDob() ? 'DOB on file' : 'No DOB' }}</div>
+    <div class="hint dob-value" data-masked="{{ $user->hasDob() ? 'DOB '.$user->dobMasked() : 'No DOB' }}">{{ $user->hasDob() ? 'DOB '.$user->dobMasked() : 'No DOB' }}</div>
     @if ($canSeeSsn && $ssnReady && ($user->hasSsn() || $user->hasDob()))
         <button type="button" class="btn btn-small btn-outline ssn-show" data-url="{{ route('admin.users.ssn.reveal', $user) }}" aria-label="Show {{ $user->name }}'s SSN and date of birth">Show</button>
     @endif
