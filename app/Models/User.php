@@ -14,8 +14,8 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable(['name', 'email', 'phone', 'employee_number', 'permission_profile_id', 'active'])]
-// The SSN columns are never in fillable (only setSsn() writes them) and never in JSON or arrays.
-#[Hidden(['remember_token', 'ssn_encrypted', 'ssn_last4', 'ssn_hash'])]
+// The SSN and date of birth columns are never in fillable (only setSsn() writes them) and never in JSON or arrays.
+#[Hidden(['remember_token', 'ssn_encrypted', 'ssn_last4', 'ssn_hash', 'dob_encrypted'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -172,6 +172,23 @@ class User extends Authenticatable
         $this->ssn_encrypted = $digits === null ? null : Ssn::encrypt($digits);
         $this->ssn_last4 = $digits === null ? null : substr($digits, -4);
         $this->ssn_hash = $digits === null ? null : Ssn::hash($digits);
+    }
+
+    public function hasDob(): bool
+    {
+        return $this->dob_encrypted !== null;
+    }
+
+    /** Date of birth as Y-m-d, decrypted. The same rule as ssn(): only for a reason that gets its own audit entry. */
+    public function dob(): ?string
+    {
+        return $this->dob_encrypted === null ? null : Ssn::decrypt($this->dob_encrypted);
+    }
+
+    /** Store a Y-m-d date (from Ssn::normalizeDob), or null to remove it. Doesn't save. */
+    public function setDob(?string $date): void
+    {
+        $this->dob_encrypted = $date === null ? null : Ssn::encrypt($date);
     }
 
     /** Who already has this SSN (nine digits), if anyone. */

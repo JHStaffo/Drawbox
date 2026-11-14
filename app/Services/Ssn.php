@@ -16,6 +16,9 @@ use RuntimeException;
  *    found or matched (duplicates now, OIG exclusion checks later) without
  *    decrypting every row. It can't be turned back into the number.
  *
+ * Dates of birth use the same key (users.dob_encrypted, Y-m-d), with nothing
+ * stored in the clear.
+ *
  * Code that needs the number itself (an OIG/LEIE check, say) calls
  * $user->ssn(), and should write its own audit log entry when it does.
  */
@@ -39,6 +42,29 @@ class Ssn
         }
 
         return $digits;
+    }
+
+    /**
+     * A date of birth as typed (2026-01-31 from a date box, or 1/31/1985 and
+     * 01-31-1985 from a CSV) as Y-m-d, or null when it isn't a believable one.
+     */
+    public static function normalizeDob(?string $value): ?string
+    {
+        $value = trim((string) $value);
+        if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $value, $m)) {
+            [$y, $mo, $d] = [(int) $m[1], (int) $m[2], (int) $m[3]];
+        } elseif (preg_match('#^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$#', $value, $m)) {
+            [$mo, $d, $y] = [(int) $m[1], (int) $m[2], (int) $m[3]];
+        } else {
+            return null;
+        }
+        if (! checkdate($mo, $d, $y)) {
+            return null;
+        }
+        $date = sprintf('%04d-%02d-%02d', $y, $mo, $d);
+
+        // Someone working here is at least 14 and born after 1900.
+        return $date >= '1900-01-01' && $date <= now()->subYears(14)->toDateString() ? $date : null;
     }
 
     public static function format(string $digits): string

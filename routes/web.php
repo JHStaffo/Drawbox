@@ -159,6 +159,7 @@ Route::middleware('auth')->group(function () {
             Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
             Route::post('/users/{user}/ssn', [UserController::class, 'revealSsn'])->middleware(['permission:ssn_view', 'throttle:20,1'])->name('users.ssn.reveal');
             Route::put('/users/{user}/ssn', [UserController::class, 'updateSsn'])->middleware('permission:ssn_edit')->name('users.ssn.update');
+            Route::put('/users/{user}/dob', [UserController::class, 'updateDob'])->middleware('permission:ssn_edit')->name('users.dob.update');
         });
         Route::get('/lockers', [LockerController::class, 'index'])->middleware('permission:lockers')->name('lockers');
         Route::get('/audit', [AuditLogController::class, 'index'])->middleware('permission:audit_log')->name('audit');

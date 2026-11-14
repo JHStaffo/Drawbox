@@ -27,39 +27,75 @@ class UserController extends Controller
     {
         $data = $this->validated($request);
         $ssn = $this->validatedSsn($request);
+        $dob = $this->validatedDob($request);
         if ($error = $this->cantGrant($request, $data['permission_profile_id'])) {
-            return back()->withInput($request->except('ssn'))->with('error', $error);
+            return back()->withInput($request->except('ssn', 'dob'))->with('error', $error);
         }
         $user = new User($data + ['active' => true]);
         if ($ssn) {
             $user->setSsn($ssn);
         }
+        if ($dob) {
+            $user->setDob($dob);
+        }
         $user->save();
+        $saved = array_filter([$ssn ? 'SSN' : null, $dob ? 'date of birth' : null]);
 
-        return back()->with('status', "Added {$user->name}.".($ssn ? ' SSN saved.' : ''));
+        return back()->with('status', "Added {$user->name}.".($saved ? ' '.ucfirst(implode(' and ', $saved)).' saved.' : ''));
     }
 
     /**
-     * The full SSN, for someone with the See SSNs permission, one Team Member
-     * at a time. Every look is in the audit log; the number itself never is.
+     * The full SSN and date of birth, for someone with the See SSNs and dates
+     * of birth permission, one Team Member at a time. Every look is in the
+     * audit log; the values themselves never are.
      */
     public function revealSsn(Request $request, User $user)
     {
-        if (! $user->hasSsn()) {
-            audit_note("Tried to look at {$user->name}'s SSN, but none is on file.");
+        $what = implode(' and ', array_filter([$user->hasSsn() ? 'full SSN' : null, $user->hasDob() ? 'date of birth' : null]));
+        if ($what === '') {
+            audit_note("Tried to look at {$user->name}'s SSN and date of birth, but neither is on file.");
 
-            return response()->json(['message' => 'No SSN on file.'], 404);
+            return response()->json(['message' => 'Nothing on file.'], 404);
         }
         try {
             $ssn = $user->ssn();
+            $dob = $user->dob();
         } catch (\Throwable $e) {
-            audit_note("Tried to look at {$user->name}'s SSN, but it couldn't be decrypted.");
+            audit_note("Tried to look at {$user->name}'s {$what}, but it couldn't be decrypted.");
 
             return response()->json(['message' => "Couldn't read it. The SSN key may have changed."], 500);
         }
-        audit_note("Looked at {$user->name}'s full SSN.");
+        audit_note("Looked at {$user->name}'s {$what}.");
 
-        return response()->json(['ssn' => $ssn])->header('Cache-Control', 'no-store, private');
+        return response()->json(['ssn' => $ssn, 'dob' => $dob ? \Carbon\Carbon::parse($dob)->format('m/d/Y') : null])
+            ->header('Cache-Control', 'no-store, private');
+    }
+
+    /** Add, replace or remove one Team Member's date of birth (the same permission as SSNs). */
+    public function updateDob(Request $request, User $user)
+    {
+        if (! $request->user()->canManage($user)) {
+            return back()->with('error', "{$user->name} has access you don't have, so you can't change their date of birth.");
+        }
+        if ($request->boolean('remove')) {
+            if (! $user->hasDob()) {
+                return back()->with('error', "{$user->name} has no date of birth on file.");
+            }
+            $user->setDob(null);
+            $user->save();
+
+            return back()->with('status', "Removed {$user->name}'s date of birth.");
+        }
+
+        $dob = $this->validatedDob($request, required: true);
+        $had = $user->hasDob();
+        if ($had && $user->dob() === $dob) {
+            return back()->with('status', "{$user->name}'s date of birth is unchanged.");
+        }
+        $user->setDob($dob);
+        $user->save();
+
+        return back()->with('status', ($had ? 'Changed' : 'Saved')." {$user->name}'s date of birth.");
     }
 
     /** Add, replace or remove one Team Member's SSN (the Add, change or remove SSNs permission). */
@@ -111,9 +147,10 @@ class UserController extends Controller
         $email = $find(['email', 'emailaddress', 'mail']);
         $phone = $find(['phone', 'phonenumber', 'mobile', 'mobilephone', 'mobilenumber', 'cell', 'cellphone', 'cellnumber']);
         $ssnColumn = $find(['ssn', 'socialsecuritynumber', 'socialsecurity', 'socialsecurityno', 'socialsecno', 'ssnumber']);
+        $dobColumn = $find(['dob', 'dateofbirth', 'birthdate', 'birthday', 'birthdat']);
         if ($first === false && $last === false && $email === false) {
             [$first, $last, $email, $phone] = [0, 1, 2, 3];
-            $ssnColumn = false; // only read with a header, so a stray fifth column is never taken for an SSN
+            $ssnColumn = $dobColumn = false; // only read with a header, so a stray column is never taken for an SSN or birthday
             $start = 0;
         } elseif ($first === false || $last === false || $email === false) {
             return back()->with('error', 'The CSV needs First Name, Last Name and Email columns.');
@@ -129,10 +166,12 @@ class UserController extends Controller
         $badPhones = [];
         $ssnsAdded = 0;
         $badSsns = [];
-        $ssnSkipped = $ssnColumn !== false && ! ($request->user()->hasPermission('ssn_edit') && Ssn::configured());
+        $ssnSkipped = ($ssnColumn !== false || $dobColumn !== false) && ! ($request->user()->hasPermission('ssn_edit') && Ssn::configured());
         if ($ssnSkipped) {
-            $ssnColumn = false;
+            $ssnColumn = $dobColumn = false;
         }
+        $dobsAdded = 0;
+        $badDobs = [];
         $seenSsns = [];
         $profileId = PermissionProfile::default()?->id;
         if ($profileId && ($error = $this->cantGrant($request, $profileId))) {
@@ -171,8 +210,21 @@ class UserController extends Controller
                     }
                 }
             }
+            $dob = null;
+            if ($dobColumn !== false && trim($row[$dobColumn] ?? '') !== '') {
+                $dob = Ssn::normalizeDob($row[$dobColumn]);
+                if (! $dob) {
+                    $badDobs[] = $i + 1;
+                }
+            }
             if ($existing->has($address)) {
                 $skipped++;
+                $member = $dob ? User::where('email', $address)->whereNull('dob_encrypted')->first() : null;
+                if ($member && $request->user()->canManage($member)) {
+                    $member->setDob($dob);
+                    $member->save();
+                    $dobsAdded++;
+                }
                 $member = $number ? User::where('email', $address)->whereNull('phone')->first() : null;
                 if ($member && $request->user()->canManage($member)) {
                     $member->update(['phone' => $number]);
@@ -192,6 +244,10 @@ class UserController extends Controller
                 $user->setSsn($ssn);
                 $ssnsAdded++;
             }
+            if ($dob) {
+                $user->setDob($dob);
+                $dobsAdded++;
+            }
             $user->save();
             $existing[$address] = true;
             $added++;
@@ -207,8 +263,11 @@ class UserController extends Controller
         if ($ssnsAdded) {
             $message .= " Saved {$ssnsAdded} SSN(s).";
         }
+        if ($dobsAdded) {
+            $message .= " Saved {$dobsAdded} date(s) of birth.";
+        }
         if ($ssnSkipped) {
-            $message .= ' Left out the SSN column because you can\'t add SSNs.';
+            $message .= ' Left out the SSN and date of birth columns because you can\'t add them.';
         }
         if ($problems) {
             $message .= ' Skipped line(s) '.implode(', ', $problems).' with a missing name or email.';
@@ -219,6 +278,10 @@ class UserController extends Controller
 
         if ($badSsns) {
             $message .= ' Left out the SSN on line(s) '.implode(', ', $badSsns).' because it isn\'t valid or is already on file for someone else.';
+        }
+
+        if ($badDobs) {
+            $message .= ' Left out the date of birth on line(s) '.implode(', ', $badDobs).' because it isn\'t a valid date, like 4/12/1985.';
         }
 
         return back()->with('status', $message);
@@ -314,6 +377,24 @@ class UserController extends Controller
         }
 
         return $ssn;
+    }
+
+    /** A date of birth as Y-m-d, or null when it's blank. Same permission as SSNs; errors never repeat the date. */
+    private function validatedDob(Request $request, bool $required = false): ?string
+    {
+        $value = trim((string) $request->input('dob'));
+        if ($value === '' && ! $required) {
+            return null;
+        }
+        $fail = fn (string $message) => throw \Illuminate\Validation\ValidationException::withMessages(['dob' => $message]);
+        if (! $request->user()->hasPermission('ssn_edit')) {
+            $fail("You can't add dates of birth.");
+        }
+        if (! Ssn::configured()) {
+            $fail("Dates of birth can't be saved until the server's SSN key is set.");
+        }
+
+        return Ssn::normalizeDob($value) ?? $fail($value === '' ? 'Pick the date of birth.' : 'That isn\'t a valid date of birth.');
     }
 
     private function validated(Request $request, ?User $user = null): array
