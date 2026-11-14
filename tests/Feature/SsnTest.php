@@ -82,7 +82,7 @@ class SsnTest extends TestCase
         // Admin starts with both and sees the last 4 only until they press Show.
         $this->assertTrue($admin->hasPermission('ssn_view') && $admin->hasPermission('ssn_edit'));
         $this->actingAs($admin)->get('/admin/users')->assertSee('•••-••-6789')->assertDontSee('123-45-6789');
-        $this->actingAs($admin)->postJson("/admin/users/{$pat->id}/ssn")->assertOk()->assertExactJson(['ssn' => '123-45-6789'])
+        $this->actingAs($admin)->postJson("/admin/users/{$pat->id}/ssn")->assertOk()->assertExactJson(['ssn' => '123-45-6789', 'dob' => null])
             ->assertHeader('Cache-Control', 'no-store, private');
         $this->assertDatabaseHas('audit_logs', ['action' => 'admin.users.ssn.reveal', 'user_id' => $admin->id, 'description' => "Looked at Pat Crew's full SSN."]);
 
@@ -155,19 +155,78 @@ class SsnTest extends TestCase
         $file = UploadedFile::fake()->createWithContent('team.csv', "First Name,Last Name,Email,SSN\nAmy,Zimmer,amy@example.com,234-56-7890\n");
 
         $this->actingAs($manager)->post('/admin/users/import', ['file' => $file])
-            ->assertSessionHas('status', 'Added 1 team member(s). Left out the SSN column because you can\'t add SSNs.');
+            ->assertSessionHas('status', 'Added 1 team member(s). Left out the SSN and date of birth columns because you can\'t add them.');
         $this->assertFalse(User::where('email', 'amy@example.com')->first()->hasSsn());
+    }
+
+    public function test_date_of_birth_is_encrypted_revealed_and_audited(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $profile = PermissionProfile::default()->id;
+
+        $this->actingAs($admin)->post('/admin/users', ['name' => 'Pat Crew', 'email' => 'pat@example.com', 'ssn' => '123-45-6789', 'dob' => '1985-04-12', 'permission_profile_id' => $profile])
+            ->assertSessionHas('status', 'Added Pat Crew. SSN and date of birth saved.');
+        $pat = User::where('email', 'pat@example.com')->first();
+        $this->assertSame('1985-04-12', $pat->dob());
+        $raw = DB::table('users')->where('id', $pat->id)->value('dob_encrypted');
+        $this->assertStringNotContainsString('1985', $raw);
+        $this->assertStringNotContainsString('dob', json_encode($pat));
+
+        $this->actingAs($admin)->get('/admin/users')->assertSee('DOB on file')->assertDontSee('04/12/1985');
+        $this->actingAs($admin)->postJson("/admin/users/{$pat->id}/ssn")->assertExactJson(['ssn' => '123-45-6789', 'dob' => '04/12/1985']);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'admin.users.ssn.reveal', 'description' => "Looked at Pat Crew's full SSN and date of birth."]);
+
+        foreach (['2030-01-01', '1850-01-01', '1985-02-30', 'soon'] as $bad) {
+            $this->actingAs($admin)->put("/admin/users/{$pat->id}/dob", ['dob' => $bad])->assertSessionHasErrors('dob');
+        }
+        $this->assertNull(session()->getOldInput('dob'));
+        $this->actingAs($admin)->put("/admin/users/{$pat->id}/dob", ['dob' => '1986-05-01'])->assertSessionHas('status', "Changed Pat Crew's date of birth.");
+        $this->assertSame('1986-05-01', $pat->fresh()->dob());
+        $this->actingAs($admin)->put("/admin/users/{$pat->id}/dob", ['remove' => 1])->assertSessionHas('status', "Removed Pat Crew's date of birth.");
+        $this->assertFalse($pat->fresh()->hasDob());
+
+        // Without the edit permission it can't be set.
+        $supervisor = User::factory()->role('supervisor')->create();
+        $this->actingAs($supervisor)->put("/admin/users/{$pat->id}/dob", ['dob' => '1985-04-12'])->assertForbidden();
+
+        foreach (AuditLog::pluck('description') as $description) {
+            $this->assertDoesNotMatchRegularExpression('/19\d\d|04\/12/', $description);
+        }
+    }
+
+    public function test_csv_import_fills_in_blank_dates_of_birth(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $old = User::factory()->create(['email' => 'old@example.com']);
+        $kept = User::factory()->create(['email' => 'kept@example.com']);
+        $kept->setDob('1970-01-01');
+        $kept->save();
+        $csv = "First Name,Last Name,Email,Date of Birth\n"
+            ."Amy,Zimmer,amy@example.com,4/12/1985\n"
+            ."Bo,Bad,bo@example.com,13/45/1985\n"
+            ."Old,Timer,old@example.com,1960-07-04\n"
+            ."Kept,Date,kept@example.com,01/02/1990\n";
+        $file = UploadedFile::fake()->createWithContent('team.csv', $csv);
+
+        $this->actingAs($admin)->post('/admin/users/import', ['file' => $file])
+            ->assertSessionHas('status', 'Added 2 team member(s). Skipped 2 already on the roster. Saved 2 date(s) of birth. Left out the date of birth on line(s) 3 because it isn\'t a valid date, like 4/12/1985.');
+        $this->assertSame('1985-04-12', User::where('email', 'amy@example.com')->first()->dob());
+        $this->assertFalse(User::where('email', 'bo@example.com')->first()->hasDob());
+        $this->assertSame('1960-07-04', $old->fresh()->dob());
+        $this->assertSame('1970-01-01', $kept->fresh()->dob());
     }
 
     public function test_ssn_never_reaches_the_api(): void
     {
         $pat = User::factory()->create();
         $pat->setSsn('123456789');
+        $pat->setDob('1985-04-12');
         $pat->save();
         $token = $pat->createToken('test')->plainTextToken;
 
         $body = $this->withToken($token)->getJson('/api/v1/me')->assertOk()->getContent();
         $this->assertStringNotContainsString('ssn', $body);
         $this->assertStringNotContainsString('6789', $body);
+        $this->assertStringNotContainsString('1985', $body);
     }
 }
