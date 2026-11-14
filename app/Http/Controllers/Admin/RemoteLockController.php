@@ -153,7 +153,7 @@ class RemoteLockController extends Controller
     /** Adds the ticked Team Members to RemoteLock as new access users. */
     public function create(Request $request, RemoteLockSync $sync)
     {
-        $data = $request->validate(['users' => 'required|array|max:25', 'users.*' => 'integer']);
+        $data = $request->validate(['users' => 'required|array|max:25', 'users.*' => 'integer', 'pins' => 'array', 'pins.*' => RemoteLockSync::PIN_RULE], ['pins.*.regex' => RemoteLockSync::PIN_MESSAGE]);
         $done = [];
         $problems = [];
         foreach (User::with('profile.parent')->whereIn('id', $data['users'])->whereNull('remotelock_id')->get() as $user) {
@@ -163,7 +163,7 @@ class RemoteLockController extends Controller
                 continue;
             }
             try {
-                $done[] = $sync->createFor($user);
+                $done[] = $sync->createFor($user, '', $data['pins'][$user->id] ?? null);
             } catch (RuntimeException $e) {
                 $problems[] = "{$user->name}: ".$e->getMessage();
             }
@@ -191,6 +191,25 @@ class RemoteLockController extends Controller
         return back()->with('status', $added
             ? "Gave {$user->name} door groups ".implode(', ', $added).' in RemoteLock.'
             : "{$user->name} already has every door group their profile lists.");
+    }
+
+    /** Sets a linked Team Member's door PIN. The PIN is sent to RemoteLock only, never stored or logged in Pulse. */
+    public function pin(Request $request, User $user, RemoteLock $remoteLock)
+    {
+        $request->validate(['pin' => ['required', ...array_slice(RemoteLockSync::PIN_RULE, 1)]], ['pin.regex' => RemoteLockSync::PIN_MESSAGE]);
+        if (! $request->user()->canManage($user)) {
+            return back()->with('error', "{$user->name} has access you don't have, so you can't change them.");
+        }
+        if (! $user->remotelock_id) {
+            return back()->with('error', "{$user->name} isn't linked to RemoteLock.");
+        }
+        try {
+            $remoteLock->setPin($user->remotelock_id, $request->input('pin'));
+        } catch (RuntimeException $e) {
+            return back()->with('error', "{$user->name}'s PIN wasn't changed. ".$e->getMessage());
+        }
+
+        return back()->with('status', "Changed {$user->name}'s door PIN in RemoteLock.");
     }
 
     /** Deactivates, in RemoteLock, everyone linked who is turned off in Pulse. */

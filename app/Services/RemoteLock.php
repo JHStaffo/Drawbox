@@ -130,12 +130,12 @@ class RemoteLock
         return $r ? self::person($r['data']) : null;
     }
 
-    /** Adds an access user with a PIN RemoteLock makes up. */
-    public function create(string $name, ?string $email): array
+    /** Adds an access user with the PIN given, or one RemoteLock makes up. */
+    public function create(string $name, ?string $email, ?string $pin = null): array
     {
         $r = $this->call('post', '/access_persons', [
             'type' => 'access_user',
-            'attributes' => array_filter(['name' => $name, 'email' => $email, 'generate_pin' => true]),
+            'attributes' => array_filter(['name' => $name, 'email' => $email] + ($pin ? ['pin' => $pin] : ['generate_pin' => true])),
         ]);
         $this->forget();
 
@@ -146,6 +146,12 @@ class RemoteLock
     {
         $this->call('put', '/access_persons/'.rawurlencode($id), ['attributes' => ['name' => $name, 'email' => $email]]);
         $this->forget();
+    }
+
+    /** Changes their PIN on every door they open. */
+    public function setPin(string $id, string $pin): void
+    {
+        $this->call('put', '/access_persons/'.rawurlencode($id), ['attributes' => ['pin' => $pin]]);
     }
 
     /** Turns their access off on every door. RemoteLock keeps the record and its history. */

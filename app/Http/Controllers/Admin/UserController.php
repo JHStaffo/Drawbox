@@ -21,17 +21,18 @@ class UserController extends Controller
     {
         $profiles = PermissionProfile::ordered();
 
-        return view('admin.users', ['profiles' => $profiles, 'grantable' => $profiles->filter(fn ($p) => request()->user()->canGrantProfile($p))->values(), 'users' => User::with('profile.parent')->get()->sortBy([fn ($a, $b) => $b->active <=> $a->active, fn ($a, $b) => $a->sortName() <=> $b->sortName()])->values()]);
+        return view('admin.users', ['remoteLockPin' => app(RemoteLockSync::class)->autoAdd(), 'profiles' => $profiles, 'grantable' => $profiles->filter(fn ($p) => request()->user()->canGrantProfile($p))->values(), 'users' => User::with('profile.parent')->get()->sortBy([fn ($a, $b) => $b->active <=> $a->active, fn ($a, $b) => $a->sortName() <=> $b->sortName()])->values()]);
     }
 
     public function store(Request $request)
     {
         $data = $this->validated($request);
+        $pin = $request->validate(['remotelock_pin' => RemoteLockSync::PIN_RULE], ['remotelock_pin.regex' => RemoteLockSync::PIN_MESSAGE])['remotelock_pin'] ?? null;
         if ($error = $this->cantGrant($request, $data['permission_profile_id'])) {
             return back()->withInput()->with('error', $error);
         }
         $user = User::create($data + ['active' => true]);
-        $remote = app(RemoteLockSync::class)->push($user);
+        $remote = app(RemoteLockSync::class)->push($user, $pin);
 
         return back()->with('status', trim("Added {$user->name}. {$remote}"));
     }

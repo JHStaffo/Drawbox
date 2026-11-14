@@ -33,7 +33,7 @@
         @if ($connected)
             <form id="remotelock-disconnect" method="post" action="{{ route('admin.remotelock.disconnect') }}" onsubmit="return confirm('Disconnect RemoteLock? Changes in Pulse will wait until it is connected again.')">@csrf @method('delete')</form>
             <form class="mt" method="post" action="{{ route('admin.remotelock.options') }}">@csrf @method('put')
-                <label class="check"><input type="checkbox" name="auto_add" value="1" @checked($autoAdd) onchange="this.form.submit()"> Add new Team Members to RemoteLock (with a new PIN and their profile's door groups)</label>
+                <label class="check"><input type="checkbox" name="auto_add" value="1" @checked($autoAdd) onchange="this.form.submit()"> Add new Team Members to RemoteLock (with their profile's door groups, and the PIN typed on Team Members or a random one)</label>
             </form>
             <form class="mt" method="post" action="{{ route('admin.remotelock.sync') }}">@csrf
                 <span class="hint">{{ $pendingCount ? $pendingCount.' change(s) waiting. They go out every few minutes.' : 'Nothing waiting to go to RemoteLock.' }}</span>
@@ -56,11 +56,11 @@
             @if ($unlinkedActive->isEmpty())
                 <p class="empty">Every active Team Member is linked.</p>
             @else
-                <p class="hint">Suggestions are by email first, then name. Tick <strong>Link</strong> to link someone to the RemoteLock user picked, or tick <strong>Add new</strong> to add them to RemoteLock with a new PIN and their profile's door groups. Linking changes nothing in RemoteLock.</p>
+                <p class="hint">Suggestions are by email first, then name. Tick <strong>Link</strong> to link someone to the RemoteLock user picked, or tick <strong>Add new</strong> to add them to RemoteLock with their profile's door groups and the PIN you type (or a random one). Linking changes nothing in RemoteLock.</p>
                 <form id="remotelock-link" method="post" action="{{ route('admin.remotelock.link') }}">@csrf</form>
                 <form id="remotelock-create" method="post" action="{{ route('admin.remotelock.create') }}">@csrf</form>
                 <div class="table-wrap"><table>
-                    <tr><th>Link</th><th>Team Member</th><th>Profile</th><th>RemoteLock user</th><th>Add new</th></tr>
+                    <tr><th>Link</th><th>Team Member</th><th>Profile</th><th>RemoteLock user</th><th>Add new</th><th>PIN if added</th></tr>
                     @foreach ($unlinkedActive as $user)
                         @php($s = $suggestions[$user->id] ?? null)
                         <tr>
@@ -75,6 +75,7 @@
                                 @if ($s)<div class="hint">Suggested: {{ $s['why'] }}</div>@endif
                             </td>
                             <td><input type="checkbox" name="users[]" value="{{ $user->id }}" form="remotelock-create" aria-label="Add {{ $user->name }} to RemoteLock"></td>
+                            <td><input type="text" name="pins[{{ $user->id }}]" form="remotelock-create" inputmode="numeric" pattern="\d{4,8}" maxlength="8" size="8" placeholder="Random" autocomplete="off" aria-label="PIN for {{ $user->name }}"></td>
                         </tr>
                     @endforeach
                 </table></div>
@@ -141,6 +142,9 @@
                                 @else<span class="pill pill-green">{{ ucfirst($p['status'] ?: 'active') }}</span>@endif
                             </td>
                             <td class="row-actions">
+                                @if ($user->active && $p && $p['status'] !== 'deactivated')
+                                    <form method="post" action="{{ route('admin.remotelock.pin', $user) }}">@csrf @method('put')<input type="text" name="pin" inputmode="numeric" pattern="\d{4,8}" maxlength="8" size="8" placeholder="New PIN" required autocomplete="off" aria-label="New PIN for {{ $user->name }}"> <button class="btn btn-small btn-outline" type="submit">Set PIN</button></form>
+                                @endif
                                 @if ($user->active && \App\Services\RemoteLockSync::doorGroupsFor($user->profile))
                                     <form method="post" action="{{ route('admin.remotelock.grant', $user) }}">@csrf<button class="btn btn-small btn-outline" type="submit" title="Adds the door groups {{ $user->profile?->label() }} lists. Never removes any.">Give profile doors</button></form>
                                 @endif

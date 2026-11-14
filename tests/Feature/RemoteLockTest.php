@@ -53,6 +53,9 @@ class RemoteLockTest extends TestCase
             if ($path === '/access_persons' && $request->method() === 'GET') {
                 return Http::response(['data' => array_map($row, array_keys($this->people)), 'meta' => ['total_pages' => 1]]);
             }
+            if (($request['attributes']['pin'] ?? null) === '1111') {
+                return Http::response(['errors' => [['attribute' => 'pin', 'messages' => ['has already been taken'], 'full_messages' => ['Pin has already been taken']]]], 422);
+            }
             if ($path === '/access_persons' && $request->method() === 'POST') {
                 $id = 'rl-new-'.count($this->people);
                 $this->people[$id] = ['name' => $request['attributes']['name'], 'email' => $request['attributes']['email'] ?? '', 'status' => 'current'];
@@ -277,6 +280,38 @@ class RemoteLockTest extends TestCase
             if ($name && str_starts_with($name, 'admin.remotelock.')) {
                 $this->assertArrayHasKey($name, AuditLog::ACTIONS, $name);
             }
+        }
+    }
+
+    public function test_pins_can_be_set_and_are_never_logged(): void
+    {
+        $this->fakeRemoteLock();
+        $this->connect();
+        $admin = User::factory()->role('admin')->create();
+        $this->actingAs($admin)->get('/admin/users')->assertSee('Door PIN (RemoteLock)');
+
+        $this->actingAs($admin)->post('/admin/users', ['name' => 'Pia Pin', 'email' => 'pia@fasttrackems.com', 'permission_profile_id' => PermissionProfile::default()->id, 'remotelock_pin' => '12a4'])
+            ->assertSessionHasErrors(['remotelock_pin' => 'The PIN needs 4 to 8 digits.']);
+        $this->actingAs($admin)->post('/admin/users', ['name' => 'Pia Pin', 'email' => 'pia@fasttrackems.com', 'permission_profile_id' => PermissionProfile::default()->id, 'remotelock_pin' => '482913'])
+            ->assertSessionHas('status', 'Added Pia Pin. Added Pia Pin to RemoteLock with the PIN you set (no door groups set for Team Member).');
+        Http::assertSent(fn (Request $r) => $r->method() === 'POST' && str_ends_with($r->url(), '/access_persons') && $r['attributes']['pin'] === '482913' && ! isset($r['attributes']['generate_pin']));
+        $pia = User::where('email', 'pia@fasttrackems.com')->first();
+
+        $this->actingAs($admin)->put("/admin/remotelock/pin/{$pia->id}", ['pin' => '750031'])->assertSessionHas('status', "Changed Pia Pin's door PIN in RemoteLock.");
+        Http::assertSent(fn (Request $r) => $r->method() === 'PUT' && str_ends_with($r->url(), '/access_persons/'.$pia->remotelock_id) && $r['attributes'] === ['pin' => '750031']);
+        $this->assertSame('admin.remotelock.pin', AuditLog::latest('id')->value('action'));
+
+        // A PIN RemoteLock won't take is explained, and doesn't change anything.
+        $this->actingAs($admin)->put("/admin/remotelock/pin/{$pia->id}", ['pin' => '1111'])
+            ->assertSessionHas('error', "Pia Pin's PIN wasn't changed. RemoteLock said: Pin has already been taken.");
+
+        // Taken on a new Team Member: no random-PIN retry; they wait to be added by hand.
+        $this->actingAs($admin)->post('/admin/users', ['name' => 'Tom Taken', 'email' => 'tom@fasttrackems.com', 'permission_profile_id' => PermissionProfile::default()->id, 'remotelock_pin' => '1111'])
+            ->assertSessionHas('status', 'Added Tom Taken. Tom Taken wasn\'t added to RemoteLock: RemoteLock said: Pin has already been taken. Add them with their PIN on Admin > RemoteLock.');
+        $this->assertFalse(User::where('email', 'tom@fasttrackems.com')->first()->remotelock_pending);
+
+        foreach (['482913', '750031', '1111'] as $pin) {
+            $this->assertFalse(AuditLog::where('description', 'like', "%{$pin}%")->exists(), "PIN {$pin} was logged");
         }
     }
 }

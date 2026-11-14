@@ -210,6 +210,7 @@ Route::middleware('auth')->group(function () {
             Route::delete('/link/{user}', [RemoteLockController::class, 'unlink'])->name('.unlink');
             Route::post('/create', [RemoteLockController::class, 'create'])->name('.create');
             Route::post('/grant/{user}', [RemoteLockController::class, 'grant'])->name('.grant');
+            Route::put('/pin/{user}', [RemoteLockController::class, 'pin'])->middleware('throttle:20,1')->name('.pin');
             Route::post('/deactivate', [RemoteLockController::class, 'deactivate'])->name('.deactivate');
             Route::put('/doors', [RemoteLockController::class, 'doors'])->name('.doors');
             Route::post('/sync', [RemoteLockController::class, 'sync'])->name('.sync');

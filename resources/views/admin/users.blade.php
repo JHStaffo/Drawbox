@@ -15,6 +15,10 @@
                 <div class="field"><label>Email</label><input type="email" name="email" value="{{ old('email') }}" required></div>
                 <div class="field"><label>Mobile phone</label><input type="tel" name="phone" value="{{ old('phone') }}" placeholder="(757) 555-1234" autocomplete="off"></div>
                 <div class="field"><label>Team Member #</label><input type="text" name="employee_number" value="{{ old('employee_number') }}"></div>
+                @if ($remoteLockPin)
+                    <div class="field"><label>Door PIN (RemoteLock)</label><input type="text" name="remotelock_pin" inputmode="numeric" pattern="\d{4,8}" maxlength="8" placeholder="Leave blank for a random one" autocomplete="off">
+                        @error('remotelock_pin')<div class="error">{{ $message }}</div>@enderror</div>
+                @endif
                 <div class="field"><label>Permission profile</label>
                     <select name="permission_profile_id">@foreach ($grantable as $p)<option value="{{ $p->id }}" @selected(old('permission_profile_id') ? old('permission_profile_id') == $p->id : $p->is_default)>{{ $p->label() }}</option>@endforeach</select>
                 </div>

@@ -89,6 +89,7 @@ class AuditLog extends Model
         'admin.remotelock.unlink' => 'Unlinked a Team Member from RemoteLock',
         'admin.remotelock.create' => 'Added Team Members to RemoteLock',
         'admin.remotelock.grant' => 'Gave RemoteLock door groups',
+        'admin.remotelock.pin' => 'Changed a RemoteLock door PIN',
         'admin.remotelock.deactivate' => 'Deactivated turned-off Team Members in RemoteLock',
         'admin.remotelock.doors' => 'Changed RemoteLock door groups for new Team Members',
         'admin.remotelock.sync' => 'Sent waiting changes to RemoteLock',

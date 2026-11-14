@@ -47,17 +47,23 @@ class RemoteLockSync
      * sentence for the page and audit log, or null when nothing was sent.
      * Problems are kept on the Team Member and retried by the scheduler.
      */
-    public function push(User $user): ?string
+    public function push(User $user, ?string $pin = null): ?string
     {
         if (! $user->remotelock_pending || ! $this->remoteLock->connected()) {
             return null;
         }
 
         try {
-            $done = $this->apply($user);
+            $done = $this->apply($user, $pin);
         } catch (RuntimeException $e) {
             $error = mb_substr($e->getMessage(), 0, 500);
             $repeat = $user->remotelock_error === $error;
+            if ($pin && ! $user->remotelock_id) {
+                // A retry would give them a random PIN instead of the one typed, so it waits for someone to add them by hand.
+                $user->forceFill(['remotelock_pending' => false, 'remotelock_error' => null])->saveQuietly();
+
+                return "{$user->name} wasn't added to RemoteLock: ".$e->getMessage().' Add them with their PIN on Admin > RemoteLock.';
+            }
             $user->forceFill(['remotelock_error' => $error])->saveQuietly();
             if ($repeat && app()->runningInConsole()) {
                 return null; // Already logged; the scheduler keeps trying quietly.
@@ -77,7 +83,7 @@ class RemoteLockSync
             ->map(fn (User $u) => $this->push($u))->filter()->values()->all();
     }
 
-    private function apply(User $user): ?string
+    private function apply(User $user, ?string $pin): ?string
     {
         // Not linked yet: a new Team Member, added to RemoteLock (or linked to the
         // access user with their email, so nobody is entered twice).
@@ -89,11 +95,14 @@ class RemoteLockSync
                 && ! User::where('remotelock_id', $p['id'])->exists());
             if ($match) {
                 $this->link($user, $match);
+                if ($pin) {
+                    $this->remoteLock->setPin($match['id'], $pin);
+                }
 
-                return "Linked {$user->name} to the RemoteLock user {$match['name']} with the same email.";
+                return "Linked {$user->name} to the RemoteLock user {$match['name']} with the same email".($pin ? ' and set their PIN' : '').'.';
             }
 
-            return $this->createFor($user);
+            return $this->createFor($user, '', $pin);
         }
 
         $remote = $this->remoteLock->find($user->remotelock_id);
@@ -135,15 +144,20 @@ class RemoteLockSync
         return null;
     }
 
-    /** Adds them to RemoteLock with a new PIN and their profile's door groups. */
-    public function createFor(User $user, string $prefix = ''): string
+    /** Adds them to RemoteLock with the PIN given (or one RemoteLock makes) and their profile's door groups. */
+    public function createFor(User $user, string $prefix = '', ?string $pin = null): string
     {
-        $person = $this->remoteLock->create($user->name, $user->email);
+        $person = $this->remoteLock->create($user->name, $user->email, $pin);
         $this->link($user, $person);
         $doors = $this->grantDefaults($user);
 
-        return trim($prefix.' Added '.$user->name.' to RemoteLock with a new PIN'.($doors ? ' and door groups '.implode(', ', $doors) : ' (no door groups set for '.($user->profile?->label() ?? 'their profile').')').'.');
+        return trim($prefix.' Added '.$user->name.' to RemoteLock with '.($pin ? 'the PIN you set' : 'a new PIN').($doors ? ' and door groups '.implode(', ', $doors) : ' (no door groups set for '.($user->profile?->label() ?? 'their profile').')').'.');
     }
+
+    /** The rule for a PIN typed in Pulse: 4 to 8 digits. The PIN itself is never stored or logged in Pulse. */
+    public const PIN_RULE = ['nullable', 'regex:/^\\d{4,8}$/'];
+
+    public const PIN_MESSAGE = 'The PIN needs 4 to 8 digits.';
 
     public function link(User $user, array $person): void
     {
