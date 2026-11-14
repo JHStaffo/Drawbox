@@ -9,6 +9,8 @@ use App\Models\InventoryLog;
 use App\Models\LockerAssignment;
 use App\Models\PermissionProfile;
 use App\Models\User;
+use App\Services\RemoteLock;
+use App\Services\RemoteLockSync;
 use App\Services\Ssn;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -20,16 +22,17 @@ class UserController extends Controller
     {
         $profiles = PermissionProfile::ordered();
 
-        return view('admin.users', ['profiles' => $profiles, 'grantable' => $profiles->filter(fn ($p) => request()->user()->canGrantProfile($p))->values(), 'users' => User::with('profile.parent')->get()->sortBy([fn ($a, $b) => $b->active <=> $a->active, fn ($a, $b) => $a->sortName() <=> $b->sortName()])->values()]);
+        return view('admin.users', ['remoteLockPin' => app(RemoteLockSync::class)->autoAdd(), 'profiles' => $profiles, 'grantable' => $profiles->filter(fn ($p) => request()->user()->canGrantProfile($p))->values(), 'users' => User::with('profile.parent')->get()->sortBy([fn ($a, $b) => $b->active <=> $a->active, fn ($a, $b) => $a->sortName() <=> $b->sortName()])->values()]);
     }
 
     public function store(Request $request)
     {
         $data = $this->validated($request);
+        $pin = $request->validate(['remotelock_pin' => RemoteLockSync::PIN_RULE], ['remotelock_pin.regex' => RemoteLockSync::PIN_MESSAGE])['remotelock_pin'] ?? null;
         $ssn = $this->validatedSsn($request);
         $dob = $this->validatedDob($request);
         if ($error = $this->cantGrant($request, $data['permission_profile_id'])) {
-            return back()->withInput($request->except('ssn', 'dob'))->with('error', $error);
+            return back()->withInput($request->except('ssn', 'dob', 'remotelock_pin'))->with('error', $error);
         }
         $user = new User($data + ['active' => true]);
         if ($ssn) {
@@ -41,7 +44,9 @@ class UserController extends Controller
         $user->save();
         $saved = array_filter([$ssn ? 'SSN' : null, $dob ? 'date of birth' : null]);
 
-        return back()->with('status', "Added {$user->name}.".($saved ? ' '.ucfirst(implode(' and ', $saved)).' saved.' : ''));
+        $remote = app(RemoteLockSync::class)->push($user, $pin);
+
+        return back()->with('status', trim("Added {$user->name}.".($saved ? ' '.ucfirst(implode(' and ', $saved)).' saved.' : '')." {$remote}"));
     }
 
     /**
@@ -254,6 +259,9 @@ class UserController extends Controller
         }
 
         $message = "Added {$added} team member(s).";
+        if ($added && app(RemoteLockSync::class)->autoAdd()) {
+            $message .= ' They\'ll be added to RemoteLock within a few minutes.';
+        }
         if ($skipped) {
             $message .= " Skipped {$skipped} already on the roster.";
         }
@@ -301,8 +309,9 @@ class UserController extends Controller
             return back()->with('error', "You can't take away your own access to Team Members.");
         }
         $user->update($data);
+        $remote = app(RemoteLockSync::class)->push($user);
 
-        return back()->with('status', "Saved {$user->name}.");
+        return back()->with('status', trim("Saved {$user->name}. {$remote}"));
     }
 
     /**
@@ -327,13 +336,24 @@ class UserController extends Controller
             return back()->with('error', "{$user->name} has prize or dispatch history, so they can't be deleted. Uncheck Active and Save to turn them off instead.");
         }
 
+        // Someone deleted from Pulse loses their doors too; RemoteLock keeps their history.
+        $remote = '';
+        if ($user->remotelock_id && app(RemoteLock::class)->connected()) {
+            try {
+                app(RemoteLock::class)->deactivate($user->remotelock_id);
+                $remote = " Deactivated them in RemoteLock ({$user->remotelock_name}).";
+            } catch (\RuntimeException $e) {
+                return back()->with('error', "{$user->name} wasn't deleted, because RemoteLock couldn't deactivate them: ".$e->getMessage());
+            }
+        }
+
         DB::transaction(function () use ($user) {
             InventoryLog::where('user_id', $user->id)->update(['user_id' => null]);
             $user->credits()->delete();
             $user->delete();
         });
 
-        return back()->with('status', "Deleted {$user->name}.");
+        return back()->with('status', "Deleted {$user->name}.{$remote}");
     }
 
     /**

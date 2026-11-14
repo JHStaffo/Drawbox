@@ -97,9 +97,9 @@
                         </div>
                     </details>
                 @endif
-                @if ($u->hasAnyPermission('team_members', 'settings', 'audit_log', 'profiles', 'manage_forms', 'oig_exclusions'))
+                @if ($u->hasAnyPermission('team_members', 'settings', 'audit_log', 'profiles', 'manage_forms', 'remotelock', 'oig_exclusions'))
                     <details class="nav-menu">
-                        <summary @class(['active' => request()->routeIs('admin.users*', 'supervisor.settings', 'admin.audit', 'admin.profiles*', 'admin.forms*', 'admin.lists*', 'admin.slack*', 'admin.oig*')])>Admin</summary>
+                        <summary @class(['active' => request()->routeIs('admin.users*', 'supervisor.settings', 'admin.audit', 'admin.profiles*', 'admin.forms*', 'admin.lists*', 'admin.slack*', 'admin.remotelock*', 'admin.oig*')])>Admin</summary>
                         <div class="nav-drop">
                             @if ($u->hasPermission('team_members'))<a href="{{ route('admin.users') }}" @class(['active' => request()->routeIs('admin.users*')])>Team Members</a>@endif
                             @if ($u->hasPermission('oig_exclusions'))<a href="{{ route('admin.oig') }}" @class(['active' => request()->routeIs('admin.oig*')])>OIG Exclusions</a>@endif
@@ -108,6 +108,7 @@
                             @if ($u->hasPermission('manage_forms'))<a href="{{ route('admin.forms') }}" @class(['active' => request()->routeIs('admin.forms*')])>Forms</a>@endif
                             @if ($u->hasPermission('manage_forms'))<a href="{{ route('admin.lists') }}" @class(['active' => request()->routeIs('admin.lists*')])>Shared lists</a>@endif
                             @if ($u->hasPermission('manage_forms'))<a href="{{ route('admin.slack') }}" @class(['active' => request()->routeIs('admin.slack*')])>Slack</a>@endif
+                            @if ($u->hasPermission('remotelock'))<a href="{{ route('admin.remotelock') }}" @class(['active' => request()->routeIs('admin.remotelock*')])>RemoteLock</a>@endif
                             @if ($u->hasPermission('audit_log'))<a href="{{ route('admin.audit') }}" @class(['active' => request()->routeIs('admin.audit')])>Audit log</a>@endif
                         </div>
                     </details>
