@@ -287,9 +287,9 @@ class ProviderSearch
         if (! $regions) {
             return null;
         }
-        // More than one region: the report is the one the page draws as an interactive report.
+        // More than one region: the results are the one drawn as a report (report_R<id>).
         foreach ($regions as $id => $region) {
-            if (preg_match('/R'.$id.'_(ir|data_panel)|interactiveReport[^;]{0,300}R?'.$id.'/', $html)) {
+            if (preg_match('/report_R?'.$id.'|R'.$id.'_(ir|data_panel)|interactiveReport[^;]{0,300}R?'.$id.'/', $html)) {
                 return $region;
             }
         }

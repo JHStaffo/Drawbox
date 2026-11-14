@@ -299,8 +299,9 @@ class EmsAffiliationsTest extends TestCase
             .'<button type="button" id="search">Search</button>'
             .'<table><tr><td>No data found.</td></tr></table>'
             .'</form><script>apex.widget.interactiveReport("R50958521575270838_ir",{"regionId":"R50958521575270838","ajaxIdentifier":"'.str_replace('/', '\/', $ajax).'"});</script></body></html>';
-        $region = '<div class="a-IRR"><table class="a-IRR-table"><tr><th class="a-IRR-header" id="C1">Name</th><th class="a-IRR-header" id="C2">Cert#</th><th id="C3">Level</th><th id="C4">Expiration Date</th><th id="C5">Affiliated Agency</th></tr>'
-            .'<tr><td headers="C1">SMITH, JOHN</td><td headers="C2">E022081013</td><td>EMT</td><td>06/30/2028</td><td>FAST TRACK EMS, LLC</td></tr></table></div>';
+        // The results region exactly as the site sent it (Nov 2026), with a
+        // second affiliation row added to show how more agencies come back.
+        $region = file_get_contents(base_path('tests/fixtures/va-ems-results.html'));
         Http::fake([
             'vdhems.vdh.virginia.gov/emsapps/ProviderSearch.html' => Http::response($page),
             'vdhems.vdh.virginia.gov/emsapps/wwv_flow.ajax*' => Http::sequence()
@@ -309,7 +310,7 @@ class EmsAffiliationsTest extends TestCase
         ]);
 
         $search = app(ProviderSearch::class);
-        $providers = $search->search(null, null, 'E022081013');
+        $providers = $search->search(null, null, 'e022081013');
 
         Http::assertSent(function (Request $request) use ($ajax) {
             if (! str_contains($request->url(), 'wwv_flow.ajax?p_context=200:3:33415634033990')) {
@@ -327,7 +328,10 @@ class EmsAffiliationsTest extends TestCase
         });
         $this->assertCount(1, $providers);
         $this->assertSame('E022081013', $providers[0]['cert']);
-        $this->assertSame(['FAST TRACK EMS, LLC'], $providers[0]['agencies']);
+        $this->assertSame(['JAMES', 'STAFFORD', 'Paramedic', '09/30/2028'], [$providers[0]['first'], $providers[0]['last'], $providers[0]['level'], $providers[0]['expires']]);
+        $this->assertSame(['FAST TRACK EMS, LLC', 'CITY OF NORFOLK FIRE'], $providers[0]['agencies']);
+        $this->assertTrue(Affiliations::sameName($providers[0], 'JAMES', ['STAFFORD']));
+        $this->assertSame(['cert', 'first', 'last', null, 'expires', 'level', null, 'expires', 'expires', 'expires', 'agency'], $search->trace['columns']);
 
         // Nobody found: the region says so.
         $this->assertSame([], app(ProviderSearch::class)->search('Nobody', 'Here'));
