@@ -9,6 +9,7 @@ use App\Models\InventoryLog;
 use App\Models\LockerAssignment;
 use App\Models\PermissionProfile;
 use App\Models\User;
+use App\Services\Ssn;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -25,12 +26,67 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $data = $this->validated($request);
+        $ssn = $this->validatedSsn($request);
         if ($error = $this->cantGrant($request, $data['permission_profile_id'])) {
-            return back()->withInput()->with('error', $error);
+            return back()->withInput($request->except('ssn'))->with('error', $error);
         }
-        $user = User::create($data + ['active' => true]);
+        $user = new User($data + ['active' => true]);
+        if ($ssn) {
+            $user->setSsn($ssn);
+        }
+        $user->save();
 
-        return back()->with('status', "Added {$user->name}.");
+        return back()->with('status', "Added {$user->name}.".($ssn ? ' SSN saved.' : ''));
+    }
+
+    /**
+     * The full SSN, for someone with the See SSNs permission, one Team Member
+     * at a time. Every look is in the audit log; the number itself never is.
+     */
+    public function revealSsn(Request $request, User $user)
+    {
+        if (! $user->hasSsn()) {
+            audit_note("Tried to look at {$user->name}'s SSN, but none is on file.");
+
+            return response()->json(['message' => 'No SSN on file.'], 404);
+        }
+        try {
+            $ssn = $user->ssn();
+        } catch (\Throwable $e) {
+            audit_note("Tried to look at {$user->name}'s SSN, but it couldn't be decrypted.");
+
+            return response()->json(['message' => "Couldn't read it. The SSN key may have changed."], 500);
+        }
+        audit_note("Looked at {$user->name}'s full SSN.");
+
+        return response()->json(['ssn' => $ssn])->header('Cache-Control', 'no-store, private');
+    }
+
+    /** Add, replace or remove one Team Member's SSN (the Add, change or remove SSNs permission). */
+    public function updateSsn(Request $request, User $user)
+    {
+        if (! $request->user()->canManage($user)) {
+            return back()->with('error', "{$user->name} has access you don't have, so you can't change their SSN.");
+        }
+        if ($request->boolean('remove')) {
+            if (! $user->hasSsn()) {
+                return back()->with('error', "{$user->name} has no SSN on file.");
+            }
+            $user->setSsn(null);
+            $user->save();
+
+            return back()->with('status', "Removed {$user->name}'s SSN.");
+        }
+
+        $ssn = $this->validatedSsn($request, $user, required: true);
+        $had = $user->hasSsn();
+        if ($had && $user->ssn_hash === Ssn::hash($ssn)) {
+            return back()->with('status', "{$user->name}'s SSN is unchanged.");
+        }
+        $user->setSsn($ssn);
+        $user->save();
+
+        return back()->with('status', ($had ? 'Changed' : 'Saved')." {$user->name}'s SSN.");
     }
 
     /**
@@ -54,8 +110,10 @@ class UserController extends Controller
         $last = $find(['lastname', 'last', 'lname', 'surname']);
         $email = $find(['email', 'emailaddress', 'mail']);
         $phone = $find(['phone', 'phonenumber', 'mobile', 'mobilephone', 'mobilenumber', 'cell', 'cellphone', 'cellnumber']);
+        $ssnColumn = $find(['ssn', 'socialsecuritynumber', 'socialsecurity', 'socialsecurityno', 'socialsecno', 'ssnumber']);
         if ($first === false && $last === false && $email === false) {
             [$first, $last, $email, $phone] = [0, 1, 2, 3];
+            $ssnColumn = false; // only read with a header, so a stray fifth column is never taken for an SSN
             $start = 0;
         } elseif ($first === false || $last === false || $email === false) {
             return back()->with('error', 'The CSV needs First Name, Last Name and Email columns.');
@@ -69,6 +127,13 @@ class UserController extends Controller
         $phonesAdded = 0;
         $problems = [];
         $badPhones = [];
+        $ssnsAdded = 0;
+        $badSsns = [];
+        $ssnSkipped = $ssnColumn !== false && ! ($request->user()->hasPermission('ssn_edit') && Ssn::configured());
+        if ($ssnSkipped) {
+            $ssnColumn = false;
+        }
+        $seenSsns = [];
         $profileId = PermissionProfile::default()?->id;
         if ($profileId && ($error = $this->cantGrant($request, $profileId))) {
             return back()->with('error', $error);
@@ -91,6 +156,21 @@ class UserController extends Controller
                     $badPhones[] = $i + 1;
                 }
             }
+            // An SSN that isn't valid, is in the file twice or is already someone else's is left out.
+            $ssn = null;
+            if ($ssnColumn !== false && trim($row[$ssnColumn] ?? '') !== '') {
+                $ssn = Ssn::normalize($row[$ssnColumn]);
+                $owner = $ssn ? User::withSsn($ssn) : null;
+                if (! $ssn || isset($seenSsns[$ssn]) || ($owner && $owner->email !== $address)) {
+                    $badSsns[] = $i + 1;
+                    $ssn = null;
+                } else {
+                    $seenSsns[$ssn] = true;
+                    if ($owner) {
+                        $ssn = null; // already theirs
+                    }
+                }
+            }
             if ($existing->has($address)) {
                 $skipped++;
                 $member = $number ? User::where('email', $address)->whereNull('phone')->first() : null;
@@ -98,10 +178,21 @@ class UserController extends Controller
                     $member->update(['phone' => $number]);
                     $phonesAdded++;
                 }
+                $member = $ssn ? User::where('email', $address)->whereNull('ssn_encrypted')->first() : null;
+                if ($member && $request->user()->canManage($member)) {
+                    $member->setSsn($ssn);
+                    $member->save();
+                    $ssnsAdded++;
+                }
 
                 continue;
             }
-            User::create(['name' => mb_substr($name, 0, 100), 'email' => $address, 'phone' => $number, 'permission_profile_id' => $profileId, 'active' => true]);
+            $user = new User(['name' => mb_substr($name, 0, 100), 'email' => $address, 'phone' => $number, 'permission_profile_id' => $profileId, 'active' => true]);
+            if ($ssn) {
+                $user->setSsn($ssn);
+                $ssnsAdded++;
+            }
+            $user->save();
             $existing[$address] = true;
             $added++;
         }
@@ -113,11 +204,21 @@ class UserController extends Controller
         if ($phonesAdded) {
             $message .= " Added a phone number for {$phonesAdded} already on the roster.";
         }
+        if ($ssnsAdded) {
+            $message .= " Saved {$ssnsAdded} SSN(s).";
+        }
+        if ($ssnSkipped) {
+            $message .= ' Left out the SSN column because you can\'t add SSNs.';
+        }
         if ($problems) {
             $message .= ' Skipped line(s) '.implode(', ', $problems).' with a missing name or email.';
         }
         if ($badPhones) {
             $message .= ' Left out the phone number on line(s) '.implode(', ', $badPhones).' because it isn\'t a valid phone number.';
+        }
+
+        if ($badSsns) {
+            $message .= ' Left out the SSN on line(s) '.implode(', ', $badSsns).' because it isn\'t valid or is already on file for someone else.';
         }
 
         return back()->with('status', $message);
@@ -183,6 +284,36 @@ class UserController extends Controller
         return $request->user()->canGrantProfile($profile)
             ? null
             : "The {$profile->label()} profile has access you don't have, so you can't give it to anyone.";
+    }
+
+    /**
+     * Nine digits from the ssn field, or null when it's blank. Only someone
+     * with the Add, change or remove SSNs permission can send one. Error
+     * messages never repeat the number.
+     */
+    private function validatedSsn(Request $request, ?User $user = null, bool $required = false): ?string
+    {
+        $value = trim((string) $request->input('ssn'));
+        if ($value === '' && ! $required) {
+            return null;
+        }
+        $fail = fn (string $message) => throw \Illuminate\Validation\ValidationException::withMessages(['ssn' => $message]);
+        if (! $request->user()->hasPermission('ssn_edit')) {
+            $fail("You can't add SSNs.");
+        }
+        if (! Ssn::configured()) {
+            $fail("SSNs can't be saved until the server's SSN key is set.");
+        }
+        $ssn = Ssn::normalize($value);
+        if (! $ssn) {
+            $fail($value === '' ? 'Type the SSN.' : 'That isn\'t a valid SSN. Use 9 digits, like 123-45-6789.');
+        }
+        $owner = User::withSsn($ssn);
+        if ($owner && ! $owner->is($user)) {
+            $fail('That SSN is already on file for another Team Member.');
+        }
+
+        return $ssn;
     }
 
     private function validated(Request $request, ?User $user = null): array

@@ -53,6 +53,8 @@ class PermissionProfile extends Model
         ],
         'Admin' => [
             'team_members' => 'Team Members',
+            'ssn_view' => 'See SSNs (last 4 on Team Members, and the full number one at a time; each look is in the audit log)',
+            'ssn_edit' => 'Add, change or remove SSNs (also lets CSV imports fill in SSNs)',
             'settings' => 'Settings',
             'audit_log' => 'Audit log',
             'profiles' => 'Permission Profiles',

@@ -6,6 +6,10 @@
 @endsection
 
 @section('content')
+@php($canSeeSsn = auth()->user()->hasPermission('ssn_view'))
+@php($canEditSsn = auth()->user()->hasPermission('ssn_edit'))
+@php($showSsn = $canSeeSsn || $canEditSsn)
+@php($ssnReady = \App\Services\Ssn::configured())
 <div class="stack">
     <div class="card">
         <h2>Add a team member</h2>
@@ -14,6 +18,9 @@
                 <div class="field"><label>Name</label><input type="text" name="name" value="{{ old('name') }}" required></div>
                 <div class="field"><label>Email</label><input type="email" name="email" value="{{ old('email') }}" required></div>
                 <div class="field"><label>Mobile phone</label><input type="tel" name="phone" value="{{ old('phone') }}" placeholder="(757) 555-1234" autocomplete="off"></div>
+                @if ($canEditSsn && $ssnReady)
+                    <div class="field"><label>SSN</label><input type="password" name="ssn" inputmode="numeric" placeholder="###-##-####" autocomplete="off"></div>
+                @endif
                 <div class="field"><label>Team Member #</label><input type="text" name="employee_number" value="{{ old('employee_number') }}"></div>
                 <div class="field"><label>Permission profile</label>
                     <select name="permission_profile_id">@foreach ($grantable as $p)<option value="{{ $p->id }}" @selected(old('permission_profile_id') ? old('permission_profile_id') == $p->id : $p->is_default)>{{ $p->label() }}</option>@endforeach</select>
@@ -25,7 +32,7 @@
 
     <div class="card">
         <h2>Import from a CSV</h2>
-        <p class="hint">Use a file with First Name, Last Name and Email columns, plus an optional Phone column. Everyone gets the {{ $profiles->firstWhere('is_default', true)?->label() ?? 'default' }} profile, and anyone whose email is already on the roster is skipped. Someone already on the roster with no phone number gets the one in the file.</p>
+        <p class="hint">Use a file with First Name, Last Name and Email columns, plus an optional Phone column{{ $canEditSsn && $ssnReady ? ' and an optional SSN column' : '' }}. Everyone gets the {{ $profiles->firstWhere('is_default', true)?->label() ?? 'default' }} profile, and anyone whose email is already on the roster is skipped. Someone already on the roster with no phone number{{ $canEditSsn && $ssnReady ? ' or SSN' : '' }} gets the one in the file.</p>
         <form method="post" action="{{ route('admin.users.import') }}" enctype="multipart/form-data">@csrf
             <div class="field"><input type="file" name="file" accept=".csv,text/csv" required></div>
             <button class="btn btn-teal" type="submit">Import team members</button>
@@ -37,7 +44,7 @@
     <div class="card">
         <h2>Roster ({{ $active->count() }} active)</h2>
         <div class="table-wrap"><table>
-            <tr><th>Name</th><th>Email</th><th>Mobile phone</th><th>Team Member #</th><th>Profile</th><th>Active</th><th></th></tr>
+            <tr><th>Name</th><th>Email</th><th>Mobile phone</th>@if ($showSsn)<th>SSN</th>@endif<th>Team Member #</th><th>Profile</th><th>Active</th><th></th></tr>
             @foreach ($active as $user)
                 @include('admin.partials.user-row')
             @endforeach
@@ -50,7 +57,7 @@
                 <summary>Inactive team members ({{ $inactive->count() }})</summary>
                 <p class="hint mt">They can't sign in or be credited, but their prize history stays for tax records. Check Active and Save to bring someone back.</p>
                 <div class="table-wrap"><table>
-                    <tr><th>Name</th><th>Email</th><th>Mobile phone</th><th>Team Member #</th><th>Profile</th><th>Active</th><th></th></tr>
+                    <tr><th>Name</th><th>Email</th><th>Mobile phone</th>@if ($showSsn)<th>SSN</th>@endif<th>Team Member #</th><th>Profile</th><th>Active</th><th></th></tr>
                     @foreach ($inactive as $user)
                         @include('admin.partials.user-row')
                     @endforeach
@@ -60,3 +67,26 @@
     @endif
 </div>
 @endsection
+
+@if ($showSsn)
+@push('scripts')
+<script>
+// Show a full SSN for 30 seconds, then mask it again. Each look is in the audit log.
+document.querySelectorAll('.ssn-show').forEach(function (button) {
+    button.addEventListener('click', async function () {
+        var value = button.parentElement.querySelector('.ssn-value');
+        button.disabled = true;
+        try {
+            var response = await fetch(button.dataset.url, { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' }, credentials: 'same-origin' });
+            var data = await response.json().catch(function () { return {}; });
+            if (!response.ok) { value.textContent = data.message || 'Couldn\'t show it.'; }
+            else { value.textContent = data.ssn; }
+        } catch (e) {
+            value.textContent = 'Couldn\'t show it.';
+        }
+        setTimeout(function () { value.textContent = value.dataset.masked; button.disabled = false; }, 30000);
+    });
+});
+</script>
+@endpush
+@endif

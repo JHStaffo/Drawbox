@@ -8,6 +8,9 @@
             <div class="hint" style="margin-top:4px">{{ $lastLogin }}@if ($user->last_login_at) · <a href="{{ route('admin.audit', ['user' => $user->id]) }}">activity</a>@endif</div></td>
         <td><input form="u{{ $user->id }}" type="email" name="email" value="{{ $user->email }}" required></td>
         <td><input form="u{{ $user->id }}" type="tel" name="phone" value="{{ $user->phoneDisplay() }}" aria-label="Mobile phone" placeholder="(757) 555-1234" style="width:140px"></td>
+        @if ($showSsn)
+            @include('admin.partials.user-ssn')
+        @endif
         <td><input form="u{{ $user->id }}" type="text" name="employee_number" value="{{ $user->employee_number }}" style="width:100px"></td>
         <td><select form="u{{ $user->id }}" name="permission_profile_id" aria-label="Permission profile">@foreach ($grantable as $p)<option value="{{ $p->id }}" @selected($user->permission_profile_id === $p->id)>{{ $p->label() }}</option>@endforeach</select></td>
         <td><input form="u{{ $user->id }}" type="hidden" name="active" value="0"><input form="u{{ $user->id }}" type="checkbox" name="active" value="1" @checked($user->active)></td>
@@ -23,6 +26,9 @@
         <td>{{ $user->name }}<div class="hint" style="margin-top:4px">{{ $lastLogin }}@if ($user->last_login_at && auth()->user()->hasPermission('audit_log')) · <a href="{{ route('admin.audit', ['user' => $user->id]) }}">activity</a>@endif</div></td>
         <td>{{ $user->email }}</td>
         <td>{{ $user->phoneDisplay() }}</td>
+        @if ($showSsn)
+            @include('admin.partials.user-ssn')
+        @endif
         <td>{{ $user->employee_number }}</td>
         <td>{{ $user->profile?->label() }}</td>
         <td>{{ $user->active ? 'Yes' : 'No' }}</td>
