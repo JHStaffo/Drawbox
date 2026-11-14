@@ -170,7 +170,9 @@
                     button: {{ $test['trace']['request'] ?? '?' }} ·
                     columns: {{ implode(', ', $test['trace']['headings'] ?? []) ?: 'none' }} ·
                     rows: {{ $test['trace']['rows'] ?? 0 }} ·
-                    responses: {{ implode(', ', $test['trace']['steps'] ?? []) }} ({{ number_format($test['trace']['bytes'] ?? 0) }} bytes)
+                    page: {{ number_format($test['trace']['page_bytes'] ?? 0) }} bytes, {{ $test['trace']['region_codes'] ?? 0 }} region codes ·
+                    responses: {{ implode(', ', $test['trace']['steps'] ?? []) }} ({{ number_format($test['trace']['bytes'] ?? 0) }} bytes) ·
+                    download the <a href="{{ route('admin.ems.last', 'page') }}">search page</a> and the <a href="{{ route('admin.ems.last', 'result') }}">results</a>
                 </details>
             </div>
         @endif

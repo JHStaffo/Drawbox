@@ -28,6 +28,11 @@ class ProviderSearch
     /** @var array<string, mixed> what happened on the last search, for "Try the search" */
     public array $trace = [];
 
+    /** The search page and the results as the site sent them, for "Try the search". */
+    public string $lastPage = '';
+
+    public string $lastResult = '';
+
     public function __construct(private ?string $url = null)
     {
         $this->url ??= (string) config('services.va_ems.url');
@@ -43,7 +48,12 @@ class ProviderSearch
         $this->jar = new CookieJar;
         $this->trace = ['steps' => []];
 
+        $this->lastPage = $this->lastResult = '';
+        $cert = $cert !== null ? strtoupper(trim($cert)) : null;
         [$pageUrl, $html] = $this->get($this->url);
+        $this->lastPage = $html;
+        $this->trace['page_bytes'] = strlen($html);
+        $this->trace['region_codes'] = substr_count($html, 'UkVHSU9OIFRZUEV');
         $form = $this->form($html, $pageUrl);
         $fields = $this->fieldsByLabel($html);
         $this->trace['boxes'] = array_keys($fields);
@@ -66,6 +76,7 @@ class ProviderSearch
         [$resultUrl, $resultHtml] = $region
             ? $this->refreshRegion($form, $fields, $values, $region)
             : $this->submit($form, $fields, $values, $html);
+        $this->lastResult = $resultHtml;
         $parsed = ResultParser::parse($resultHtml);
         $this->trace['columns'] = $parsed['columns'];
         $this->trace['headings'] = $parsed['headings'];
@@ -262,17 +273,28 @@ class ProviderSearch
      */
     public static function reportRegion(string $html): ?array
     {
-        preg_match_all('/"ajaxIdentifier"\s*:\s*"([^"]+)"/', $html, $m);
-        foreach ($m[1] as $ajax) {
-            $ajax = str_replace('\\/', '/', $ajax);
-            $prefix = explode('/', $ajax)[0];
-            $decoded = base64_decode(strtr($prefix, '-_', '+/'), false) ?: '';
+        // The identifier may be in a script as JSON (an escaped slash or \u002F),
+        // HTML-encoded in an attribute, or URL-encoded; find it by its base64
+        // prefix ("REGION TYPE") wherever it is.
+        preg_match_all('#(UkVHSU9OIFRZUEV[A-Za-z0-9_\-]+)(?:\\\\?/|\\\\u002[Ff]|%2[Ff]|&\#x2[Ff];|&\#47;)([A-Za-z0-9_\-]+)#', $html, $m, PREG_SET_ORDER);
+        $regions = [];
+        foreach ($m as $match) {
+            $decoded = base64_decode(strtr($match[1], '-_', '+/'), false) ?: '';
             if (preg_match('/^REGION TYPE~~(\d+)/', $decoded, $id)) {
-                return ['ajax' => $ajax, 'id' => $id[1]];
+                $regions[$id[1]] ??= ['ajax' => $match[1].'/'.$match[2], 'id' => $id[1]];
+            }
+        }
+        if (! $regions) {
+            return null;
+        }
+        // More than one region: the report is the one the page draws as an interactive report.
+        foreach ($regions as $id => $region) {
+            if (preg_match('/R'.$id.'_(ir|data_panel)|interactiveReport[^;]{0,300}R?'.$id.'/', $html)) {
+                return $region;
             }
         }
 
-        return null;
+        return reset($regions);
     }
 
     /**

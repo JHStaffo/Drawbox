@@ -16,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class EmsAffiliationsTest extends TestCase
@@ -330,6 +331,36 @@ class EmsAffiliationsTest extends TestCase
 
         // Nobody found: the region says so.
         $this->assertSame([], app(ProviderSearch::class)->search('Nobody', 'Here'));
+    }
+
+    public function test_the_report_region_is_found_however_the_page_writes_it(): void
+    {
+        $id = 'UkVHSU9OIFRZUEV-fjUwOTU4NTIxNTc1MjcwODM4';
+        $sum = 'rvF3QuCVtN1eqipoHXVYcwg9d7n8kp1ooIb_H24nxaVjB5RuBZwkSd8l3oZ0';
+        $item = rtrim(strtr(base64_encode('ITEM TYPE~~123'), '+/', '-_'), '=');
+        foreach ([
+            '"ajaxIdentifier":"'.$id.'\/'.$sum.'"',
+            '"ajaxIdentifier":"'.$id.'/'.$sum.'"',
+            'data-options="{&quot;ajaxIdentifier&quot;:&quot;'.$id.'/'.$sum.'&quot;}"',
+            "ajaxIdentifier: '{$id}/{$sum}'",
+        ] as $written) {
+            $html = '<script>x("'.$item.'\/abc");</script><div id="R50958521575270838_ir" '.$written.'></div>';
+            $this->assertSame(['ajax' => "{$id}/{$sum}", 'id' => '50958521575270838'], ProviderSearch::reportRegion($html), $written);
+        }
+        $this->assertNull(ProviderSearch::reportRegion('<p>No data found.</p>'));
+    }
+
+    public function test_what_the_site_sent_can_be_downloaded(): void
+    {
+        Storage::fake('local');
+        $this->app->forgetInstance(ProviderSearch::class);
+        $admin = User::factory()->role('admin')->create();
+        $this->actingAs($admin)->get('/admin/ems-affiliations/last/page')->assertNotFound();
+        Http::fake(['vdhems.vdh.virginia.gov/*' => Http::response('<html><body><p>Down for maintenance</p></body></html>')]);
+        $this->actingAs($admin)->post('/admin/ems-affiliations/test', ['cert' => 'e1'])->assertSessionHas('error');
+        $this->actingAs($admin)->get('/admin/ems-affiliations/last/page')->assertOk()->assertSee('Down for maintenance');
+        $this->assertTrue(AuditLog::where('action', 'admin.ems.last')->exists());
+        $this->actingAs($admin)->get('/admin/ems-affiliations/last/other')->assertNotFound();
     }
 
     public function test_agency_names_compare_without_punctuation_or_company_endings(): void

@@ -75,6 +75,7 @@ class AuditLog extends Model
         'system.oig-check' => 'Monthly OIG exclusion check (server)',
         'admin.ems.store' => 'Started an EMS affiliation check',
         'admin.ems.test' => 'Tried the Virginia EMS provider search',
+        'admin.ems.last' => 'Downloaded what the Virginia EMS provider search sent',
         'admin.ems.agency' => 'Changed our agency name for EMS affiliation checks',
         'admin.ems.review' => 'Reviewed an EMS agency affiliation',
         'admin.ems.unacceptable.store' => 'Added an unacceptable EMS agency',

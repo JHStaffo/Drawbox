@@ -173,6 +173,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/', 'index')->name('');
             Route::post('/', 'store')->middleware('throttle:6,1')->name('.store');
             Route::post('/test', 'test')->middleware('throttle:10,1')->name('.test');
+            Route::get('/last/{which}', 'last')->name('.last');
             Route::put('/agency', 'agency')->name('.agency');
             Route::post('/unacceptable', 'unacceptableStore')->name('.unacceptable.store');
             Route::delete('/unacceptable/{agency}', 'unacceptableDestroy')->name('.unacceptable.destroy');
