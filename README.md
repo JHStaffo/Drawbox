@@ -23,13 +23,19 @@ Each team member has one permission profile, and admins edit profiles under Admi
 
 ## Social Security numbers and dates of birth
 
-Team Members can have an SSN and date of birth on file, for checks such as the OIG exclusion list (LEIE), which matches on name and date of birth and confirms with the SSN. The date of birth is encrypted with the same key and follows the same rules below: same two permissions, shown only as "DOB on file" until Show, every look and change audit-logged without the date, never in the API or exports, and an optional Date of Birth CSV column (4/12/1985 or 1985-04-12) that fills blanks only.
+Team Members can have an SSN and date of birth on file, for checks such as the OIG exclusion list (LEIE), which matches on name and date of birth and confirms with the SSN. The date of birth is encrypted with the same key and follows the same rules below: same two permissions, shown as month and day only (04/12/XX) until Show, every look and change audit-logged without the date, never in the API or exports, and an optional Date of Birth CSV column (4/12/1985 or 1985-04-12) that fills blanks only.
 
 - **Stored encrypted** with AES-256-GCM using its own key, `SSN_KEY` in `.env` (not `APP_KEY`, so replacing the app key never loses them, and a copy of the database alone shows nothing). Beside it are only the last 4 digits (for the masked •••-••-1234) and a keyed fingerprint (HMAC-SHA256) that finds a number without decrypting every row: duplicates are refused, and a later OIG check can match on it. See `app/Services/Ssn.php`.
 - **Permissions**, both on Admin to start and nobody else: *See SSNs* shows the last 4 on Team Members and a Show button that displays the full number for 30 seconds; *Add, change or remove SSNs* adds the SSN box to Add a Team Member, a Change/Remove form on each row, and the optional SSN column in the CSV import (fills blanks only, like phone). Nobody can give these out without having them.
 - **Audit log:** every look, add, change, removal and refusal is logged with who and which Team Member, never the number.
 - **Never sent anywhere:** the SSN columns are hidden from every JSON and array (so never in `/api/v1`), are in no CSV export, and a failed save never puts the number back in the form.
 - **The key:** make it once with `php artisan drawbox:ssn-key` (it won't replace an existing key), then `php artisan config:cache`. Keep a copy of `SSN_KEY` somewhere safe and separate from the database backups: without it the saved SSNs can't be read. Until the key is set, the SSN boxes don't show.
+
+## OIG Exclusions
+
+Admin > OIG Exclusions (permission OIG Exclusions, Admin only to start) checks every active Team Member against the OIG's List of Excluded Individuals/Entities. **Check now** downloads the OIG's current `UPDATED.csv` (`services.oig.url`; the server needs outbound HTTPS to oig.hhs.gov), and `php artisan oig:check` runs on its own on the 15th of each month from the cron. Every check is kept: the list shows each date with "0 exclusions found" or the count in red, and a date opens every Team Member checked with their date of birth as MM/DD/XX and Not excluded, Excluded or Needs manual check.
+
+Matching (`app/Services/OigExclusions.php`): first and last name (compound last names and Jr/Sr/II/III are handled), then date of birth. Same name and date of birth is **Excluded**; same name with a different date of birth is Not excluded; same name with no date of birth on either side is **Needs manual check**. The OIG file has no SSNs, so a match is confirmed on exclusions.oig.hhs.gov (search the name, Verify with the SSN). The result is recorded on the check: outcome, how it was checked (an SSN in the note is refused), and optionally the OIG result page as a PDF or picture, stored encrypted. Recording it updates the counts, and every check, manual check and file opened is in the audit log.
 
 ## Forms and Slack
 

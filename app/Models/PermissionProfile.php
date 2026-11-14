@@ -55,6 +55,7 @@ class PermissionProfile extends Model
             'team_members' => 'Team Members',
             'ssn_view' => 'See SSNs and dates of birth (last 4 on Team Members, and the full number and birth date one at a time; each look is in the audit log)',
             'ssn_edit' => 'Add, change or remove SSNs and dates of birth (also lets CSV imports fill them in)',
+            'oig_exclusions' => 'OIG Exclusions (check Team Members against the OIG exclusion list and record manual checks)',
             'settings' => 'Settings',
             'audit_log' => 'Audit log',
             'profiles' => 'Permission Profiles',

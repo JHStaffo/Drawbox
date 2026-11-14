@@ -36,6 +36,11 @@ return [
     ],
 
     // Reads uploaded protocol PDFs and photos (Protocols > Build protocols > Import).
+    // The OIG's List of Excluded Individuals/Entities, updated monthly.
+    'oig' => [
+        'url' => env('OIG_LEIE_URL', 'https://oig.hhs.gov/exclusions/downloadables/UPDATED.csv'),
+    ],
+
     'anthropic' => [
         'key' => env('ANTHROPIC_API_KEY'),
         'model' => env('ANTHROPIC_MODEL', 'claude-opus-5-5'),

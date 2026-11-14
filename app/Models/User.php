@@ -191,6 +191,21 @@ class User extends Authenticatable
         return $this->dob_encrypted === null ? null : Ssn::decrypt($this->dob_encrypted);
     }
 
+    /** Month and day with the year hidden (04/12/XX), or blank. Only for people with ssn_view or ssn_edit. */
+    public function dobMasked(): string
+    {
+        if (! $this->hasDob()) {
+            return '';
+        }
+        try {
+            [, $m, $d] = explode('-', $this->dob());
+        } catch (\Throwable $e) {
+            return 'On file';
+        }
+
+        return "{$m}/{$d}/XX";
+    }
+
     /** Store a Y-m-d date (from Ssn::normalizeDob), or null to remove it. Doesn't save. */
     public function setDob(?string $date): void
     {
