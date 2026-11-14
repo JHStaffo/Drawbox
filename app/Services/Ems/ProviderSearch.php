@@ -55,6 +55,8 @@ class ProviderSearch
         $this->trace['page_bytes'] = strlen($html);
         $this->trace['region_codes'] = substr_count($html, 'UkVHSU9OIFRZUEV');
         $form = $this->form($html, $pageUrl);
+        $this->trace['salt'] = ($form['fields']['pSalt'] ?? '') !== '' ? 'yes' : 'no';
+        $this->trace['protected'] = ($form['fields']['pPageItemsProtected'] ?? '') !== '' ? 'yes' : 'no';
         $fields = $this->fieldsByLabel($html);
         $this->trace['boxes'] = array_keys($fields);
 
@@ -152,6 +154,14 @@ class ProviderSearch
             throw new SearchFailed("Couldn't find the search form on the provider search.");
         }
         $fields = [];
+        // APEX 18+ writes pSalt and pPageItemsProtected as hidden inputs with
+        // an id and no name, so take those by id (anywhere on the page).
+        foreach ($xpath->query('//input[@id and not(@name)]') as $input) {
+            /** @var DOMElement $input */
+            if (in_array(strtolower($input->getAttribute('type')), ['hidden', ''], true)) {
+                $fields[$input->getAttribute('id')] = $input->getAttribute('value');
+            }
+        }
         foreach ($xpath->query('.//input[@name]', $form) as $input) {
             /** @var DOMElement $input */
             $type = strtolower($input->getAttribute('type'));
@@ -163,10 +173,10 @@ class ProviderSearch
             }
             $fields[$input->getAttribute('name')] = $input->getAttribute('value');
         }
-        foreach ($xpath->query('.//select[@name]', $form) as $select) {
+        foreach ($xpath->query('//select[@name or @id]') as $select) {
             /** @var DOMElement $select */
             $selected = $xpath->query('.//option[@selected]', $select)->item(0) ?? $xpath->query('.//option', $select)->item(0);
-            $fields[$select->getAttribute('name')] = $selected instanceof DOMElement ? $selected->getAttribute('value') : '';
+            $fields[$select->getAttribute('name') ?: $select->getAttribute('id')] = $selected instanceof DOMElement ? $selected->getAttribute('value') : '';
         }
 
         return ['action' => $this->absolute($form->getAttribute('action') ?: 'wwv_flow.accept', $pageUrl), 'fields' => $fields];
@@ -198,6 +208,9 @@ class ProviderSearch
             $input = $xpath->query('//*[@id="'.$id.'"]')->item(0);
             $name = $input instanceof DOMElement && $input->getAttribute('name') !== '' ? $input->getAttribute('name') : $id;
             $found[$what] = ['id' => $id, 'name' => $name];
+            if ($input instanceof DOMElement && $xpath->query('.//option[@value="ALL"]', $input)->length) {
+                $found[$what]['all'] = 'ALL';
+            }
         }
 
         return $found;
@@ -311,7 +324,8 @@ class ProviderSearch
         foreach (['cert', 'last', 'first', 'agency'] as $what) {
             if (isset($fields[$what])) {
                 $field = $fields[$what];
-                $items[] = ['n' => $field['id'], 'v' => $values[$what] ?? ($what === 'agency' ? ($post[$field['name']] ?? '') : '')];
+                // Agency: every agency ("ALL"), as the page sends it by default.
+                $items[] = ['n' => $field['id'], 'v' => $values[$what] ?? ($what === 'agency' ? ($field['all'] ?? $post[$field['name']] ?? '') : '')];
             }
         }
         $data = [

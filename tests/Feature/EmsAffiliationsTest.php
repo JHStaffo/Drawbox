@@ -290,12 +290,13 @@ class EmsAffiliationsTest extends TestCase
         $page = '<html><body><form action="wwv_flow.accept?p_context=200:3:33415634033990" method="post" id="wwvFlowForm">'
             .'<input type="hidden" name="p_flow_id" value="200"><input type="hidden" name="p_flow_step_id" value="3">'
             .'<input type="hidden" name="p_instance" value="33415634033990"><input type="hidden" name="p_page_submission_id" value="S1">'
-            .'<input type="hidden" name="pSalt" id="pSalt" value="31671285852698723669491300224693512352">'
-            .'<input type="hidden" name="pPageItemsProtected" id="pPageItemsProtected" value="PROT">'
+            // As APEX writes them: an id, no name.
+            .'<input type="hidden" id="pSalt" value="31671285852698723669491300224693512352">'
+            .'<input type="hidden" id="pPageItemsProtected" value="PROT">'
             .'<label for="P3_CERT_NO">Certification#</label><input type="text" id="P3_CERT_NO" name="P3_CERT_NO">'
             .'<label for="P3_LAST_NAME">Last Name</label><input type="text" id="P3_LAST_NAME" name="P3_LAST_NAME">'
             .'<label for="P3_FIRST_NAME">First Name</label><input type="text" id="P3_FIRST_NAME" name="P3_FIRST_NAME">'
-            .'<label for="P3_AGENCY_LIST">Agency</label><select id="P3_AGENCY_LIST" name="P3_AGENCY_LIST"><option value="ALL" selected>- All -</option><option value="1">X</option></select>'
+            .'<label for="P3_AGENCY_LIST">Agency</label><select id="P3_AGENCY_LIST" name="P3_AGENCY_LIST"><option value="">- Select -</option><option value="ALL">All</option><option value="1">X</option></select>'
             .'<button type="button" id="search">Search</button>'
             .'<table><tr><td>No data found.</td></tr></table>'
             .'</form><script>apex.widget.interactiveReport("R50958521575270838_ir",{"regionId":"R50958521575270838","ajaxIdentifier":"'.str_replace('/', '\/', $ajax).'"});</script></body></html>';
