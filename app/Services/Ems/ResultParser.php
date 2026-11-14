@@ -127,7 +127,7 @@ class ResultParser
                 'last' => $last ?: null,
                 'cert' => $cert ?: null,
                 'level' => $cell('level') ?: null,
-                'expires' => $cell('expires') ?: null,
+                'expires' => preg_replace('#\s*/\s*#', '/', $cell('expires')) ?: null, // "09 /30 /2028" on the site
                 'agencies' => [],
                 'link' => $row['link'],
             ];

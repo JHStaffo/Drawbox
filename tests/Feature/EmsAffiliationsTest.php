@@ -16,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class EmsAffiliationsTest extends TestCase
@@ -298,8 +299,9 @@ class EmsAffiliationsTest extends TestCase
             .'<button type="button" id="search">Search</button>'
             .'<table><tr><td>No data found.</td></tr></table>'
             .'</form><script>apex.widget.interactiveReport("R50958521575270838_ir",{"regionId":"R50958521575270838","ajaxIdentifier":"'.str_replace('/', '\/', $ajax).'"});</script></body></html>';
-        $region = '<div class="a-IRR"><table class="a-IRR-table"><tr><th class="a-IRR-header" id="C1">Name</th><th class="a-IRR-header" id="C2">Cert#</th><th id="C3">Level</th><th id="C4">Expiration Date</th><th id="C5">Affiliated Agency</th></tr>'
-            .'<tr><td headers="C1">SMITH, JOHN</td><td headers="C2">E022081013</td><td>EMT</td><td>06/30/2028</td><td>FAST TRACK EMS, LLC</td></tr></table></div>';
+        // The results region exactly as the site sent it (Nov 2026), with a
+        // second affiliation row added to show how more agencies come back.
+        $region = file_get_contents(base_path('tests/fixtures/va-ems-results.html'));
         Http::fake([
             'vdhems.vdh.virginia.gov/emsapps/ProviderSearch.html' => Http::response($page),
             'vdhems.vdh.virginia.gov/emsapps/wwv_flow.ajax*' => Http::sequence()
@@ -308,7 +310,7 @@ class EmsAffiliationsTest extends TestCase
         ]);
 
         $search = app(ProviderSearch::class);
-        $providers = $search->search(null, null, 'E022081013');
+        $providers = $search->search(null, null, 'e022081013');
 
         Http::assertSent(function (Request $request) use ($ajax) {
             if (! str_contains($request->url(), 'wwv_flow.ajax?p_context=200:3:33415634033990')) {
@@ -326,10 +328,43 @@ class EmsAffiliationsTest extends TestCase
         });
         $this->assertCount(1, $providers);
         $this->assertSame('E022081013', $providers[0]['cert']);
-        $this->assertSame(['FAST TRACK EMS, LLC'], $providers[0]['agencies']);
+        $this->assertSame(['JAMES', 'STAFFORD', 'Paramedic', '09/30/2028'], [$providers[0]['first'], $providers[0]['last'], $providers[0]['level'], $providers[0]['expires']]);
+        $this->assertSame(['FAST TRACK EMS, LLC', 'CITY OF NORFOLK FIRE'], $providers[0]['agencies']);
+        $this->assertTrue(Affiliations::sameName($providers[0], 'JAMES', ['STAFFORD']));
+        $this->assertSame(['cert', 'first', 'last', null, 'expires', 'level', null, 'expires', 'expires', 'expires', 'agency'], $search->trace['columns']);
 
         // Nobody found: the region says so.
         $this->assertSame([], app(ProviderSearch::class)->search('Nobody', 'Here'));
+    }
+
+    public function test_the_report_region_is_found_however_the_page_writes_it(): void
+    {
+        $id = 'UkVHSU9OIFRZUEV-fjUwOTU4NTIxNTc1MjcwODM4';
+        $sum = 'rvF3QuCVtN1eqipoHXVYcwg9d7n8kp1ooIb_H24nxaVjB5RuBZwkSd8l3oZ0';
+        $item = rtrim(strtr(base64_encode('ITEM TYPE~~123'), '+/', '-_'), '=');
+        foreach ([
+            '"ajaxIdentifier":"'.$id.'\/'.$sum.'"',
+            '"ajaxIdentifier":"'.$id.'/'.$sum.'"',
+            'data-options="{&quot;ajaxIdentifier&quot;:&quot;'.$id.'/'.$sum.'&quot;}"',
+            "ajaxIdentifier: '{$id}/{$sum}'",
+        ] as $written) {
+            $html = '<script>x("'.$item.'\/abc");</script><div id="R50958521575270838_ir" '.$written.'></div>';
+            $this->assertSame(['ajax' => "{$id}/{$sum}", 'id' => '50958521575270838'], ProviderSearch::reportRegion($html), $written);
+        }
+        $this->assertNull(ProviderSearch::reportRegion('<p>No data found.</p>'));
+    }
+
+    public function test_what_the_site_sent_can_be_downloaded(): void
+    {
+        Storage::fake('local');
+        $this->app->forgetInstance(ProviderSearch::class);
+        $admin = User::factory()->role('admin')->create();
+        $this->actingAs($admin)->get('/admin/ems-affiliations/last/page')->assertNotFound();
+        Http::fake(['vdhems.vdh.virginia.gov/*' => Http::response('<html><body><p>Down for maintenance</p></body></html>')]);
+        $this->actingAs($admin)->post('/admin/ems-affiliations/test', ['cert' => 'e1'])->assertSessionHas('error');
+        $this->actingAs($admin)->get('/admin/ems-affiliations/last/page')->assertOk()->assertSee('Down for maintenance');
+        $this->assertTrue(AuditLog::where('action', 'admin.ems.last')->exists());
+        $this->actingAs($admin)->get('/admin/ems-affiliations/last/other')->assertNotFound();
     }
 
     public function test_agency_names_compare_without_punctuation_or_company_endings(): void

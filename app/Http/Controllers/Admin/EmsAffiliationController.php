@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\EmsAffiliation;
 use App\Models\EmsCheck;
 use App\Models\EmsCheckResult;
@@ -14,6 +15,7 @@ use App\Services\Ems\Agency;
 use App\Services\Ems\ProviderSearch;
 use App\Services\Ems\SearchFailed;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Admin > EMS Affiliations: every active Team Member searched on the Virginia
@@ -68,13 +70,35 @@ class EmsAffiliationController extends Controller
         try {
             $providers = $search->search($data['first'] ?? null, $data['last'] ?? null, $data['cert'] ?? null);
         } catch (SearchFailed $e) {
+            $this->keepLast($search);
             audit_note("Tried the provider search for {$what}: {$e->getMessage()}");
 
             return back()->withInput()->with('error', $e->getMessage())->with('ems_test', ['what' => $what, 'providers' => null, 'trace' => $search->trace]);
         }
+        $this->keepLast($search);
         audit_note("Tried the provider search for {$what}: ".count($providers).' found.');
 
         return back()->withInput()->with('ems_test', ['what' => $what, 'providers' => $providers, 'trace' => $search->trace]);
+    }
+
+    /** Download what the site sent on the last Try the search (public pages), to see what changed. */
+    public function last(Request $request, string $which)
+    {
+        $path = "ems/last-{$which}.html";
+        abort_unless(in_array($which, ['page', 'result'], true) && Storage::disk('local')->exists($path), 404);
+        AuditLog::record('admin.ems.last', 'Downloaded the provider search '.($which === 'page' ? 'page' : 'results').' from the last Try the search.', $request->user());
+
+        return response(Storage::disk('local')->get($path), 200, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"provider-search-{$which}.html.txt\"",
+            'Cache-Control' => 'no-store, private',
+        ]);
+    }
+
+    private function keepLast(ProviderSearch $search): void
+    {
+        Storage::disk('local')->put('ems/last-page.html', $search->lastPage);
+        Storage::disk('local')->put('ems/last-result.html', $search->lastResult);
     }
 
     public function agency(Request $request)
