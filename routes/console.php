@@ -60,6 +60,38 @@ Artisan::command('oig:check', function (\App\Services\OigExclusions $oig) {
     return 0;
 })->purpose('Check every active Team Member against the OIG exclusion list');
 
+Artisan::command('ems:check', function (\App\Services\Ems\Affiliations $affiliations) {
+    // The monthly check: start one and run it now.
+    if (\App\Models\EmsCheck::whereIn('status', ['queued', 'running'])->exists()) {
+        $this->info('A check is already waiting or running.');
+
+        return 0;
+    }
+    $check = $affiliations->run($affiliations->queue(null));
+    AuditLog::record('system.ems-check', $check->status === 'failed'
+        ? "Monthly EMS affiliation check stopped: {$check->error}"
+        : "Monthly EMS affiliation check of {$check->members_total} Team Members: {$check->found_count} found, {$check->attentionCount()} to look at.");
+    $this->info($check->status === 'failed' ? $check->error : "Checked {$check->members_total} Team Members.");
+
+    return $check->status === 'failed' ? 1 : 0;
+})->purpose('Search every active Team Member on the Virginia EMS provider search');
+
+Artisan::command('ems:run', function (\App\Services\Ems\Affiliations $affiliations) {
+    // Runs a check started with Check now (a web page can't wait for every search).
+    \App\Models\EmsCheck::where('status', 'running')->where('updated_at', '<', now()->subMinutes(30))
+        ->update(['status' => 'failed', 'error' => 'Stopped before it finished.', 'finished_at' => now()]);
+    $check = \App\Models\EmsCheck::where('status', 'queued')->oldest('id')->first();
+    if (! $check) {
+        return 0;
+    }
+    $check = $affiliations->run($check);
+    AuditLog::record('system.ems-check', $check->status === 'failed'
+        ? "EMS affiliation check stopped: {$check->error}"
+        : "EMS affiliation check of {$check->members_total} Team Members finished: {$check->found_count} found, {$check->attentionCount()} to look at.");
+
+    return 0;
+})->purpose('Run an EMS affiliation check started from Admin > EMS Affiliations');
+
 Artisan::command('drawbox:ssn-key', function () {
     // SSNs are encrypted with their own key. Making a new one when SSNs are
     // already saved would leave them unreadable, so an existing key is kept.
@@ -161,6 +193,8 @@ Schedule::command('training:generate')->everyMinute()->withoutOverlapping(30);
 Schedule::command('training:update-emails')->dailyAt('08:00');
 // The OIG posts its updated list early each month; check everyone on the 15th.
 Schedule::command('oig:check')->monthlyOn(15, '07:00')->withoutOverlapping(30);
+Schedule::command('ems:run')->everyMinute()->withoutOverlapping(120);
+Schedule::command('ems:check')->monthlyOn(16, '07:00')->withoutOverlapping(120);
 
 Artisan::command('training:update-emails', function (\App\Training\Versions $versions) {
     // Tells Team Members once a day about updates to courses they finished (when training emails are on in Settings).

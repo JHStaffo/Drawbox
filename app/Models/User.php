@@ -23,7 +23,7 @@ class User extends Authenticatable
 
     protected function casts(): array
     {
-        return ['active' => 'boolean', 'last_login_at' => 'datetime', 'remotelock_pending' => 'boolean', 'remotelock_synced_at' => 'datetime'];
+        return ['active' => 'boolean', 'last_login_at' => 'datetime', 'remotelock_pending' => 'boolean', 'remotelock_synced_at' => 'datetime', 'ems_exclusion_at' => 'datetime', 'ems_exclusion_found_at' => 'datetime'];
     }
 
     protected static function booted(): void
@@ -80,6 +80,12 @@ class User extends Authenticatable
     public function canManage(User $other): bool
     {
         return $this->canGrant($other->permissions());
+    }
+
+    /** Who marked them an accepted exclusion on the Virginia EMS provider search. */
+    public function emsExclusionBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'ems_exclusion_by');
     }
 
     public function profile(): BelongsTo

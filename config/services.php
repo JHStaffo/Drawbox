@@ -41,6 +41,12 @@ return [
         'url' => env('OIG_LEIE_URL', 'https://oig.hhs.gov/exclusions/downloadables/UPDATED.csv'),
     ],
 
+    // The Virginia Office of EMS provider search (Admin > EMS Affiliations).
+    'va_ems' => [
+        'url' => env('VA_EMS_SEARCH_URL', 'https://vdhems.vdh.virginia.gov/emsapps/ProviderSearch.html'),
+        'pause_ms' => (int) env('VA_EMS_PAUSE_MS', 1000), // between Team Members, to go easy on the state's site
+    ],
+
     'anthropic' => [
         'key' => env('ANTHROPIC_API_KEY'),
         'model' => env('ANTHROPIC_MODEL', 'claude-opus-5-5'),
