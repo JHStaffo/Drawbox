@@ -168,9 +168,9 @@
                 <details class="hint"><summary>What the site sent</summary>
                     Boxes found: {{ implode(', ', $test['trace']['boxes'] ?? []) ?: 'none' }} ·
                     button: {{ $test['trace']['request'] ?? '?' }} ·
-                    columns: {{ collect($test['trace']['columns'] ?? [])->map(fn ($c) => $c ?? '-')->implode(', ') ?: 'none' }} ·
+                    columns: {{ implode(', ', $test['trace']['headings'] ?? []) ?: 'none' }} ·
                     rows: {{ $test['trace']['rows'] ?? 0 }} ·
-                    responses: {{ implode(', ', $test['trace']['steps'] ?? []) }}
+                    responses: {{ implode(', ', $test['trace']['steps'] ?? []) }} ({{ number_format($test['trace']['bytes'] ?? 0) }} bytes)
                 </details>
             </div>
         @endif

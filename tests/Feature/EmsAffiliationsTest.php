@@ -280,6 +280,58 @@ class EmsAffiliationsTest extends TestCase
         $this->assertSame(0, EmsCheck::count());
     }
 
+    public function test_the_results_region_is_refreshed_like_the_live_site(): void
+    {
+        // As the live page works (Nov 2026): Search refreshes an interactive
+        // report through wwv_flow.ajax instead of submitting the page.
+        $this->app->forgetInstance(ProviderSearch::class);
+        $ajax = 'UkVHSU9OIFRZUEV-fjUwOTU4NTIxNTc1MjcwODM4/rvF3QuCVtN1eqipoHXVYcwg9d7n8kp1ooIb_H24nxaVjB5RuBZwkSd8l3oZ0-vEBuJEjrze7guV_1u1Ycx5N_Q';
+        $page = '<html><body><form action="wwv_flow.accept?p_context=200:3:33415634033990" method="post" id="wwvFlowForm">'
+            .'<input type="hidden" name="p_flow_id" value="200"><input type="hidden" name="p_flow_step_id" value="3">'
+            .'<input type="hidden" name="p_instance" value="33415634033990"><input type="hidden" name="p_page_submission_id" value="S1">'
+            .'<input type="hidden" name="pSalt" id="pSalt" value="31671285852698723669491300224693512352">'
+            .'<input type="hidden" name="pPageItemsProtected" id="pPageItemsProtected" value="PROT">'
+            .'<label for="P3_CERT_NO">Certification#</label><input type="text" id="P3_CERT_NO" name="P3_CERT_NO">'
+            .'<label for="P3_LAST_NAME">Last Name</label><input type="text" id="P3_LAST_NAME" name="P3_LAST_NAME">'
+            .'<label for="P3_FIRST_NAME">First Name</label><input type="text" id="P3_FIRST_NAME" name="P3_FIRST_NAME">'
+            .'<label for="P3_AGENCY_LIST">Agency</label><select id="P3_AGENCY_LIST" name="P3_AGENCY_LIST"><option value="ALL" selected>- All -</option><option value="1">X</option></select>'
+            .'<button type="button" id="search">Search</button>'
+            .'<table><tr><td>No data found.</td></tr></table>'
+            .'</form><script>apex.widget.interactiveReport("R50958521575270838_ir",{"regionId":"R50958521575270838","ajaxIdentifier":"'.str_replace('/', '\/', $ajax).'"});</script></body></html>';
+        $region = '<div class="a-IRR"><table class="a-IRR-table"><tr><th class="a-IRR-header" id="C1">Name</th><th class="a-IRR-header" id="C2">Cert#</th><th id="C3">Level</th><th id="C4">Expiration Date</th><th id="C5">Affiliated Agency</th></tr>'
+            .'<tr><td headers="C1">SMITH, JOHN</td><td headers="C2">E022081013</td><td>EMT</td><td>06/30/2028</td><td>FAST TRACK EMS, LLC</td></tr></table></div>';
+        Http::fake([
+            'vdhems.vdh.virginia.gov/emsapps/ProviderSearch.html' => Http::response($page),
+            'vdhems.vdh.virginia.gov/emsapps/wwv_flow.ajax*' => Http::sequence()
+                ->push($region)
+                ->push('<div class="a-IRR"><span class="nodatafound">No data found.</span></div>'),
+        ]);
+
+        $search = app(ProviderSearch::class);
+        $providers = $search->search(null, null, 'E022081013');
+
+        Http::assertSent(function (Request $request) use ($ajax) {
+            if (! str_contains($request->url(), 'wwv_flow.ajax?p_context=200:3:33415634033990')) {
+                return false;
+            }
+            $json = json_decode($request['p_json'], true);
+
+            return $request['p_request'] === 'PLUGIN='.$ajax && $request['x01'] === '50958521575270838' && $request['p_widget_action'] === 'reset'
+                && $request->hasHeader('X-Requested-With', 'XMLHttpRequest')
+                && $json['pageItems']['itemsToSubmit'] === [
+                    ['n' => 'P3_CERT_NO', 'v' => 'E022081013'], ['n' => 'P3_LAST_NAME', 'v' => ''],
+                    ['n' => 'P3_FIRST_NAME', 'v' => ''], ['n' => 'P3_AGENCY_LIST', 'v' => 'ALL'],
+                ]
+                && $json['pageItems']['protected'] === 'PROT' && $json['salt'] === '31671285852698723669491300224693512352';
+        });
+        $this->assertCount(1, $providers);
+        $this->assertSame('E022081013', $providers[0]['cert']);
+        $this->assertSame(['FAST TRACK EMS, LLC'], $providers[0]['agencies']);
+
+        // Nobody found: the region says so.
+        $this->assertSame([], app(ProviderSearch::class)->search('Nobody', 'Here'));
+    }
+
     public function test_agency_names_compare_without_punctuation_or_company_endings(): void
     {
         $this->assertSame('FASTTRACKEMS', Agency::key('FAST TRACK EMS, LLC'));
