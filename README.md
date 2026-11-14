@@ -31,6 +31,12 @@ Team Members can have an SSN and date of birth on file, for checks such as the O
 - **Never sent anywhere:** the SSN columns are hidden from every JSON and array (so never in `/api/v1`), are in no CSV export, and a failed save never puts the number back in the form.
 - **The key:** make it once with `php artisan drawbox:ssn-key` (it won't replace an existing key), then `php artisan config:cache`. Keep a copy of `SSN_KEY` somewhere safe and separate from the database backups: without it the saved SSNs can't be read. Until the key is set, the SSN boxes don't show.
 
+## OIG Exclusions
+
+Admin > OIG Exclusions (permission OIG Exclusions, Admin only to start) checks every active Team Member against the OIG's List of Excluded Individuals/Entities. **Check now** downloads the OIG's current `UPDATED.csv` (`services.oig.url`; the server needs outbound HTTPS to oig.hhs.gov), and `php artisan oig:check` runs on its own on the 15th of each month from the cron. Every check is kept: the list shows each date with "0 exclusions found" or the count in red, and a date opens every Team Member checked with their date of birth as MM/DD/XX and Not excluded, Excluded or Needs manual check.
+
+Matching (`app/Services/OigExclusions.php`): first and last name (compound last names and Jr/Sr/II/III are handled), then date of birth. Same name and date of birth is **Excluded**; same name with a different date of birth is Not excluded; same name with no date of birth on either side is **Needs manual check**. The OIG file has no SSNs, so a match is confirmed on exclusions.oig.hhs.gov (search the name, Verify with the SSN). The result is recorded on the check: outcome, how it was checked (an SSN in the note is refused), and optionally the OIG result page as a PDF or picture, stored encrypted. Recording it updates the counts, and every check, manual check and file opened is in the audit log.
+
 ## Forms and Slack
 
 Dispatch forms replace Google Forms, the Google Sheet and Zapier. An admin builds each form under Admin > Forms (questions, choices, required or not) and picks the Slack channel it posts to. A form can also have its own Slack message, typed freely with `$answer1`, `$answer2` ... (and `$sender`, `$form`, `$date`, `$time`) filled in from the answers. When someone sends a form, Pulse saves it, then posts it to that channel right away. If Slack doesn't take it, the submission stays saved and `pulse:slack-retry` (every five minutes, from `schedule:run`) tries again up to five times; an admin can also press Post now under Admin > Forms > All submissions.

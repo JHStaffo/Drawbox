@@ -161,6 +161,13 @@ Route::middleware('auth')->group(function () {
             Route::put('/users/{user}/ssn', [UserController::class, 'updateSsn'])->middleware('permission:ssn_edit')->name('users.ssn.update');
             Route::put('/users/{user}/dob', [UserController::class, 'updateDob'])->middleware('permission:ssn_edit')->name('users.dob.update');
         });
+        Route::middleware('permission:oig_exclusions')->group(function () {
+            Route::get('/oig', [\App\Http\Controllers\Admin\OigController::class, 'index'])->name('oig');
+            Route::post('/oig', [\App\Http\Controllers\Admin\OigController::class, 'store'])->middleware('throttle:6,1')->name('oig.store');
+            Route::get('/oig/{check}', [\App\Http\Controllers\Admin\OigController::class, 'show'])->name('oig.show');
+            Route::post('/oig/results/{result}/review', [\App\Http\Controllers\Admin\OigController::class, 'review'])->name('oig.review');
+            Route::get('/oig/results/{result}/file', [\App\Http\Controllers\Admin\OigController::class, 'file'])->name('oig.file');
+        });
         Route::get('/lockers', [LockerController::class, 'index'])->middleware('permission:lockers')->name('lockers');
         Route::get('/audit', [AuditLogController::class, 'index'])->middleware('permission:audit_log')->name('audit');
         Route::middleware('permission:settings')->group(function () {

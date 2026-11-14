@@ -46,6 +46,20 @@ Artisan::command('drawbox:make-admin {email} {name}', function (string $email, s
     $this->info("{$user->name} <{$user->email}> is an admin.");
 })->purpose('Create or promote an admin account');
 
+Artisan::command('oig:check', function (\App\Services\OigExclusions $oig) {
+    $check = $oig->run();
+    if ($check->status === 'failed') {
+        AuditLog::record('system.oig-check', "Monthly OIG exclusion check failed: {$check->error}");
+        $this->error($check->error);
+
+        return 1;
+    }
+    AuditLog::record('system.oig-check', "Checked {$check->members_checked} Team Members against the OIG exclusion list: {$check->excluded_count} excluded, {$check->review_count} to check by hand.");
+    $this->info("Checked {$check->members_checked}: {$check->excluded_count} excluded, {$check->review_count} to check by hand.");
+
+    return 0;
+})->purpose('Check every active Team Member against the OIG exclusion list');
+
 Artisan::command('drawbox:ssn-key', function () {
     // SSNs are encrypted with their own key. Making a new one when SSNs are
     // already saved would leave them unreadable, so an existing key is kept.
@@ -135,6 +149,8 @@ Schedule::command('pulse:slack-retry')->everyFiveMinutes();
 Schedule::command('protocols:import')->everyMinute()->withoutOverlapping(30);
 Schedule::command('training:generate')->everyMinute()->withoutOverlapping(30);
 Schedule::command('training:update-emails')->dailyAt('08:00');
+// The OIG posts its updated list early each month; check everyone on the 15th.
+Schedule::command('oig:check')->monthlyOn(15, '07:00')->withoutOverlapping(30);
 
 Artisan::command('training:update-emails', function (\App\Training\Versions $versions) {
     // Tells Team Members once a day about updates to courses they finished (when training emails are on in Settings).
