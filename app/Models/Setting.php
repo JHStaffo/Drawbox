@@ -30,6 +30,10 @@ class Setting extends Model
         'slack_bot_token' => '',
         // Encrypted Anthropic API key for reading uploaded protocols (see App\Services\ProtocolImport\AnthropicKey).
         'anthropic_api_key' => '',
+        // Encrypted RemoteLock client ID and secret (see App\Services\RemoteLock). Empty means not connected.
+        'remotelock_credentials' => '',
+        // Add Team Members to RemoteLock as they're added to Pulse.
+        'remotelock_auto_add' => '1',
         // Wellness module (App\Wellness). Turning it off hides the menu, pages and API.
         'wellness_enabled' => '1',
         'wellness_daily_max' => '8',

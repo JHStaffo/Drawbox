@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\FormAdminController;
 use App\Http\Controllers\Admin\LockerController;
 use App\Http\Controllers\Admin\OptionListController;
 use App\Http\Controllers\Admin\ProfileController;
+use App\Http\Controllers\Admin\RemoteLockController;
 use App\Http\Controllers\Admin\ScopeRuleController;
 use App\Http\Controllers\Admin\SlackController;
 use App\Http\Controllers\Admin\UserController;
@@ -202,6 +203,20 @@ Route::middleware('auth')->group(function () {
             Route::put('/slack', [SlackController::class, 'update'])->name('slack.update');
             Route::delete('/slack', [SlackController::class, 'destroy'])->name('slack.destroy');
             Route::post('/slack/test', [SlackController::class, 'test'])->name('slack.test');
+        });
+        Route::middleware('permission:remotelock')->prefix('remotelock')->name('remotelock')->group(function () {
+            Route::get('/', [RemoteLockController::class, 'index']);
+            Route::put('/', [RemoteLockController::class, 'connect'])->middleware('throttle:10,1')->name('.connect');
+            Route::delete('/', [RemoteLockController::class, 'disconnect'])->name('.disconnect');
+            Route::put('/options', [RemoteLockController::class, 'options'])->name('.options');
+            Route::post('/link', [RemoteLockController::class, 'link'])->name('.link');
+            Route::delete('/link/{user}', [RemoteLockController::class, 'unlink'])->name('.unlink');
+            Route::post('/create', [RemoteLockController::class, 'create'])->name('.create');
+            Route::post('/grant/{user}', [RemoteLockController::class, 'grant'])->name('.grant');
+            Route::put('/pin/{user}', [RemoteLockController::class, 'pin'])->middleware('throttle:20,1')->name('.pin');
+            Route::post('/deactivate', [RemoteLockController::class, 'deactivate'])->name('.deactivate');
+            Route::put('/doors', [RemoteLockController::class, 'doors'])->name('.doors');
+            Route::post('/sync', [RemoteLockController::class, 'sync'])->name('.sync');
         });
         Route::middleware('permission:profiles')->group(function () {
             Route::get('/profiles', [ProfileController::class, 'index'])->name('profiles');
