@@ -59,9 +59,17 @@ class ProviderSearch
             }
         }
 
-        [$resultUrl, $resultHtml] = $this->submit($form, $fields, $values, $html);
+        // The results region refreshes in the background (an APEX report
+        // plugin call to wwv_flow.ajax) rather than by submitting the page.
+        $region = self::reportRegion($html);
+        $this->trace['request'] = $region ? 'region '.$region['id'] : $this->searchRequest($html);
+        [$resultUrl, $resultHtml] = $region
+            ? $this->refreshRegion($form, $fields, $values, $region)
+            : $this->submit($form, $fields, $values, $html);
         $parsed = ResultParser::parse($resultHtml);
         $this->trace['columns'] = $parsed['columns'];
+        $this->trace['headings'] = $parsed['headings'];
+        $this->trace['bytes'] = strlen($resultHtml);
         $this->trace['rows'] = count($parsed['rows']);
         if (! $parsed['table'] && ! ResultParser::saysNoData($resultHtml)) {
             throw new SearchFailed("Couldn't find the results on the provider search.");
@@ -240,6 +248,83 @@ class ProviderSearch
             }
             $message = collect($json['errors'] ?? [])->pluck('message')->filter()->first();
             throw new SearchFailed($message ? 'The provider search said: '.strip_tags($message) : "The provider search didn't take the search.");
+        }
+
+        return [$url, $body];
+    }
+
+    /**
+     * The report region the page refreshes: its ajax identifier and region id,
+     * from the page's init script (`"ajaxIdentifier":"UkVHSU9OIFRZUEV-fjUw..."`,
+     * which is base64 of "REGION TYPE~~<region id>" before the checksum).
+     *
+     * @return array{ajax: string, id: string}|null
+     */
+    public static function reportRegion(string $html): ?array
+    {
+        preg_match_all('/"ajaxIdentifier"\s*:\s*"([^"]+)"/', $html, $m);
+        foreach ($m[1] as $ajax) {
+            $ajax = str_replace('\\/', '/', $ajax);
+            $prefix = explode('/', $ajax)[0];
+            $decoded = base64_decode(strtr($prefix, '-_', '+/'), false) ?: '';
+            if (preg_match('/^REGION TYPE~~(\d+)/', $decoded, $id)) {
+                return ['ajax' => $ajax, 'id' => $id[1]];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Refresh the results region the way the page's Search button does: post
+     * the search boxes as page items to wwv_flow.ajax with the region's plugin
+     * identifier. Answers with the region's HTML.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function refreshRegion(array $form, array $fields, array $values, array $region): array
+    {
+        $post = $form['fields'];
+        $items = [];
+        foreach (['cert', 'last', 'first', 'agency'] as $what) {
+            if (isset($fields[$what])) {
+                $field = $fields[$what];
+                $items[] = ['n' => $field['id'], 'v' => $values[$what] ?? ($what === 'agency' ? ($post[$field['name']] ?? '') : '')];
+            }
+        }
+        $data = [
+            'p_flow_id' => $post['p_flow_id'] ?? '',
+            'p_flow_step_id' => $post['p_flow_step_id'] ?? '',
+            'p_instance' => $post['p_instance'] ?? '',
+            'p_debug' => '',
+            'p_request' => 'PLUGIN='.$region['ajax'],
+            'p_widget_action' => 'reset',
+            'x01' => $region['id'],
+            'p_json' => json_encode([
+                'pageItems' => [
+                    'itemsToSubmit' => $items,
+                    'protected' => $post['pPageItemsProtected'] ?? '',
+                    'rowVersion' => $post['pPageItemsRowVersion'] ?? '',
+                    'formRegionChecksums' => [],
+                ],
+                'salt' => $post['pSalt'] ?? '',
+            ]),
+        ];
+        $url = preg_replace('/wwv_flow\.accept.*$/', '', $form['action']).'wwv_flow.ajax?p_context='.$data['p_flow_id'].':'.$data['p_flow_step_id'].':'.$data['p_instance'];
+
+        try {
+            $response = $this->http()->asForm()
+                ->withHeaders(['X-Requested-With' => 'XMLHttpRequest', 'Accept' => 'text/html, */*; q=0.01', 'Referer' => $form['action']])
+                ->post($url, $data);
+        } catch (\Throwable $e) {
+            report($e);
+            throw new SearchFailed("Couldn't reach the provider search.");
+        }
+        $body = $this->body($response);
+        $json = json_decode($body, true);
+        if (is_array($json)) {
+            $message = collect($json['errors'] ?? [])->pluck('message')->filter()->first() ?? ($json['error'] ?? null);
+            throw new SearchFailed($message ? 'The provider search said: '.strip_tags((string) $message) : "The provider search didn't take the search.");
         }
 
         return [$url, $body];
